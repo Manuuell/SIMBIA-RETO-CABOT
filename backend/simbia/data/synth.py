@@ -118,9 +118,11 @@ def generar(
     # El operador controla la purga por consigna de conductividad, con
     # histeresis y deriva: los ciclos reales oscilan alrededor del objetivo.
     ciclos_obj = esc.torre.ciclos_base
-    ciclos = ciclos_obj + _ar1(n, sigma=0.40, phi=0.92, rng=rng)
-    # Deriva lenta de la consigna: cambios de temporada y de operador.
-    ciclos += 0.35 * np.sin(2 * np.pi * np.arange(n) / (24 * 90))
+    # La variabilidad la aporta sobre todo la operacion (AR), no el calendario:
+    # una deriva estacional dominante haria que cualquier modelo de riesgo
+    # aprendiese solo "en que mes estamos" y no las condiciones de operacion.
+    ciclos = ciclos_obj + _ar1(n, sigma=0.35, phi=0.95, rng=rng)
+    ciclos += 0.10 * np.sin(2 * np.pi * np.arange(n) / (24 * 90))
     ciclos = np.clip(ciclos, 1.8, 7.5)
 
     purga = np.maximum(evap / (ciclos - 1.0) - drift, 0.0)
@@ -163,18 +165,55 @@ def generar(
     ])
     conductividad = tds_circ / 0.65 * (1.0 + rng.normal(0, 0.02, n))
 
-    # --- Etiqueta de riesgo de ensuciamiento a 7 dias ---------------------
-    # Riesgo alto = combinacion sostenida de LSI alto, agua caliente y
-    # tiempo de retencion largo (purga baja). Se etiqueta mirando 168 h
-    # hacia adelante, que es como se usara el modelo.
-    presion = (
-        np.clip(lsi_circ - 1.8, 0, None) * 1.4
-        + np.clip(t_circ - 38.0, 0, None) * 0.10
-        + np.clip(ciclos - 4.5, 0, None) * 0.25
+    # --- Ensuciamiento: un INTEGRADOR, no un ruido ------------------------
+    # La incrustacion no aparece de golpe: se acumula. La tasa instantanea de
+    # deposicion depende del LSI, de la temperatura de piel y del tiempo de
+    # retencion (ciclos altos = poca purga); el deposito es la integral de esa
+    # tasa con una constante de tiempo larga, y se resetea con cada limpieza
+    # quimica. Por eso el estado a 7 dias SI es predecible desde el presente:
+    # lo que se predice es la inercia de un acumulador, no un evento aleatorio.
+    tasa = (
+        np.clip(lsi_circ - 1.6, 0, None) * 1.0
+        + np.clip(t_circ - 37.0, 0, None) * 0.08
+        + np.clip(ciclos - 3.6, 0, None) * 0.20
+    ) * (1.0 + rng.normal(0, 0.10, n))
+
+    TAU = 0.9985            # ~28 dias de memoria
+    UMBRAL_LIMPIEZA = 260.0
+    deposito = np.zeros(n)
+    limpiando = 0
+    for i in range(1, n):
+        if limpiando > 0:
+            deposito[i] = deposito[i - 1] * 0.72   # limpieza quimica en curso
+            limpiando -= 1
+        else:
+            deposito[i] = TAU * deposito[i - 1] + max(tasa[i], 0.0)
+            if deposito[i] > UMBRAL_LIMPIEZA:
+                limpiando = int(rng.integers(36, 96))
+
+    # Senal OBSERVABLE del ensuciamiento: el acercamiento de la torre al bulbo
+    # humedo se degrada al ensuciarse el relleno. Es lo que ve el operador; el
+    # deposito en si nunca se mide y no se entrega a los modelos.
+    # No es una lectura limpia del deposito: el acercamiento depende tambien
+    # de la carga termica, del bulbo humedo y del caudal de aire, y arrastra
+    # ruido de instrumentacion. El modelo tiene que separar la senal del
+    # ensuciamiento de esos factores, que es el problema real.
+    aproximacion_c = (
+        3.6
+        + 0.010 * deposito
+        + 1.10 * (carga - 0.92)
+        + 0.05 * (t_amb - 28.0)
+        - 1.30 * (hr - 0.74)
+        + _ar1(n, sigma=0.35, phi=0.60, rng=rng)
     )
-    acum = pd.Series(presion).rolling(168, min_periods=24).mean().to_numpy()
-    futuro = pd.Series(acum).shift(-168).to_numpy()
-    riesgo = (futuro > np.nanquantile(futuro, 0.80)).astype(int)
+
+    futuro = pd.Series(deposito).shift(-168).to_numpy()
+    # El umbral que define "riesgo alto" se calibra con el primer 70 % de la
+    # serie -- el mismo tramo con el que se entrenan los modelos. Calibrarlo
+    # sobre la serie completa filtraria el futuro dentro de las etiquetas.
+    corte = int(len(futuro) * 0.70)
+    umbral = np.nanquantile(futuro[:corte], 0.80)
+    riesgo = (futuro > umbral).astype(int)
 
     idx = pd.date_range("2025-01-01", periods=n, freq="h")
     df = pd.DataFrame({
@@ -189,11 +228,13 @@ def generar(
         "ph_circulante": ph_circ,
         "lsi_circulante": lsi_circ,
         "t_circulante_c": t_circ,
+        "aproximacion_c": aproximacion_c,
         "reposicion_m3_h": reposicion_medida,
         # --- Variables no observables: solo para validar los modelos -----
         "_evaporacion_real_m3_h": evap,
         "_reposicion_sin_fuga_m3_h": reposicion_real,
         "_fuga_fraccion": fuga,
+        "_deposito": deposito,
         "fuga_activa": (fuga > 0.02).astype(int),
         "riesgo_fouling_7d": riesgo,
     }, index=idx)

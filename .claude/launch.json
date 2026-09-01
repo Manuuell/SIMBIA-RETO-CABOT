@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "simbia",
+      "runtimeExecutable": "/Users/manuelesteban/Library/Mobile Documents/com~apple~CloudDocs/proyectos/RETO-CABOT/.venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "simbia.main:app", "--app-dir", "/Users/manuelesteban/Library/Mobile Documents/com~apple~CloudDocs/proyectos/RETO-CABOT/backend", "--port", "8123"],
+      "port": 8123
+    }
+  ]
+}

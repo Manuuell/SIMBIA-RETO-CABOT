@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIMBIA · Simbiosis hidrica industrial · Reto Cabot</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="principal">
+    <div class="marca">
+      <div class="chevron"></div>
+      <div>
+        <h1>SIMBIA</h1>
+        <p class="sub">Simbiosis hidrica industrial asistida por IA</p>
+      </div>
+    </div>
+    <p class="reto">
+      <b>Reto Cabot.</b> Reducir al menos un 10 % el consumo de agua en la planta
+      reutilizando las aguas de rechazo de empresas vecinas para los sistemas
+      de enfriamiento.
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Resultado <span class="nota" id="estado-meta"></span></h2>
+      <div class="rejilla kpis" id="kpis">
+        <p class="cargando">Optimizando…</p>
+      </div>
+      <div class="supuesto">
+        <b>Datos supuestos.</b> Todavia no hay caracterizacion real de la planta ni de las
+        empresas vecinas. Todas las cifras parten de rangos tipicos de industria
+        (consumo de planta: <span id="consumo-planta">—</span> m³/d) y son editables
+        desde los controles y desde <code>backend/simbia/config.py</code>.
+        La <b>estructura</b> del analisis —quimica, balance, optimizacion y economia— no cambia
+        al sustituirlas por datos reales; solo cambian los numeros.
+      </div>
+    </section>
+
+    <section>
+      <h2>Balance hidrico del circuito de enfriamiento</h2>
+      <div class="rejilla dos">
+        <div class="tarjeta"><div id="flujo-base"></div></div>
+        <div class="tarjeta"><div id="flujo-optimo"></div></div>
+      </div>
+      <div class="tarjeta" style="margin-top:14px">
+        <h3>Por que subir los ciclos de concentracion es la mitad del ahorro</h3>
+        <p style="color:#8b97a8;font-size:12.5px;margin:0">
+          La evaporacion la fija la carga termica y <b>no se puede reducir</b>: es agua que
+          se pierde si o si. Lo unico que se puede recortar es la <b>purga</b>, y eso depende
+          de los ciclos de concentracion, que a su vez los limita la <b>calidad</b> del agua
+          de aporte. De ahi la trampa del reto: meter agua de rechazo mas salina sin
+          optimizar <b>baja</b> los ciclos alcanzables y puede terminar aumentando la
+          captacion total. SIMBIA resuelve mezcla, tratamiento, dosificacion de acido y
+          ciclos <b>a la vez</b>, que es la unica forma de que el ahorro sea real.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Mezcla optima de aportes</h2>
+      <div class="rejilla dos-tercios">
+        <div class="tarjeta">
+          <h3>Corrientes seleccionadas y su tren de tratamiento</h3>
+          <div id="tabla-mezcla"><p class="cargando">Calculando…</p></div>
+        </div>
+        <div class="tarjeta">
+          <h3>Agua circulante frente a limites</h3>
+          <div id="limites-calidad"></div>
+          <p class="pie" id="resumen-quimica"></p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cuanto cuesta cada punto de ahorro</h2>
+      <div class="tarjeta">
+        <div id="gr-frontera"><p class="cargando">Calculando…</p></div>
+        <div class="leyenda">
+          <span><i style="background:#f2762e"></i> Costo total anual</span>
+          <span><i style="background:#4a9de0"></i> Inversion (CAPEX)</span>
+        </div>
+        <div id="tabla-frontera" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Robustez del suministro</h2>
+      <div class="rejilla dos">
+        <div class="tarjeta">
+          <h3>Que pasa si cae cada vecino</h3>
+          <div id="tabla-contingencias"></div>
+        </div>
+        <div class="tarjeta">
+          <h3>Sensibilidad al precio del agua cruda</h3>
+          <div id="gr-sensibilidad"></div>
+          <p class="pie">Beneficio neto anual del proyecto. Cuanto mas escaso y caro sea el
+          agua, mas valor tiene la simbiosis: el proyecto se refuerza justo cuando mas se necesita.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Operacion e inteligencia predictiva <span class="nota" id="alertas"></span></h2>
+      <div class="tarjeta">
+        <div id="gr-operacion"><p class="cargando">Cargando telemetria…</p></div>
+        <div class="leyenda">
+          <span><i style="background:#4a9de0"></i> Reposicion medida (m³/h)</span>
+          <span><i style="background:#e5534b"></i> Probabilidad de fuga</span>
+          <span><i style="background:#d9a441"></i> Riesgo de ensuciamiento a 7 dias</span>
+        </div>
+      </div>
+      <div class="tarjeta" style="margin-top:14px">
+        <h3>Modelos y desempeño</h3>
+        <div id="metricas-ia"><p class="cargando">Entrenando / cargando modelos…</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Catalogo de oferentes del parque industrial</h2>
+      <div class="tarjeta"><div id="tabla-oferentes"></div></div>
+    </section>
+
+    <section>
+      <h2>Escenario</h2>
+      <div class="tarjeta">
+        <div class="controles" id="controles"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

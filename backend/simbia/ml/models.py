@@ -283,7 +283,9 @@ class RiesgoEnsuciamiento:
     RASGOS = [
         "lsi_circulante", "ph_circulante", "conductividad_us_cm",
         "t_circulante_c", "ciclos", "purga_m3_h", "carga_produccion",
-        "t_amb_c", "humedad_rel", "lsi_media_72h", "ciclos_media_72h",
+        "t_amb_c", "humedad_rel", "aproximacion_c",
+        "lsi_media_72h", "ciclos_media_72h", "aproximacion_media_72h",
+        "tendencia_aproximacion",
     ]
 
     def __init__(self) -> None:
@@ -297,10 +299,18 @@ class RiesgoEnsuciamiento:
         x = df[[
             "lsi_circulante", "ph_circulante", "conductividad_us_cm",
             "t_circulante_c", "ciclos", "purga_m3_h", "carga_produccion",
-            "t_amb_c", "humedad_rel",
+            "t_amb_c", "humedad_rel", "aproximacion_c",
         ]].copy()
         x["lsi_media_72h"] = df["lsi_circulante"].rolling(72, min_periods=1).mean()
         x["ciclos_media_72h"] = df["ciclos"].rolling(72, min_periods=1).mean()
+        x["aproximacion_media_72h"] = (
+            df["aproximacion_c"].rolling(72, min_periods=1).mean()
+        )
+        # La tendencia del acercamiento delata si el deposito esta creciendo.
+        x["tendencia_aproximacion"] = (
+            df["aproximacion_c"].rolling(24, min_periods=1).mean()
+            - df["aproximacion_c"].rolling(240, min_periods=1).mean()
+        )
         return x[self.RASGOS]
 
     def entrenar(self, df: pd.DataFrame) -> ResultadoRiesgo:
