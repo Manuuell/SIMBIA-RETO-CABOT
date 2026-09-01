@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+build/
+.DS_Store
+data/generado/
+backend/simbia/ml/artefactos/
