@@ -101,8 +101,18 @@ de 24 h): un MAE de 2,19 m³/h no significa nada hasta saber que la persistencia
 ## Por qué el dashboard no usa npm
 
 El proyecto vive en una carpeta de iCloud Drive. Un `node_modules` de ~300 MB y decenas
-de miles de ficheros sincronizándose continuamente es un problema real. El dashboard son
-tres ficheros —HTML, CSS y dos módulos ES— servidos directamente por FastAPI, con
-gráficos SVG escritos a medida. Sin paso de compilación, sin dependencias, arranque
-inmediato. Si el proyecto sale de iCloud y crece, migrar a React + Vite es directo:
-la API ya está separada y documentada.
+de miles de ficheros sincronizándose continuamente es un problema real. El dashboard es
+HTML, CSS y módulos ES servidos directamente por FastAPI, con gráficos SVG escritos a
+medida. Sin paso de compilación, sin dependencias, arranque inmediato. Si el proyecto sale
+de iCloud y crece, migrar a React + Vite es directo: la API ya está separada y documentada.
+
+## Por qué el dashboard se divide en módulos con una pantalla cada uno
+
+La primera versión eran dos páginas largas, cada una con ocho secciones y párrafos de
+explicación dentro de cada tarjeta. Quien la abría no sabía por dónde empezar ni qué estaba
+pasando cuando pulsaba algo. Ahora hay una barra lateral con un módulo por pregunta
+(datos externos, prospectos, embudo, optimizador, operación, modelo) y cada pantalla
+muestra datos y acciones; la explicación larga vive en desplegables «¿Cómo se lee?» y en
+el módulo de referencia. La extracción de datos externos es un flujo de tres pasos con una
+bitácora que registra, línea a línea, qué fuente se consultó, de cuándo es el dato y qué
+salió: es la forma de que el usuario sepa qué hizo el sistema sin leer el código.

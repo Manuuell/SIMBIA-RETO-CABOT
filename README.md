@@ -49,12 +49,45 @@ backend/simbia/
 │   └── analysis.py        Frontera coste-ahorro, contingencias, sensibilidad
 ├── data/synth.py          Generador de histórico sintético (gemelo digital)
 ├── ml/                    Demanda +24 h · detección de fugas · riesgo de ensuciamiento
+├── scout/                 PROSPECCIÓN: de dónde sale el catálogo de vecinos
+│   ├── fuentes/           Conectores (OpenStreetMap, datos.gov.co) + caché + robots.txt
+│   ├── ciiu.py            Actividad económica → corriente de rechazo estimada
+│   ├── geo.py             Distancia de conducción real, no línea recta
+│   ├── pipeline.py        Recolectar → fusionar → caracterizar → situar
+│   ├── scoring.py         Puntaje de simbiosis con la física del optimizador
+│   ├── promocion.py       Puerta de confianza hacia el optimizador
+│   ├── almacen.py         Embudo de contratación e instantáneas
+│   ├── vigilancia.py      Qué cambió desde la última revisión
+│   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
 ├── api/                   API REST (FastAPI)
 └── main.py                Aplicación
 
-frontend/                  Dashboard sin dependencias npm (ES modules + SVG)
-docs/                      Modelo técnico, supuestos y decisiones de diseño
+frontend/                  Dashboard por módulos, sin dependencias npm (ES modules + SVG)
+│   ├── index.html         Barra lateral y un contenedor por módulo
+│   ├── app.js             Enrutado por #hash; cada módulo se monta al visitarlo
+│   ├── comun.js           Peticiones, almacén compartido y bitácora
+│   └── modulos/           inicio · datos · prospectos · embudo · optimizador · operacion · modelo
+docs/                      Modelo técnico, supuestos, decisiones y prospección
 ```
+
+## El dashboard: un módulo por pregunta
+
+| # | Módulo | Pregunta que responde |
+|---|---|---|
+| 1 | **Datos externos** (`#datos`) | ¿De dónde sale el catálogo? Consultar fuentes, cruzar permisos de vertimiento y traer documentos del expediente, con una bitácora de lo que hizo el sistema. |
+| 2 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
+| 3 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
+| 4 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
+| 5 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
+| 6 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+
+La prospección alimenta al optimizador: las empresas que encuentra el barrido
+entran al mismo optimizador, con la misma química y las mismas restricciones. Lo
+único que cambia es de dónde salió el catálogo — y la confianza de cada dato
+viaja con él, traducida a factor de disponibilidad anual.
+
+Las pantallas de trabajo muestran datos y acciones; la explicación larga vive en
+desplegables «¿Cómo se lee?» y en el módulo de referencia.
 
 ## Puesta en marcha
 
@@ -75,6 +108,15 @@ Levantar la aplicación:
 ```
 
 Dashboard en `http://localhost:8123` · API documentada en `http://localhost:8123/docs`
+
+La prospección arranca **sin salir a la red** (caché local), para que nada
+dependa de que haya conexión o de que una API de terceros esté en pie. Desde el
+módulo *Datos externos* se puede lanzar un barrido en modo `cache` o `vivo` sin
+reiniciar nada; para cambiar el modo por defecto del servidor:
+
+```bash
+SIMBIA_SCOUT_MODO=vivo ./.venv/bin/python -m uvicorn simbia.main:app --app-dir backend --port 8123
+```
 
 Pruebas:
 
@@ -132,6 +174,70 @@ Tres decisiones de método que sostienen esas cifras:
 
 ---
 
+### 4. Prospección de socios (`scout/`)
+
+El optimizador necesita un catálogo de oferentes. Este módulo lo construye a
+partir del mundo real, en el corredor industrial de Mamonal (Cartagena):
+
+```
+fuentes externas → registros crudos → fusión → arquetipo sectorial
+      → prospecto con procedencia → puntaje → catálogo → optimizador
+```
+
+Cuatro decisiones que lo sostienen:
+
+- **Ningún dato viaja sin procedencia.** Cada cifra lleva sello de `medido`,
+  `declarado`, `inferido` o `supuesto`, y una confianza agregada que pondera la
+  calidad por encima del caudal. Un caudal equivocado se renegocia; una calidad
+  equivocada hunde los ciclos y se descubre con la tubería ya enterrada.
+- **La actividad económica determina el efluente.** 13 arquetipos sectoriales
+  traducen el código CIIU a una caracterización típica. Aciertan el orden de
+  magnitud y el parámetro limitante — que es lo que hace falta para decidir a
+  quién visitar primero. Priorizan el muestreo, no lo sustituyen.
+- **El puntaje usa la física del optimizador, no reglas de pulgar.** Para cada
+  prospecto se barre la fracción de mezcla con agua cruda y se calcula, con el
+  modelo químico completo, cuánta agua cruda desplaza sin bajar de los ciclos
+  base. La primera versión evaluaba cada corriente al 100 % de aporte y
+  declaraba no viables diez de dieciocho: el indicador estaba saturado y no
+  discriminaba nada.
+- **La confianza es una puerta, no un adorno.** Por debajo del umbral un
+  prospecto no entra al optimizador aunque químicamente sea magnífico, y el que
+  entra lo hace con su confianza traducida a factor de disponibilidad anual.
+
+Encima de eso: mapa del parque con distancia de conducción real (no geodésica),
+embudo de contratación medido en caudal y no en número de empresas, vigilancia
+de cambios entre barridos, y extracción de permisos de vertimiento en PDF con
+salida estructurada — que es lo que convierte un prospecto inferido en uno
+declarado.
+
+**Conectado a datos reales.** Consulta a OpenStreetMap sobre 8 km alrededor de
+Mamonal: 54 establecimientos con polígono y etiquetas, 27 prospectos
+caracterizados. Cuatro de ellos con expediente documental y fuentes citadas
+—Abocol/Yara, Mexichem, Seatech, Cotecmar—, que es lo que permite saber que
+Abocol produce amonio y no rechazo de desmineralizadora. Con ese catálogo real
+el optimizador alcanza **37,8 % de reducción** y cumple la meta.
+
+**Permisos de vertimiento reales.** Buscando la fuente aparecieron 132 registros
+de vertimiento de Cartagena en VITAL —119 de EPA Cartagena, 13 de CARDIQUE—, con
+API JSON abierta. No estaban en datos.gov.co, que es donde todo el mundo mira
+primero. Cinco de nuestras empresas tienen permiso confirmado con su número de
+expediente, que es justo lo que hace accionable un derecho de petición para pedir
+la caracterización.
+
+**Y una caracterización de laboratorio real.** Del expediente de Yara Colombia
+(Abocol) se recuperó el Informe 43028: tres muestras compuestas analizadas por
+un laboratorio acreditado por el IDEAM. Sirvió para auditar el modelo sectorial
+— acertó la forma de la corriente y el parámetro limitante (amonio, −30 %), y
+falló en alcalinidad (+420 %) y caudal (+137 %). Ese prospecto pasa a
+`medido`, con confianza 0,98.
+
+Los registros de demostración están **apagados** salvo que se pidan con
+`SIMBIA_SCOUT_EJEMPLOS=1`: mezclados con los reales dejan de distinguirse.
+
+Detalle completo en [`docs/05-prospeccion.md`](docs/05-prospeccion.md).
+
+---
+
 ## Honestidad sobre los datos
 
 **No hay datos reales de la planta ni de las empresas vecinas.** Todo parte de rangos
@@ -148,5 +254,15 @@ modelos se reentrenan sin tocar nada más.
 balance, las restricciones y la economía. Cambian los números, no las conclusiones
 metodológicas.
 
+**En la prospección, dos niveles de veracidad deliberadamente distintos.** La capa
+cartográfica usa nombres y ubicaciones aproximadas de establecimientos del corredor
+de Mamonal: son hechos públicos de mapa, verificables en OpenStreetMap. La capa de
+vertimientos son registros de **demostración** con identificadores `EJEMPLO-nn`: no
+se ha consultado ningún permiso real y ninguna cifra está atribuida a ninguna empresa
+concreta. La regla que no se rompe: **ninguna caracterización de agua de una empresa
+nombrada es una medida** — todo lo que el sistema sabe de su efluente sale del modelo
+sectorial y viaja marcado como inferido.
+
 Ver [`docs/03-supuestos.md`](docs/03-supuestos.md) para la lista completa de supuestos
-y qué dato real reemplaza a cada uno.
+y qué dato real reemplaza a cada uno, y
+[`docs/05-prospeccion.md`](docs/05-prospeccion.md) para el módulo de prospección.
