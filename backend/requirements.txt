@@ -9,3 +9,9 @@ pytest==9.1.1
 scikit-learn==1.9.0
 scipy==1.18.1
 uvicorn==0.52.4
+
+# Opcional: extraccion de permisos de vertimiento en PDF con Claude.
+# Sin este paquete el resto de la prospeccion funciona igual; la funcion se
+# declara no disponible en el dashboard y no rompe nada.
+# Descomentar y fijar la version publicada actual: pip install anthropic
+# anthropic
