@@ -125,6 +125,31 @@ Ecopetrol, Lamitech, Dexton‑Ajover, Argos y Aguas de Cartagena. Su confianza
 sube —pero bastante menos que con una analítica: saber que alguien vierte no es
 saber qué vierte, y hay una prueba que verifica esa jerarquía.
 
+### El buscador de VITAL, para lo que el barrido no encuentra
+
+El cruce automático lanza tres consultas fijas sobre vertimientos en Cartagena
+y casa por razón social. Se le escapa lo previsible: la empresa que tramita con
+otro nombre. Mexichem figura en OpenStreetMap como «Mexichem S.A.» y en VITAL
+como «MEXICHEM RESINAS COLOMBIA S.A.» ante CARDIQUE, con un permiso de
+vertimiento a cuerpo de agua (expediente COR-00091-26) que ninguna de las tres
+consultas devolvía.
+
+Para eso está el módulo **Buscador VITAL** (`scout/vital.py`): búsqueda libre
+sobre titular, proyecto, expediente y radicado, con las facetas que el propio
+API devuelve (autoridad, trámite, municipio) como filtros, paginada y con caché
+de dos semanas por consulta. Dos acciones por resultado cierran el círculo:
+**redactar la solicitud** del expediente y **vincularlo a un prospecto**. El
+vínculo se guarda en la ficha comercial y entra al prospecto como referencia
+`vital` *antes* de puntuar, de modo que la confianza sube exactamente igual que
+si lo hubiera encontrado el barrido. Es un vínculo declarado: prueba que la
+empresa tramita ante la autoridad, no dice qué vierte.
+
+Lo que costó descubrir del API, para no repetirlo: `type_search` tiene que ser
+`Todos`; `filters` tiene que llevar siempre `{"CAMPO": -6}` o el cuerpo vuelve
+vacío; las facetas se filtran con listas (`"aut_nombre": [...]`); los ausentes
+llegan como la cadena `"None"`; y `total_pages` asume páginas de 10 haga lo que
+haga `page_size`.
+
 ### Modos de operación
 
 ```bash

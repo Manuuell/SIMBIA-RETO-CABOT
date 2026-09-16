@@ -58,6 +58,7 @@ backend/simbia/
 │   ├── promocion.py       Puerta de confianza hacia el optimizador
 │   ├── almacen.py         Embudo de contratación e instantáneas
 │   ├── vigilancia.py      Qué cambió desde la última revisión
+│   ├── vital.py           Buscador libre de trámites en VITAL (facetas, páginas, caché)
 │   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
 ├── api/                   API REST (FastAPI)
 └── main.py                Aplicación
@@ -75,11 +76,12 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 | # | Módulo | Pregunta que responde |
 |---|---|---|
 | 1 | **Datos externos** (`#datos`) | ¿De dónde sale el catálogo? Consultar fuentes, cruzar permisos de vertimiento y traer documentos del expediente, con una bitácora de lo que hizo el sistema. |
-| 2 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
-| 3 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
-| 4 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
-| 5 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
-| 6 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+| 2 | **Buscador VITAL** (`#vital`) | ¿Qué trámites tiene una empresa concreta ante la autoridad ambiental? Búsqueda libre con filtros, solicitud del expediente lista para enviar y vínculo al prospecto. |
+| 3 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
+| 4 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
+| 5 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
+| 6 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
+| 7 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
 
 La prospección alimenta al optimizador: las empresas que encuentra el barrido
 entran al mismo optimizador, con la misma química y las mismas restricciones. Lo
