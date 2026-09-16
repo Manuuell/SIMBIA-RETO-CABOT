@@ -4,106 +4,430 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SIMBIA · Simbiosis hidrica industrial · Reto Cabot</title>
-  <link rel="stylesheet" href="estilos.css">
+  <link rel="stylesheet" href="estilos.css?v=3">
 </head>
 <body>
-  <header class="principal">
-    <div class="marca">
-      <div class="chevron"></div>
+
+<aside class="lateral">
+  <div class="marca">
+    <div class="chevron"></div>
+    <div>
+      <h1>SIMBIA</h1>
+      <p class="sub">Simbiosis hidrica · Reto Cabot</p>
+    </div>
+  </div>
+
+  <nav class="modulos" id="nav-modulos">
+    <a href="#inicio" data-modulo="inicio">
+      <span class="n">0</span>
+      <span><span class="t">Inicio</span><br><span class="d">Resultado y recorrido</span></span>
+    </a>
+    <div class="grupo">Prospeccion</div>
+    <a href="#datos" data-modulo="datos">
+      <span class="n">1</span>
+      <span><span class="t">Datos externos</span><br><span class="d">Fuentes, permisos y documentos</span></span>
+    </a>
+    <a href="#prospectos" data-modulo="prospectos">
+      <span class="n">2</span>
+      <span><span class="t">Prospectos</span><br><span class="d">Mapa, puntaje y detalle</span></span>
+    </a>
+    <a href="#embudo" data-modulo="embudo">
+      <span class="n">3</span>
+      <span><span class="t">Embudo comercial</span><br><span class="d">Etapas, fichas y vigilancia</span></span>
+    </a>
+    <div class="grupo">Decision</div>
+    <a href="#optimizador" data-modulo="optimizador">
+      <span class="n">4</span>
+      <span><span class="t">Optimizador</span><br><span class="d">Mezcla, tratamiento y ciclos</span></span>
+    </a>
+    <a href="#operacion" data-modulo="operacion">
+      <span class="n">5</span>
+      <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
+    </a>
+    <div class="grupo">Referencia</div>
+    <a href="#modelo" data-modulo="modelo">
+      <span class="n">6</span>
+      <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
+    </a>
+  </nav>
+
+  <div class="lateral-pie">
+    <span id="pie-modo"></span>
+    <span id="pie-version"></span>
+  </div>
+</aside>
+
+<main>
+
+  <!-- ================================================================ 0 -->
+  <section class="modulo" id="mod-inicio">
+    <div class="cabecera">
       <div>
-        <h1>SIMBIA</h1>
-        <p class="sub">Simbiosis hidrica industrial asistida por IA</p>
+        <h1>Reto Cabot: reducir al menos un 10 % el consumo de agua</h1>
+        <p class="intro">Reutilizando aguas de rechazo de empresas vecinas en los sistemas de
+          enfriamiento. SIMBIA encuentra a los vecinos, estima su agua y decide que mezclar,
+          con que tratamiento y a que ciclos operar la torre.</p>
       </div>
     </div>
-    <p class="reto">
-      <b>Reto Cabot.</b> Reducir al menos un 10 % el consumo de agua en la planta
-      reutilizando las aguas de rechazo de empresas vecinas para los sistemas
-      de enfriamiento.
-    </p>
-  </header>
-
-  <main>
-    <section>
-      <h2>Resultado <span class="nota" id="estado-meta"></span></h2>
-      <div class="rejilla kpis" id="kpis">
-        <p class="cargando">Optimizando…</p>
-      </div>
-      <div class="supuesto">
-        <b>Datos supuestos.</b> Todavia no hay caracterizacion real de la planta ni de las
-        empresas vecinas. Todas las cifras parten de rangos tipicos de industria
-        (consumo de planta: <span id="consumo-planta">—</span> m³/d) y son editables
-        desde los controles y desde <code>backend/simbia/config.py</code>.
-        La <b>estructura</b> del analisis —quimica, balance, optimizacion y economia— no cambia
-        al sustituirlas por datos reales; solo cambian los numeros.
-      </div>
-    </section>
-
-    <section>
-      <h2>Balance hidrico del circuito de enfriamiento</h2>
+    <div class="bloque">
+      <h2>Resultado del caso base <span class="nota" id="inicio-meta"></span></h2>
+      <div class="rejilla kpis" id="inicio-kpis"><p class="cargando">Optimizando…</p></div>
+    </div>
+    <div class="bloque">
+      <h2>El recorrido</h2>
+      <div class="recorrido" id="inicio-recorrido"></div>
+    </div>
+    <div class="bloque">
       <div class="rejilla dos">
-        <div class="tarjeta"><div id="flujo-base"></div></div>
-        <div class="tarjeta"><div id="flujo-optimo"></div></div>
+        <div class="tarjeta">
+          <h3>La idea que hace falta entender</h3>
+          <div class="prosa">
+            <p><span class="formula">M = E · N / (N − 1)</span></p>
+            <p>En una torre abierta, la <b>evaporacion (E)</b> la fija la carga termica y no se
+              puede reducir. Lo unico recortable es la <b>purga</b>, y eso depende de los
+              <b>ciclos de concentracion (N)</b>. Y los ciclos los limita la <b>calidad</b> del
+              agua de aporte.</p>
+            <p>Por eso meter agua de rechazo sin optimizar puede <b>aumentar</b> la captacion:
+              baja los ciclos alcanzables. Mezcla, tratamiento, acido y ciclos se resuelven a la vez.</p>
+          </div>
+        </div>
+        <div class="tarjeta">
+          <h3>Sobre los datos</h3>
+          <div class="prosa">
+            <p><b>No hay datos reales de la planta.</b> El caso base usa rangos tipicos de
+              industria, declarados uno a uno en <code>config.py</code>.</p>
+            <p><b>Los vecinos si son reales.</b> El modulo de prospeccion los toma de
+              OpenStreetMap y cruza permisos de vertimiento reales de VITAL. Cada dato lleva un
+              sello que dice de donde salio: <span class="sello medido">medido</span>
+              <span class="sello declarado">declarado</span>
+              <span class="sello inferido">inferido</span>
+              <span class="sello supuesto">supuesto</span>.</p>
+            <p>Detalle completo en <a href="#modelo">Modelo y supuestos</a>.</p>
+          </div>
+        </div>
       </div>
-      <div class="tarjeta" style="margin-top:14px">
-        <h3>Por que subir los ciclos de concentracion es la mitad del ahorro</h3>
-        <p style="color:#8b97a8;font-size:12.5px;margin:0">
-          La evaporacion la fija la carga termica y <b>no se puede reducir</b>: es agua que
-          se pierde si o si. Lo unico que se puede recortar es la <b>purga</b>, y eso depende
-          de los ciclos de concentracion, que a su vez los limita la <b>calidad</b> del agua
-          de aporte. De ahi la trampa del reto: meter agua de rechazo mas salina sin
-          optimizar <b>baja</b> los ciclos alcanzables y puede terminar aumentando la
-          captacion total. SIMBIA resuelve mezcla, tratamiento, dosificacion de acido y
-          ciclos <b>a la vez</b>, que es la unica forma de que el ahorro sea real.
-        </p>
-      </div>
-    </section>
+    </div>
+  </section>
 
-    <section>
-      <h2>Mezcla optima de aportes</h2>
+  <!-- ================================================================ 1 -->
+  <section class="modulo" id="mod-datos">
+    <div class="cabecera">
+      <div>
+        <h1>Datos externos</h1>
+        <p class="intro">De donde sale el catalogo de vecinos. Tres pasos: consultar las fuentes,
+          cruzar los permisos de vertimiento y traer los documentos del expediente. La bitacora de
+          la derecha cuenta que hizo el sistema en cada paso.</p>
+      </div>
+      <div class="acciones-cab"><span id="datos-chip-modo"></span></div>
+    </div>
+
+    <div class="rejilla dos-tercios">
+      <div>
+        <!-- paso 1 -->
+        <div class="tarjeta paso bloque" id="paso-fuentes">
+          <h3><span class="paso-num" id="paso1-num">1</span> Consultar las fuentes
+            <span class="estado" id="paso1-estado"></span></h3>
+          <div class="fuentes-lista" id="fuentes-lista"><p class="cargando">Leyendo configuracion…</p></div>
+          <div class="barra-accion">
+            <div class="control" style="flex:0 0 auto">
+              <label>Modo de consulta</label>
+              <div class="opciones" id="modo-opciones">
+                <label class="activo"><input type="radio" name="modo" value="offline" checked> Sin red</label>
+                <label><input type="radio" name="modo" value="cache"> Cache primero</label>
+                <label><input type="radio" name="modo" value="vivo"> En vivo</label>
+              </div>
+            </div>
+            <div class="control" style="flex:0 0 120px">
+              <label>Radio (km)</label>
+              <input type="number" id="radio-km" min="0.5" max="40" step="0.5" value="8">
+            </div>
+            <div class="que-pasara" id="que-pasara"></div>
+            <button id="btn-barrido">Ejecutar barrido</button>
+          </div>
+          <details class="ayuda">
+            <summary>Que hace cada modo y por que el defecto es sin red</summary>
+            <div class="cuerpo">
+              <p><b>Sin red</b> sirve lo que ya esta descargado en la cache local: datos reales de
+                una consulta anterior. Una demostracion no puede depender de que una API de un
+                tercero este disponible.</p>
+              <p><b>Cache primero</b> usa la cache si sigue fresca y sale a la red solo si caduco.</p>
+              <p><b>En vivo</b> consulta las fuentes reales y refresca la cache, respetando
+                robots.txt, con limite de tasa y User-Agent identificado. Si una fuente falla, se
+                degrada a lo que haya y lo dice.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- paso 2 -->
+        <div class="tarjeta paso bloque" id="paso-permisos">
+          <h3><span class="paso-num pendiente" id="paso2-num">2</span> Cruzar permisos de vertimiento
+            <span class="estado" id="paso2-estado"></span></h3>
+          <div id="permisos-resumen"></div>
+          <div class="tabla-envoltorio" id="permisos-tabla"></div>
+          <details class="ayuda">
+            <summary>Que aporta un permiso y que no</summary>
+            <div class="cuerpo">
+              <p>Un permiso radicado ante la autoridad ambiental prueba que la empresa <b>vierte
+                de verdad</b> y esta regulada. Eso sube su confianza. Lo mas valioso es el
+                <b>numero de expediente</b>: una solicitud que lo cita se responde; una generica
+                se pierde.</p>
+              <p>El buscador no publica caudal ni analitica: eso vive en los documentos del
+                expediente, que se piden por derecho de peticion y entran en el paso 3.</p>
+              <p>Fuente: VITAL, la Ventanilla Integral de Tramites Ambientales del Ministerio.
+                Los permisos de Cartagena no estan en datos.gov.co.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- paso 3 -->
+        <div class="tarjeta paso bloque" id="paso-documentos">
+          <h3><span class="paso-num pendiente" id="paso3-num">3</span> Traer documentos del expediente
+            <span class="estado" id="paso3-estado"></span></h3>
+          <div class="zona-suelta" id="zona-pdf">
+            <b>Suelta aqui un PDF o pulsa para elegirlo</b>
+            Permiso de vertimiento, resolucion o informe de caracterizacion
+            <input type="file" id="archivo-pdf" accept="application/pdf" hidden>
+          </div>
+          <div id="documento-caja"></div>
+          <div id="documento-resultado"></div>
+          <details class="ayuda">
+            <summary>Archivar frente a leer con IA</summary>
+            <div class="cuerpo">
+              <p><b>Archivar</b> guarda el PDF junto al resto de la evidencia del prospecto. Siempre
+                funciona. Existe porque el portal antiguo de VITAL no se deja consultar desde un
+                programa: los expedientes se descargan a mano y entran por aqui.</p>
+              <p><b>Leer con IA</b> extrae caudal autorizado y la tabla de caracterizacion a una
+                estructura fija con Claude. Requiere el paquete <code>anthropic</code> y una clave.
+                Lo extraido entra como <span class="sello declarado">declarado</span>, nunca como
+                medido: es lo que la empresa reporto, no una muestra nuestra. El PDF se trata como
+                dato, no como instruccion.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="align-self:start;position:sticky;top:20px">
+        <h3>Bitacora <span class="nota">que hizo el sistema</span>
+          <button class="secundario pequeno" id="btn-bitacora-limpiar" style="margin-left:auto">Limpiar</button></h3>
+        <div class="bitacora" id="bitacora"><p class="vacia">Todavia no se ha ejecutado nada.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 2 -->
+  <section class="modulo" id="mod-prospectos">
+    <div class="cabecera">
+      <div>
+        <h1>Prospectos</h1>
+        <p class="intro">Las empresas encontradas alrededor de la planta, con el agua de rechazo que
+          probablemente producen y un puntaje que dice a quien visitar primero. Pulsa una fila o un
+          punto del mapa para ver el detalle.</p>
+      </div>
+      <div class="acciones-cab">
+        <a href="#datos" class="chip neutra sin-punto" id="prospectos-origen"></a>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="rejilla kpis" id="prospectos-kpis"><p class="cargando">Prospectando…</p></div>
+    </div>
+    <div class="bloque">
       <div class="rejilla dos-tercios">
+        <div class="tarjeta mapa-envoltorio" id="mapa"><p class="cargando">Dibujando…</p></div>
         <div class="tarjeta">
-          <h3>Corrientes seleccionadas y su tren de tratamiento</h3>
-          <div id="tabla-mezcla"><p class="cargando">Calculando…</p></div>
-        </div>
-        <div class="tarjeta">
-          <h3>Agua circulante frente a limites</h3>
-          <div id="limites-calidad"></div>
-          <p class="pie" id="resumen-quimica"></p>
+          <h3>Distancia de conduccion <span class="nota">los 8 mas cercanos</span></h3>
+          <table id="tabla-trazado"><tbody></tbody></table>
+          <details class="ayuda">
+            <summary>Por que no vale la linea recta</summary>
+            <div class="cuerpo"><p>Una conduccion sigue corredores existentes, bordea predios y
+              cruza vias y canos. Se estima con un factor de tortuosidad por tipo de corredor mas una
+              penalizacion por cruce. Es una estimacion declarada: cuando exista el trazado real
+              medido, se sustituye y no cambia nada mas.</p></div>
+          </details>
         </div>
       </div>
-    </section>
-
-    <section>
-      <h2>Cuanto cuesta cada punto de ahorro</h2>
+    </div>
+    <div class="bloque">
       <div class="tarjeta">
-        <div id="gr-frontera"><p class="cargando">Calculando…</p></div>
-        <div class="leyenda">
-          <span><i style="background:#f2762e"></i> Costo total anual</span>
-          <span><i style="background:#4a9de0"></i> Inversion (CAPEX)</span>
+        <h3>Ordenados por puntaje de simbiosis
+          <span class="chip neutra sin-punto" id="prospectos-filtro-txt"></span>
+          <div class="casillas" style="margin-left:auto" id="prospectos-filtros">
+            <label class="activo"><input type="checkbox" id="filtro-viables"> solo viables</label>
+            <label><input type="checkbox" id="filtro-permiso"> con permiso</label>
+          </div>
+        </h3>
+        <div class="tabla-envoltorio">
+          <table id="tabla-prospectos">
+            <thead><tr>
+              <th>Empresa</th><th>Sector</th><th class="num">Km</th>
+              <th class="num">m³/h</th><th>Calidad</th><th>Confianza</th>
+              <th class="num">Puntaje</th><th>Etapa</th>
+            </tr></thead>
+            <tbody><tr><td colspan="8" class="cargando">Prospectando…</td></tr></tbody>
+          </table>
         </div>
-        <div id="tabla-frontera" style="margin-top:14px"></div>
+        <details class="ayuda">
+          <summary>Como se calcula el puntaje</summary>
+          <div class="cuerpo" id="ayuda-puntaje"></div>
+        </details>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section>
-      <h2>Robustez del suministro</h2>
+  <!-- ================================================================ 3 -->
+  <section class="modulo" id="mod-embudo">
+    <div class="cabecera">
+      <div>
+        <h1>Embudo comercial</h1>
+        <p class="intro">Cuanto caudal hay en cada etapa de contratacion y que ha cambiado en el parque
+          desde la ultima revision. El embudo se mide en caudal, no en numero de empresas.</p>
+      </div>
+      <div class="acciones-cab">
+        <button class="secundario" id="btn-instantanea">Archivar instantanea de hoy</button>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="rejilla kpis" id="embudo-kpis"></div>
+    </div>
+    <div class="bloque">
       <div class="rejilla dos">
         <div class="tarjeta">
-          <h3>Que pasa si cae cada vecino</h3>
-          <div id="tabla-contingencias"></div>
+          <h3>Caudal por etapa</h3>
+          <div class="embudo" id="embudo"><p class="cargando">…</p></div>
+          <h4 style="margin:16px 0 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">
+            Que hace falta para pasar a la siguiente</h4>
+          <div class="siguiente" id="embudo-requisitos"></div>
         </div>
         <div class="tarjeta">
-          <h3>Sensibilidad al precio del agua cruda</h3>
-          <div id="gr-sensibilidad"></div>
-          <p class="pie">Beneficio neto anual del proyecto. Cuanto mas escaso y caro sea el
-          agua, mas valor tiene la simbiosis: el proyecto se refuerza justo cuando mas se necesita.</p>
+          <h3>Cambios desde la ultima instantanea <span class="nota" id="vigilancia-ref"></span></h3>
+          <div id="vigilancia"><p class="cargando">…</p></div>
         </div>
       </div>
-    </section>
-
-    <section>
-      <h2>Operacion e inteligencia predictiva <span class="nota" id="alertas"></span></h2>
+    </div>
+    <div class="bloque">
       <div class="tarjeta">
+        <h3>Fichas con trabajo comercial</h3>
+        <div class="tabla-envoltorio" id="fichas-tabla"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 4 -->
+  <section class="modulo" id="mod-optimizador">
+    <div class="cabecera">
+      <div>
+        <h1>Optimizador</h1>
+        <p class="intro">Dado un catalogo de vecinos, decide de quien tomar agua, con que tren de
+          tratamiento, en que proporcion, con cuanto acido y a que ciclos operar la torre. Todo a la vez,
+          minimizando costo y cumpliendo los limites del agua circulante.</p>
+      </div>
+    </div>
+    <div class="pestanas" id="opt-pestanas">
+      <button class="activa" data-pestana="base">Caso base · catalogo supuesto</button>
+      <button data-pestana="reales">Con prospectos reales</button>
+    </div>
+
+    <div class="pestana activa" id="opt-base">
+      <div class="bloque">
+        <div class="tarjeta">
+          <h3>Escenario <span class="nota">mueve un control y recalcula</span>
+            <button id="btn-recalcular" class="pequeno" style="margin-left:auto">Recalcular</button></h3>
+          <div class="controles" id="controles"></div>
+        </div>
+      </div>
+      <div class="bloque">
+        <h2>Resultado <span class="nota" id="estado-meta"></span></h2>
+        <div class="rejilla kpis" id="kpis"><p class="cargando">Optimizando…</p></div>
+      </div>
+      <div class="bloque">
+        <h2>Balance hidrico del circuito</h2>
+        <div class="rejilla dos">
+          <div class="tarjeta"><div id="flujo-base"></div></div>
+          <div class="tarjeta"><div id="flujo-optimo"></div></div>
+        </div>
+      </div>
+      <div class="bloque">
+        <h2>Mezcla optima</h2>
+        <div class="rejilla dos-tercios">
+          <div class="tarjeta">
+            <h3>Corrientes seleccionadas y su tren</h3>
+            <div class="tabla-envoltorio" id="tabla-mezcla"><p class="cargando">Calculando…</p></div>
+          </div>
+          <div class="tarjeta">
+            <h3>Agua circulante frente a limites</h3>
+            <div id="limites-calidad"></div>
+            <p class="pie" id="resumen-quimica"></p>
+          </div>
+        </div>
+      </div>
+      <div class="bloque">
+        <h2>Cuanto cuesta cada punto de ahorro</h2>
+        <div class="tarjeta">
+          <div id="gr-frontera"><p class="cargando">Calculando la curva completa…</p></div>
+          <div class="leyenda">
+            <span><i style="background:#f2762e"></i> Costo total anual</span>
+            <span><i style="background:#4a9de0"></i> Inversion (CAPEX)</span>
+          </div>
+          <div class="tabla-envoltorio" id="tabla-frontera" style="margin-top:14px"></div>
+        </div>
+      </div>
+      <div class="bloque">
+        <h2>Robustez</h2>
+        <div class="rejilla dos">
+          <div class="tarjeta">
+            <h3>Si cae cada vecino</h3>
+            <div id="tabla-contingencias"></div>
+          </div>
+          <div class="tarjeta">
+            <h3>Sensibilidad al precio del agua cruda <span class="nota">beneficio neto anual</span></h3>
+            <div id="gr-sensibilidad"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pestana" id="opt-reales">
+      <div class="bloque">
+        <div class="tarjeta">
+          <h3>Del prospecto al plan de inversion
+            <span class="nota">el mismo optimizador, con el catalogo que salio del barrido</span></h3>
+          <div class="controles">
+            <div class="control">
+              <label>Confianza minima para entrar <span class="lectura" id="lec-umbral">0.55</span></label>
+              <input type="range" id="umbral" min="0" max="0.95" step="0.05" value="0.55">
+            </div>
+            <div class="control">
+              <label>Tope operativo de reuso <span class="lectura" id="lec-reuso">85 %</span></label>
+              <input type="range" id="reuso" min="0" max="1" step="0.05" value="0.85">
+            </div>
+            <div class="control"><button id="btn-optimizar">Optimizar con estos prospectos</button></div>
+          </div>
+          <p class="pie" id="opt-reales-quienes"></p>
+          <details class="ayuda">
+            <summary>Como viaja la confianza al optimizador</summary>
+            <div class="cuerpo"><p>Cada prospecto entra con su confianza traducida a factor de
+              disponibilidad anual. Un catalogo poco fiable produce, por construccion, una solucion mas
+              conservadora. Por debajo del umbral un prospecto no entra aunque quimicamente sea magnifico:
+              optimizar sobre datos inventados da un plan de inversion inventado.</p></div>
+          </details>
+        </div>
+      </div>
+      <div class="bloque" id="resultado-opt"></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 5 -->
+  <section class="modulo" id="mod-operacion">
+    <div class="cabecera">
+      <div>
+        <h1>Operacion e inteligencia predictiva</h1>
+        <p class="intro">Tres modelos sobre el historico del circuito: cuanta reposicion hara falta en 24 h,
+          si hay una fuga y si el circuito va camino de ensuciarse en los proximos 7 dias.</p>
+      </div>
+      <div class="acciones-cab" id="alertas"></div>
+    </div>
+    <div class="bloque">
+      <div class="tarjeta">
+        <h3>Ultimas dos semanas</h3>
         <div id="gr-operacion"><p class="cargando">Cargando telemetria…</p></div>
         <div class="leyenda">
           <span><i style="background:#4a9de0"></i> Reposicion medida (m³/h)</span>
@@ -111,25 +435,112 @@
           <span><i style="background:#d9a441"></i> Riesgo de ensuciamiento a 7 dias</span>
         </div>
       </div>
-      <div class="tarjeta" style="margin-top:14px">
-        <h3>Modelos y desempeño</h3>
-        <div id="metricas-ia"><p class="cargando">Entrenando / cargando modelos…</p></div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Catalogo de oferentes del parque industrial</h2>
-      <div class="tarjeta"><div id="tabla-oferentes"></div></div>
-    </section>
-
-    <section>
-      <h2>Escenario</h2>
+    </div>
+    <div class="bloque">
       <div class="tarjeta">
-        <div class="controles" id="controles"></div>
+        <h3>Modelos y desempeño <span class="nota">validacion temporal: 70 % pasado, 30 % futuro</span></h3>
+        <div class="tabla-envoltorio" id="metricas-ia"><p class="cargando">Cargando modelos…</p></div>
+        <details class="ayuda">
+          <summary>De donde sale el historico</summary>
+          <div class="cuerpo"><p>No hay SCADA conectado. El historico es <b>sintetico</b>, generado por el
+            propio gemelo digital: la misma fisica del optimizador mas la variabilidad de una planta real
+            (clima, carga, ruido de instrumentacion, fugas, derivas de los vecinos). Al conectar el SCADA se
+            sustituye el generador y los modelos se reentrenan sin tocar nada mas. Toda metrica va acompanada
+            de su referencia ingenua: un MAE sin comparar contra persistencia no dice nada.</p></div>
+        </details>
       </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
-  <script type="module" src="app.js"></script>
+  <!-- ================================================================ 6 -->
+  <section class="modulo" id="mod-modelo">
+    <div class="cabecera">
+      <div>
+        <h1>Modelo y supuestos</h1>
+        <p class="intro">Todo lo que la aplicacion da por supuesto y como calcula cada cosa. Aqui vive la
+          explicacion larga para que las pantallas de trabajo puedan ser cortas.</p>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="rejilla dos">
+        <div class="tarjeta">
+          <h3>Como leer los sellos de procedencia</h3>
+          <div class="sellos-guia">
+            <span class="sello medido">medido</span><span>Analitica de laboratorio de la corriente real. Confianza base 0,95.</span>
+            <span class="sello declarado">declarado</span><span>La empresa o su permiso lo reporta, sin analitica nuestra. 0,70.</span>
+            <span class="sello inferido">inferido</span><span>Estimacion a partir del sector economico (codigo CIIU). 0,45.</span>
+            <span class="sello supuesto">supuesto</span><span>Rango tipico de industria, sin nada especifico. 0,20.</span>
+          </div>
+          <p class="pie">La confianza de un prospecto pondera la calidad del agua (65 %) por encima del caudal
+            (35 %): un caudal equivocado se renegocia; una calidad equivocada hunde los ciclos y se descubre
+            con la tuberia ya enterrada.</p>
+        </div>
+        <div class="tarjeta">
+          <h3>Pesos del puntaje de simbiosis</h3>
+          <div id="modelo-pesos"></div>
+          <p class="pie">Para cada prospecto se busca el mejor par (tren de tratamiento, fraccion de mezcla)
+            evaluando la mezcla real con el modelo quimico completo. El resultado se multiplica por la
+            confianza del dato: un prospecto poco fiable no se descarta, se posterga.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="tarjeta">
+        <h3>Arquetipos sectoriales <span class="nota">lo que traduce actividad economica a agua de rechazo</span></h3>
+        <div class="tabla-envoltorio">
+          <table id="tabla-arquetipos">
+            <thead><tr>
+              <th>Sector</th><th>CIIU</th><th>Corriente de rechazo</th>
+              <th class="num">m³/h ref</th><th class="num">TDS</th><th class="num">DQO</th>
+              <th class="num">USD/m³</th><th>Limitante</th>
+            </tr></thead>
+            <tbody><tr><td colspan="8" class="cargando">…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="pie">Un arquetipo acierta el orden de magnitud y el parametro limitante, que es lo que hace falta
+          para decidir a quien visitar primero. No sustituye a la analitica: la prioriza. Un precio negativo
+          significa que el vecino paga por entregar su rechazo porque se ahorra su vertimiento.</p>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="rejilla dos">
+        <div class="tarjeta">
+          <h3>Trenes de tratamiento</h3>
+          <div class="tabla-envoltorio" id="tabla-trenes"></div>
+        </div>
+        <div class="tarjeta">
+          <h3>Limites del agua circulante</h3>
+          <div class="tabla-envoltorio" id="tabla-limites"></div>
+        </div>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="tarjeta">
+        <h3>Catalogo supuesto del caso base <span class="nota">seis vecinos representativos, no reales</span></h3>
+        <div class="tabla-envoltorio" id="tabla-oferentes"></div>
+      </div>
+    </div>
+    <div class="bloque">
+      <div class="tarjeta">
+        <h3>Como resuelve el optimizador</h3>
+        <div class="prosa">
+          <ul>
+            <li><b>Barrido sobre los ciclos N.</b> Fijado N, la reposicion M es constante y casi todo es lineal.</li>
+            <li><b>Un programa lineal (HiGHS) por cada N</b> sobre caudales y dosis de acido. Cada par (vecino, tren) es una columna.</li>
+            <li><b>Las dos restricciones no lineales</b> (LSI y producto CaSO₄) por linealizacion sucesiva.</li>
+            <li><b>Toda solucion se verifica con el modelo quimico completo.</b> Si falla, se aprieta un factor de seguridad y se repite. Nunca se reporta factible lo que la quimica rechaza.</li>
+            <li><b>El pH no se promedia:</b> se mezclan alcalinidad y carbono inorganico total y se resuelve el equilibrio. El agua circulante se evalua en equilibrio con el CO₂ del aire, porque una torre airea.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="velo" id="velo"></div>
+<aside class="panel-lateral" id="panel-prospecto"></aside>
+
+<script type="module" src="app.js?v=3"></script>
 </body>
 </html>
