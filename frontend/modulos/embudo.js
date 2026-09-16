@@ -14,7 +14,10 @@ function pintarKpis() {
   const avanzados = b.prospectos.filter((p) => ["contactado", "nda", "caracterizado", "piloto", "contratado"].includes((p.ficha && p.ficha.estado) || p.estado)).length;
   $("embudo-kpis").innerHTML = [
     kpi("Caudal asegurado", `${fmt.num(pipe.caudal_asegurado_m3_h)} m³/h`, "con analitica real detras: caracterizado, piloto o contratado", "destacado"),
-    kpi("Fichas abiertas", pipe.fichas_abiertas, "empresas con trabajo comercial registrado"),
+    kpi("Fichas abiertas", pipe.fichas_abiertas,
+      (pipe.fichas_huerfanas || []).length
+        ? `<span style="color:var(--aviso)">${pipe.fichas_huerfanas.length} sin empresa en el barrido actual: reasignar abajo</span>`
+        : "empresas con trabajo comercial registrado"),
     kpi("Con contacto o mas", avanzados, "contactado, NDA, caracterizado, piloto o contratado"),
     kpi("Caudal total en el embudo", `${fmt.num(b.resumen.caudal_total_m3_h)} m³/h`, `${b.resumen.detectados} empresas`),
   ].join("");
@@ -65,7 +68,49 @@ function pintarVigilancia() {
   $("btn-ver-todos")?.addEventListener("click", () => { verTodos = !verTodos; pintarVigilancia(); });
 }
 
+function pintarHuerfanas() {
+  const huerfanas = estado.pipeline.fichas_huerfanas || [];
+  const caja = $("fichas-huerfanas");
+  if (!huerfanas.length) { caja.innerHTML = ""; return; }
+  const prospectos = [...estado.barrido.prospectos].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  caja.innerHTML = `
+    <div class="aviso-caja" style="margin-bottom:10px"><b>${huerfanas.length} ficha(s) sin empresa en el barrido actual.</b>
+      Se crearon con un nombre o una coordenada que ya no coincide con ninguna empresa del barrido
+      (razon social distinta en la fuente, o radio menor). El trabajo comercial no se ha perdido:
+      elige a que empresa corresponde cada una.</div>
+    <table><thead><tr><th>Ficha</th><th>Etapa</th><th>Responsable</th><th>Reasignar a</th><th></th></tr></thead>
+    <tbody>${huerfanas.map((h) => `<tr data-clave="${escapar(h.clave)}">
+      <td><b>${escapar(h.nombre || h.clave)}</b><span class="sub">actualizada ${fechaCorta(h.actualizado) || "—"}</span></td>
+      <td style="text-transform:capitalize">${escapar(h.estado)}</td>
+      <td>${escapar(h.responsable || "—")}</td>
+      <td><select class="sel-destino">
+        <option value="">— elegir empresa —</option>
+        ${prospectos.map((p) => `<option value="${p.clave}"${p.ficha ? " disabled" : ""}>${escapar(p.nombre)}${p.ficha ? " (ya tiene ficha)" : ""}</option>`).join("")}
+      </select></td>
+      <td class="num"><button class="pequeno btn-reasignar" disabled>Reasignar</button></td>
+    </tr>`).join("")}</tbody></table>`;
+
+  caja.querySelectorAll("tr[data-clave]").forEach((tr) => {
+    const sel = tr.querySelector(".sel-destino"), btn = tr.querySelector(".btn-reasignar");
+    sel.addEventListener("change", () => { btn.disabled = !sel.value; });
+    btn.addEventListener("click", async () => {
+      btn.disabled = true; btn.textContent = "Reasignando…";
+      try {
+        const f = await pedir("/api/scout/ficha/reasignar", {
+          clave_origen: tr.dataset.clave, clave_destino: sel.value, radio_km: estado.radio,
+        });
+        anotar(`Ficha reasignada a <b>${escapar(f.nombre)}</b> (etapa ${escapar(f.estado)})`, "ok");
+        await cargarBarrido({ refrescar: true });
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false; btn.textContent = "Reasignar";
+      }
+    });
+  });
+}
+
 function pintarFichas() {
+  pintarHuerfanas();
   const con = estado.barrido.prospectos.filter((p) => p.ficha);
   $("fichas-tabla").innerHTML = con.length ? `<table>
     <thead><tr><th>Empresa</th><th>Etapa</th><th>Responsable</th><th>Contacto</th><th>Siguiente paso</th><th>Actualizada</th></tr></thead>

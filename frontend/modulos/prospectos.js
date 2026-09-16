@@ -185,7 +185,8 @@ function pintarPanel(clave) {
         <span class="pie" style="margin:0" id="ficha-msg">${f.actualizado ? "actualizada " + fechaCorta(f.actualizado) : ""}</span>
       </div>
       ${(f.historial || []).length ? `<p class="pie">Historial: ${f.historial.slice(-4).map((h) =>
-        `${h.fecha?.slice(0, 10)} ${escapar(h.de)} → <b>${escapar(h.a)}</b>`).join(" · ")}</p>` : ""}
+        h.nota ? `${h.fecha?.slice(0, 10)} <i>${escapar(h.nota)}</i>`
+               : `${h.fecha?.slice(0, 10)} ${escapar(h.de)} → <b>${escapar(h.a)}</b>`).join(" · ")}</p>` : ""}
     </div>`;
 
   $("btn-cerrar-panel").addEventListener("click", cerrarPanel);
