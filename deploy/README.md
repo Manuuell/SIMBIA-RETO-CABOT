@@ -25,7 +25,7 @@ toca el DNS.
 ```bash
 sudo install -d -o ubuntu -g ubuntu /var/www/simbia
 git clone https://github.com/Manuuell/SIMBIA-RETO-CABOT.git /var/www/simbia
-cd /var/www/simbia
+cd /var/www/simbia/backend
 python3.12 -m venv .venv
 .venv/bin/pip install --no-cache-dir -r backend/requirements.txt
 (cd backend && ../.venv/bin/python -m simbia.ml.train)     # ~6 s
@@ -54,8 +54,8 @@ historial). El secreto firma la cookie de sesión; cambiarlo cierra todas las
 sesiones.
 
 ```bash
-cd /var/www/simbia
-HASH=$(.venv/bin/python -m simbia.auth hash)          # pide la contraseña dos veces
+cd /var/www/simbia/backend
+HASH=$(../.venv/bin/python -m simbia.auth hash)          # pide la contraseña dos veces
 sudo install -m 600 -o root -g root /dev/null /etc/simbia.env
 printf 'SIMBIA_AUTH_USUARIO=%s\nSIMBIA_AUTH_HASH=%s\nSIMBIA_AUTH_SECRETO=%s\n' \
   'correo@dominio' "$HASH" "$(openssl rand -hex 32)" | sudo tee /etc/simbia.env > /dev/null
