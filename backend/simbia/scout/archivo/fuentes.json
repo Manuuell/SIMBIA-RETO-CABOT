@@ -1,0 +1,21 @@
+{
+  "_nota": "Configuracion de fuentes externas. Rellenar y marcar verificado=true para habilitar la consulta en vivo. Mientras verificado sea false, la fuente sirve datos de ejemplo y lo declara en el dashboard.",
+  "datos_gov": {
+    "conjunto": "",
+    "descripcion": "Permisos de vertimiento de la autoridad ambiental competente. Buscar en datos.gov.co; para Cartagena y el norte de Bolivar la autoridad es CARDIQUE, y EPA Cartagena en el perimetro urbano. El identificador es el codigo de cuatro-cuatro caracteres que aparece en la URL del conjunto.",
+    "verificado": false,
+    "campo_nombre": "razon_social",
+    "campo_lat": "latitud",
+    "campo_lon": "longitud",
+    "campo_caudal": "caudal_autorizado_l_s",
+    "campo_ciiu": "codigo_ciiu",
+    "campo_cuerpo": "cuerpo_receptor",
+    "campos_calidad": {
+      "dqo": "dqo_mg_l",
+      "sst": "sst_mg_l",
+      "ph": "ph",
+      "n_amoniacal": "nitrogeno_amoniacal_mg_l",
+      "fosfatos": "fosforo_total_mg_l"
+    }
+  }
+}
