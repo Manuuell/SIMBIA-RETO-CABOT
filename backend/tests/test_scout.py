@@ -608,6 +608,72 @@ def test_la_persistencia_de_fichas_va_y_vuelve(tmp_path, monkeypatch):
     assert recargadas["abc123"].historial[-1]["a"] == "nda"
 
 
+def _almacen_temporal(tmp_path, monkeypatch):
+    monkeypatch.setattr(almacen, "BASE", tmp_path)
+    monkeypatch.setattr(almacen, "ESTADOS", tmp_path / "estado.json")
+
+
+def test_una_ficha_con_nombre_antiguo_se_reenlaza_por_parecido(tmp_path, monkeypatch):
+    """Lo que paso en el primer barrido real: la ficha se creo con 'Cementos
+    Argos' (instantanea de trabajo) y OpenStreetMap la llama 'Argos S.A.'."""
+    _almacen_temporal(tmp_path, monkeypatch)
+    almacen.actualizar_ficha("clave-vieja", estado=Estado.CONTACTADO,
+                             responsable="M. Esteban", nombre="Cementos Argos")
+    argos = _prospecto(nombre="Argos S.A.", lat=10.3081, lon=-75.4952)
+    otra = _prospecto(nombre="Aguas de Cartagena", lat=10.35, lon=-75.52)
+    enlazadas, huerfanas = almacen.vincular_fichas([argos, otra])
+    clave_nueva = almacen.clave_estable(argos.nombre, argos.lat, argos.lon)
+    assert not huerfanas
+    assert enlazadas[clave_nueva].responsable == "M. Esteban"
+    # Migrada y guardada: la siguiente vez coincide por clave y con rastro.
+    guardadas = almacen.cargar_fichas()
+    assert clave_nueva in guardadas and "clave-vieja" not in guardadas
+    assert "reenlazada" in guardadas[clave_nueva].historial[-1]["nota"]
+    assert guardadas[clave_nueva].lat == argos.lat
+    # Y el barrido la ve: el prospecto hereda la etapa.
+    assert almacen.aplicar_fichas([argos])[0].estado is Estado.CONTACTADO
+
+
+def test_una_ficha_ambigua_sin_coordenada_queda_huerfana(tmp_path, monkeypatch):
+    """Dos candidatos igual de parecidos y ninguna coordenada que desempate:
+    antes que adivinar, se deja para reasignar a mano."""
+    _almacen_temporal(tmp_path, monkeypatch)
+    almacen.actualizar_ficha("clave-vieja", estado=Estado.NDA, nombre="Argos")
+    a = _prospecto(nombre="Argos S.A.", lat=10.30, lon=-75.49)
+    b = _prospecto(nombre="Cementos Argos", lat=10.36, lon=-75.53)
+    enlazadas, huerfanas = almacen.vincular_fichas([a, b])
+    assert not enlazadas and [f.clave for f in huerfanas] == ["clave-vieja"]
+    # Con coordenada, gana el mas cercano.
+    almacen.actualizar_ficha("clave-vieja", lat=10.3601, lon=-75.5299)
+    enlazadas, huerfanas = almacen.vincular_fichas([a, b])
+    assert not huerfanas
+    assert list(enlazadas) == [almacen.clave_estable(b.nombre, b.lat, b.lon)]
+
+
+def test_una_ficha_lejana_no_se_reenlaza_aunque_el_nombre_coincida(tmp_path, monkeypatch):
+    _almacen_temporal(tmp_path, monkeypatch)
+    almacen.actualizar_ficha("clave-vieja", estado=Estado.NDA, nombre="Argos",
+                             lat=10.30, lon=-75.49)
+    lejos = _prospecto(nombre="Argos S.A.", lat=10.40, lon=-75.60)   # ~16 km
+    enlazadas, huerfanas = almacen.vincular_fichas([lejos])
+    assert not enlazadas and len(huerfanas) == 1
+
+
+def test_reasignar_una_ficha_a_mano(tmp_path, monkeypatch):
+    _almacen_temporal(tmp_path, monkeypatch)
+    almacen.actualizar_ficha("clave-vieja", estado=Estado.PILOTO, nombre="Algo S.A.")
+    destino = _prospecto(nombre="Otra Cosa Ltda", lat=10.31, lon=-75.50)
+    f = almacen.reasignar_ficha("clave-vieja", destino)
+    assert f.estado is Estado.PILOTO and f.nombre == destino.nombre
+    assert almacen.aplicar_fichas([destino])[0].estado is Estado.PILOTO
+    with pytest.raises(KeyError):
+        almacen.reasignar_ficha("no-existe", destino)
+    # Al destino con ficha propia no se le pisa nada.
+    almacen.actualizar_ficha("suelta", estado=Estado.NDA, nombre="Suelta")
+    with pytest.raises(ValueError):
+        almacen.reasignar_ficha("suelta", destino)
+
+
 # ==========================================================================
 # Analitica de laboratorio
 # ==========================================================================
@@ -936,6 +1002,27 @@ def test_un_umbral_inalcanzable_no_revienta_sino_que_lo_explica(cliente):
     d = cliente.post("/api/scout/optimizar", json={"umbral_confianza": 1.0}).json()
     assert d["factible"] is False
     assert "confianza" in d["motivo"]
+
+
+def test_el_pipeline_separa_las_fichas_huerfanas(cliente, tmp_path, monkeypatch):
+    _almacen_temporal(tmp_path, monkeypatch)
+    almacen.actualizar_ficha("huerfana-1", estado=Estado.CONTACTADO, nombre="Zzz Inexistente")
+    from simbia.api import scout as api_scout
+    api_scout._invalidar()
+    d = cliente.get("/api/scout/pipeline").json()
+    assert d["fichas_abiertas"] == 0
+    assert [h["clave"] for h in d["fichas_huerfanas"]] == ["huerfana-1"]
+    # Reasignarla al primer prospecto del barrido la saca de huerfanas.
+    b = cliente.get("/api/scout/barrido").json()
+    if b["prospectos"]:
+        destino = b["prospectos"][0]["clave"]
+        r = cliente.post("/api/scout/ficha/reasignar",
+                         json={"clave_origen": "huerfana-1", "clave_destino": destino})
+        assert r.status_code == 200 and r.json()["estado"] == "contactado"
+        d = cliente.get("/api/scout/pipeline").json()
+        assert d["fichas_abiertas"] == 1 and not d["fichas_huerfanas"]
+    assert cliente.post("/api/scout/ficha/reasignar",
+                        json={"clave_origen": "x", "clave_destino": "y"}).status_code == 422
 
 
 def test_una_etapa_inexistente_se_rechaza(cliente):
