@@ -22,8 +22,17 @@ ese codigo perderia el trabajo en cuanto cambiara el catalogo.
 Por eso el estado se guarda contra una **clave estable**: hash del nombre
 normalizado mas la coordenada redondeada a ~100 m. Sobrevive a cambios de
 orden, a variaciones menores del nombre y a que una fuente afine la
-coordenada. No sobrevive a que una empresa se mude o cambie de razon social,
-que es justo cuando conviene revisar el expediente a mano.
+coordenada.
+
+No sobrevive a que una empresa cambie de razon social o de coordenada: la
+clave deja de coincidir y la ficha queda **huerfana**. Paso en el primer
+barrido real: la ficha se creo con "Cementos Argos" (instantanea de trabajo)
+y OpenStreetMap la llama "Argos S.A.". Para eso la ficha guarda tambien el
+nombre y la coordenada con que se creo, y `vincular_fichas` la reencuentra
+por parecido de nombre con dos salvaguardas: si hay coordenada, el prospecto
+tiene que estar a menos de 600 m; si no la hay, el candidato tiene que ser
+unico. Lo que no se reencuentra se lista como huerfano para reasignarlo a
+mano: el trabajo comercial no se pierde en silencio.
 """
 
 from __future__ import annotations
@@ -35,8 +44,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .geo import haversine_km
 from .perfil import ORDEN_ESTADO, Estado, Prospecto
-from .texto import normalizar
+from .texto import normalizar, parecido
 
 BASE = Path(__file__).resolve().parent / "archivo"
 ESTADOS = BASE / "estado.json"
@@ -100,6 +110,11 @@ class Ficha:
     notas: str = ""
     historial: list[dict[str, str]] = field(default_factory=list)
     actualizado: str = ""
+    #: Identidad legible con la que se creo, para reencontrarla cuando la
+    #: clave deje de coincidir. Las fichas antiguas no traen coordenada.
+    nombre: str = ""
+    lat: float | None = None
+    lon: float | None = None
 
     @property
     def avance(self) -> float:
@@ -124,6 +139,7 @@ class Ficha:
             "historial": self.historial,
             "actualizado": self.actualizado,
             "avance": round(self.avance, 3),
+            "nombre": self.nombre,
         }
 
 
@@ -144,6 +160,11 @@ def cargar_fichas() -> dict[str, Ficha]:
             estado = Estado(d.get("estado", "detectado"))
         except ValueError:
             estado = Estado.DETECTADO
+        historial = d.get("historial", [])
+        # Las fichas anteriores a `nombre` solo lo tienen en el historial.
+        nombre = d.get("nombre") or next(
+            (h.get("empresa", "") for h in reversed(historial) if h.get("empresa")), "",
+        )
         fichas[clave] = Ficha(
             clave=clave,
             estado=estado,
@@ -151,8 +172,11 @@ def cargar_fichas() -> dict[str, Ficha]:
             contacto=d.get("contacto", ""),
             proximo_paso=d.get("proximo_paso", ""),
             notas=d.get("notas", ""),
-            historial=d.get("historial", []),
+            historial=historial,
             actualizado=d.get("actualizado", ""),
+            nombre=nombre,
+            lat=d.get("lat"),
+            lon=d.get("lon"),
         )
     return fichas
 
@@ -170,6 +194,9 @@ def guardar_fichas(fichas: dict[str, Ficha]) -> None:
                     "notas": f.notas,
                     "historial": f.historial,
                     "actualizado": f.actualizado,
+                    "nombre": f.nombre,
+                    "lat": f.lat,
+                    "lon": f.lon,
                 }
                 for k, f in fichas.items()
             },
@@ -187,11 +214,17 @@ def actualizar_ficha(
     proximo_paso: str | None = None,
     notas: str | None = None,
     nombre: str = "",
+    lat: float | None = None,
+    lon: float | None = None,
 ) -> Ficha:
     """Modifica una ficha y deja rastro del cambio de etapa en el historial."""
     fichas = cargar_fichas()
     ficha = fichas.get(clave) or Ficha(clave=clave)
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if nombre:
+        ficha.nombre = nombre
+    if lat is not None and lon is not None:
+        ficha.lat, ficha.lon = lat, lon
 
     if estado is not None and estado is not ficha.estado:
         ficha.historial.append({
@@ -214,9 +247,101 @@ def actualizar_ficha(
     return ficha
 
 
+#: Parecido de nombre exigido para reenlazar una ficha huerfana. Alto, como en
+#: el cruce de permisos: aqui tampoco siempre hay coordenada que desempate.
+UMBRAL_REENLACE = 0.88
+DISTANCIA_REENLACE_KM = 0.6
+
+
+def _migrar(fichas: dict[str, Ficha], ficha: Ficha, p: Prospecto, motivo: str) -> Ficha:
+    """Mueve una ficha a la clave del prospecto actual, con rastro."""
+    nueva = clave_estable(p.nombre, p.lat, p.lon)
+    fichas.pop(ficha.clave, None)
+    ficha.historial.append({
+        "fecha": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "de": ficha.estado.value, "a": ficha.estado.value,
+        "empresa": p.nombre,
+        "nota": f"{motivo}: antes '{ficha.nombre or ficha.clave}'",
+    })
+    ficha.clave, ficha.nombre, ficha.lat, ficha.lon = nueva, p.nombre, p.lat, p.lon
+    fichas[nueva] = ficha
+    return ficha
+
+
+def vincular_fichas(
+    prospectos: list[Prospecto],
+) -> tuple[dict[str, Ficha], list[Ficha]]:
+    """Fichas por clave del prospecto ACTUAL, y las que no se pudieron enlazar.
+
+    Primero por clave exacta. Lo que queda suelto se intenta por parecido de
+    nombre: con coordenada, ademas a menos de 600 m; sin coordenada, solo si
+    el candidato es unico. Una ficha reenlazada se migra a la clave nueva y
+    se guarda, asi que la siguiente vez ya coincide por clave.
+    """
+    fichas = cargar_fichas()
+    por_clave = {clave_estable(p.nombre, p.lat, p.lon): p for p in prospectos}
+    enlazadas: dict[str, Ficha] = {}
+    sueltas: list[Ficha] = []
+    for clave, f in list(fichas.items()):
+        if clave in por_clave:
+            enlazadas[clave] = f
+        else:
+            sueltas.append(f)
+
+    migradas = False
+    huerfanas: list[Ficha] = []
+    for f in sueltas:
+        candidatos = [
+            p for c, p in por_clave.items()
+            if c not in enlazadas
+            and f.nombre and parecido(f.nombre, p.nombre) >= UMBRAL_REENLACE
+            and (
+                f.lat is None or f.lon is None
+                or haversine_km(f.lat, f.lon, p.lat, p.lon) <= DISTANCIA_REENLACE_KM
+            )
+        ]
+        if len(candidatos) == 1 or (
+            len(candidatos) > 1 and f.lat is not None and f.lon is not None
+        ):
+            p = min(
+                candidatos,
+                key=lambda x: haversine_km(f.lat, f.lon, x.lat, x.lon)
+                if f.lat is not None and f.lon is not None else 0.0,
+            )
+            enlazadas[clave_estable(p.nombre, p.lat, p.lon)] = _migrar(
+                fichas, f, p, "reenlazada por parecido de nombre",
+            )
+            migradas = True
+        else:
+            huerfanas.append(f)
+    if migradas:
+        guardar_fichas(fichas)
+    return enlazadas, huerfanas
+
+
+def reasignar_ficha(clave_origen: str, prospecto: Prospecto) -> Ficha:
+    """Mueve a mano una ficha huerfana al prospecto indicado."""
+    fichas = cargar_fichas()
+    ficha = fichas.get(clave_origen)
+    if ficha is None:
+        raise KeyError(f"No existe la ficha {clave_origen}")
+    destino = clave_estable(prospecto.nombre, prospecto.lat, prospecto.lon)
+    if destino == clave_origen:
+        return ficha
+    if destino in fichas:
+        raise ValueError(
+            f"'{prospecto.nombre}' ya tiene una ficha ({fichas[destino].estado.value}); "
+            f"no se fusionan solas para no perder el historial de ninguna"
+        )
+    ficha = _migrar(fichas, ficha, prospecto, "reasignada a mano")
+    ficha.actualizado = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    guardar_fichas(fichas)
+    return ficha
+
+
 def aplicar_fichas(prospectos: list[Prospecto]) -> list[Prospecto]:
     """Vuelca el estado comercial guardado sobre un barrido recien hecho."""
-    fichas = cargar_fichas()
+    fichas, _ = vincular_fichas(prospectos)
     salida: list[Prospecto] = []
     for p in prospectos:
         ficha = fichas.get(clave_estable(p.nombre, p.lat, p.lon))
