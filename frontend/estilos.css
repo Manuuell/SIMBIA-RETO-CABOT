@@ -502,3 +502,19 @@ body.solo { display: block; }
 .acceso-caja .error { margin-top: 4px; }
 .lateral-pie .sesion { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lateral-pie .sesion b { color: var(--texto-2); font-weight: 600; word-break: break-all; }
+
+/* ==========================================================================
+   Buscador VITAL
+   ========================================================================== */
+
+.buscador { display: flex; gap: 8px; }
+.buscador input[type=search] { flex: 1; font-size: 14px; padding: 10px 12px; }
+.filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.filtros select { width: auto; max-width: 240px; }
+.filtros .casilla {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px 10px;
+  border: 1px solid var(--borde); border-radius: 8px; cursor: pointer; color: var(--texto-tenue); background: var(--panel-alto);
+}
+.filtros .casilla.activo { border-color: var(--acento); color: var(--texto); }
+.filtros .casilla input { accent-color: var(--acento); margin: 0; }
+.filtros .opciones label { padding: 5px 10px; font-size: 12px; }

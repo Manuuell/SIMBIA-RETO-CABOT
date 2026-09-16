@@ -27,26 +27,30 @@
       <span class="n">1</span>
       <span><span class="t">Datos externos</span><br><span class="d">Fuentes, permisos y documentos</span></span>
     </a>
-    <a href="#prospectos" data-modulo="prospectos">
+    <a href="#vital" data-modulo="vital">
       <span class="n">2</span>
+      <span><span class="t">Buscador VITAL</span><br><span class="d">Tramites y expedientes</span></span>
+    </a>
+    <a href="#prospectos" data-modulo="prospectos">
+      <span class="n">3</span>
       <span><span class="t">Prospectos</span><br><span class="d">Mapa, puntaje y detalle</span></span>
     </a>
     <a href="#embudo" data-modulo="embudo">
-      <span class="n">3</span>
+      <span class="n">4</span>
       <span><span class="t">Embudo comercial</span><br><span class="d">Etapas, fichas y vigilancia</span></span>
     </a>
     <div class="grupo">Decision</div>
     <a href="#optimizador" data-modulo="optimizador">
-      <span class="n">4</span>
+      <span class="n">5</span>
       <span><span class="t">Optimizador</span><br><span class="d">Mezcla, tratamiento y ciclos</span></span>
     </a>
     <a href="#operacion" data-modulo="operacion">
-      <span class="n">5</span>
+      <span class="n">6</span>
       <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
     </a>
     <div class="grupo">Referencia</div>
     <a href="#modelo" data-modulo="modelo">
-      <span class="n">6</span>
+      <span class="n">7</span>
       <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
     </a>
   </nav>
@@ -216,6 +220,67 @@
   </section>
 
   <!-- ================================================================ 2 -->
+  <section class="modulo" id="mod-vital">
+    <div class="cabecera">
+      <div>
+        <h1>Buscador VITAL</h1>
+        <p class="intro">Busca tramites ambientales por empresa, expediente o radicado en el buscador publico
+          del Ministerio de Ambiente, filtra por autoridad y tipo, y vincula lo que encuentres al prospecto
+          que corresponda.</p>
+      </div>
+      <div class="acciones-cab"><span id="vital-chip-origen"></span></div>
+    </div>
+    <div class="rejilla dos-tercios">
+      <div class="tarjeta">
+        <form class="buscador" id="vital-form">
+          <input type="search" id="vital-q" placeholder="Empresa, expediente o radicado — p. ej. Yara, Petroambiental, VDA-00020-24" autocomplete="off">
+          <button type="submit" id="vital-btn">Buscar</button>
+        </form>
+        <div class="filtros">
+          <label class="casilla activo"><input type="checkbox" id="vital-solo-vert" checked> solo vertimientos</label>
+          <select id="vital-aut"><option value="">Cualquier autoridad</option></select>
+          <select id="vital-tra"><option value="">Cualquier tramite</option></select>
+          <select id="vital-mun"><option value="">Cualquier municipio</option></select>
+          <div class="opciones" id="vital-modo" style="margin-left:auto">
+            <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Cache primero</label>
+            <label><input type="radio" name="vital-modo" value="vivo"> En vivo</label>
+            <label><input type="radio" name="vital-modo" value="offline"> Sin red</label>
+          </div>
+        </div>
+        <p class="pie" id="vital-resumen">Los filtros de autoridad, tramite y municipio se rellenan con lo que
+          devuelva la primera busqueda.</p>
+        <div class="tabla-envoltorio" id="vital-resultados"></div>
+        <div class="acciones" id="vital-paginacion"></div>
+        <details class="ayuda">
+          <summary>Que es VITAL y que se puede esperar de este buscador</summary>
+          <div class="cuerpo">
+            <p><b>VITAL</b> es la Ventanilla Integral de Tramites Ambientales del Ministerio. Publica los
+              tramites radicados ante las autoridades del pais (EPA Cartagena, CARDIQUE, ANLA…): quien pidio
+              que, ante quien, con que expediente y cuando. <b>No publica los documentos</b>: el caudal
+              autorizado y la caracterizacion viven en el expediente, que se pide por derecho de peticion
+              citando el numero. Para eso esta "Redactar solicitud".</p>
+            <p>La busqueda es texto libre sobre titular, proyecto, expediente y radicado. Una empresa puede
+              tramitar con otra razon social o a traves de una filial: si "solo vertimientos" no encuentra
+              nada, quita el filtro y mira que otros tramites tiene.</p>
+            <p>Se consulta el mismo servicio que usa el buscador web, con limite de tasa, User-Agent
+              identificado y cache de dos semanas por consulta. En modo "Sin red" solo se sirve lo cacheado.</p>
+          </div>
+        </details>
+      </div>
+      <div>
+        <div class="tarjeta bloque">
+          <h3>Prospectos sin expediente <span class="nota">buscarlos de un clic</span></h3>
+          <div id="vital-pendientes"><p class="cargando">…</p></div>
+        </div>
+        <div class="tarjeta bloque">
+          <h3>Expedientes vinculados a mano</h3>
+          <div id="vital-vinculados"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 3 -->
   <section class="modulo" id="mod-prospectos">
     <div class="cabecera">
       <div>

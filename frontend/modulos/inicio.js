@@ -5,13 +5,15 @@ import { $, bus, chip, escapar, estado, fmt, kpi, pedir } from "../comun.js";
 const TRAMOS = [
   { id: "datos", n: "Paso 1", t: "Datos externos",
     d: "Consultar OpenStreetMap y los permisos de vertimiento de VITAL; traer los documentos del expediente." },
-  { id: "prospectos", n: "Paso 2", t: "Prospectos",
+  { id: "vital", n: "Paso 2", t: "Buscador VITAL",
+    d: "Encontrar el expediente de una empresa concreta, redactar la solicitud y vincularlo al prospecto." },
+  { id: "prospectos", n: "Paso 3", t: "Prospectos",
     d: "Cada empresa con su agua estimada, su confianza y un puntaje que dice a quien visitar primero." },
-  { id: "embudo", n: "Paso 3", t: "Embudo comercial",
+  { id: "embudo", n: "Paso 4", t: "Embudo comercial",
     d: "Cuanto caudal hay contactado, caracterizado o contratado, y que cambio en el parque." },
-  { id: "optimizador", n: "Paso 4", t: "Optimizador",
+  { id: "optimizador", n: "Paso 5", t: "Optimizador",
     d: "Que mezclar, con que tren de tratamiento, cuanto acido y a que ciclos. Con el catalogo supuesto o con los prospectos reales." },
-  { id: "operacion", n: "Paso 5", t: "Operacion e IA",
+  { id: "operacion", n: "Paso 6", t: "Operacion e IA",
     d: "Demanda a 24 h, deteccion de fugas y riesgo de ensuciamiento a 7 dias." },
   { id: "modelo", n: "Referencia", t: "Modelo y supuestos",
     d: "Que da por supuesto la aplicacion y como calcula cada cosa." },
@@ -22,6 +24,7 @@ function pintarRecorrido() {
   const estadoDe = {
     datos: b ? chip(`${b.resumen.detectados} prospectos · modo ${b.modo}`, "ok")
              : chip(`modo ${cfg.modo}`, "neutra"),
+    vital: b ? chip(`${b.prospectos.filter((p) => (p.referencias || []).some((r) => r.fuente === "vital")).length} con expediente`, "neutra") : "",
     prospectos: b ? chip(`${b.resumen.viables} con simbiosis viable`, "azul") : "",
     embudo: estado.pipeline ? chip(`${fmt.num(estado.pipeline.caudal_asegurado_m3_h)} m³/h asegurados`, "neutra") : "",
     optimizador: "",

@@ -9,13 +9,14 @@
 import { $, estado, pedir, escapar } from "./comun.js";
 import inicio from "./modulos/inicio.js";
 import datos from "./modulos/datos.js";
+import vital from "./modulos/vital.js";
 import prospectos from "./modulos/prospectos.js";
 import embudo from "./modulos/embudo.js";
 import optimizador from "./modulos/optimizador.js";
 import operacion from "./modulos/operacion.js";
 import modelo from "./modulos/modelo.js";
 
-const MODULOS = { inicio, datos, prospectos, embudo, optimizador, operacion, modelo };
+const MODULOS = { inicio, datos, vital, prospectos, embudo, optimizador, operacion, modelo };
 const montados = new Set();
 let actual = null;
 
