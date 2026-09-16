@@ -1,0 +1,22 @@
+# SIMBIA — simbiosis hidrica industrial (Reto Cabot).
+# FastAPI sirve API y dashboard en 127.0.0.1:8123; nginx lo publica como
+# simbia.sentralabs.co via sentradns (tipo proxy).
+[Unit]
+Description=SIMBIA (Reto Cabot)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/simbia/backend
+# Sin red por defecto: sirve la cache local. Desde el dashboard se puede
+# lanzar un barrido en modo cache o vivo sin reiniciar.
+Environment=SIMBIA_SCOUT_MODO=offline
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/var/www/simbia/.venv/bin/python -m uvicorn simbia.main:app --host 127.0.0.1 --port 8123 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
