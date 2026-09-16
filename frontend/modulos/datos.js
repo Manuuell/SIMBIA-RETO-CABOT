@@ -12,7 +12,7 @@
 
 import {
   $, anotar, barraConfianza, bitacora, bus, cargarBarrido, chip, escapar,
-  estado, fechaCorta, fmt, limpiarBitacora, pedir, sello, tienePermiso,
+  estado, fechaCorta, fmt, limpiarBitacora, pedir, sello, textoSolicitud, tienePermiso,
 } from "../comun.js";
 
 const INFO_FUENTE = {
@@ -198,31 +198,9 @@ function refsVital(p) {
   return (p.referencias || []).filter((r) => r.fuente === "vital");
 }
 
-function textoSolicitud(p, ref) {
-  const autoridad = (ref.descripcion.split(" ante ")[1] || "").split(" - ")[0] || "Autoridad ambiental competente";
-  return `Señores
-${autoridad}
-Cartagena de Indias
-
-Asunto: Derecho de peticion de informacion (art. 23 C.P., Ley 1755 de 2015) - expediente ${ref.identificador}
-
-[Nombre del solicitante], identificado(a) con [documento], en representacion de [empresa],
-en ejercicio del derecho de peticion solicito copia de los siguientes documentos del
-expediente ${ref.identificador}, correspondiente al permiso de vertimiento de ${p.nombre}:
-
-1. Acto administrativo que otorga o renueva el permiso de vertimiento, con el caudal autorizado.
-2. Caracterizacion fisicoquimica mas reciente del vertimiento (Resolucion 0631 de 2015),
-   incluyendo pH, temperatura, solidos suspendidos totales, DQO, cloruros, sulfatos, dureza,
-   alcalinidad, silice, nitrogeno amoniacal y fosforo total.
-3. Informes de monitoreo del ultimo año, si los hubiere.
-
-Motivo: evaluacion tecnica de reutilizacion de aguas de rechazo industriales en sistemas de
-enfriamiento (simbiosis hidrica industrial), en el corredor de Mamonal.
-
-Autorizo notificaciones al correo [correo electronico].
-
-Atentamente,
-[Nombre y firma]`;
+function solicitudDe(p, ref) {
+  const autoridad = (ref.descripcion.split(" ante ")[1] || "").split(" - ")[0];
+  return textoSolicitud({ empresa: p.nombre, autoridad, expediente: ref.identificador });
 }
 
 let solicitudAbierta = null;
@@ -255,7 +233,7 @@ function pintarPermisos() {
       <td>${barraConfianza(p)}</td>
       <td class="num"><button class="secundario pequeno btn-solicitud">${abierta ? "Cerrar" : "Redactar solicitud"}</button></td>
     </tr>` + (abierta ? `<tr><td colspan="5" style="padding:0 8px 12px">
-      <textarea rows="14" readonly id="texto-solicitud">${escapar(textoSolicitud(p, r))}</textarea>
+      <textarea rows="14" readonly id="texto-solicitud">${escapar(solicitudDe(p, r))}</textarea>
       <div class="acciones">
         <button class="pequeno" id="btn-copiar-solicitud">Copiar al portapapeles</button>
         <span class="pie" style="margin:0">Rellena los corchetes antes de enviarla. Cita siempre el numero de expediente.</span>

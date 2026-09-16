@@ -130,3 +130,49 @@ export function limpiarBitacora() {
 }
 
 export const bitacora = () => lineas;
+
+// ---------------------------------------------------------------------------
+// Derecho de peticion: el texto que convierte un numero de expediente en una
+// solicitud que la autoridad responde. Lo usan Datos externos y el buscador.
+// ---------------------------------------------------------------------------
+
+export function textoSolicitud({ empresa, autoridad, expediente }) {
+  return `Señores
+${autoridad || "Autoridad ambiental competente"}
+Cartagena de Indias
+
+Asunto: Derecho de peticion de informacion (art. 23 C.P., Ley 1755 de 2015) - expediente ${expediente}
+
+[Nombre del solicitante], identificado(a) con [documento], en representacion de [empresa],
+en ejercicio del derecho de peticion solicito copia de los siguientes documentos del
+expediente ${expediente}, correspondiente al permiso de vertimiento de ${empresa}:
+
+1. Acto administrativo que otorga o renueva el permiso de vertimiento, con el caudal autorizado.
+2. Caracterizacion fisicoquimica mas reciente del vertimiento (Resolucion 0631 de 2015),
+   incluyendo pH, temperatura, solidos suspendidos totales, DQO, cloruros, sulfatos, dureza,
+   alcalinidad, silice, nitrogeno amoniacal y fosforo total.
+3. Informes de monitoreo del ultimo año, si los hubiere.
+
+Motivo: evaluacion tecnica de reutilizacion de aguas de rechazo industriales en sistemas de
+enfriamiento (simbiosis hidrica industrial), en el corredor de Mamonal.
+
+Autorizo notificaciones al correo [correo electronico].
+
+Atentamente,
+[Nombre y firma]`;
+}
+
+/** Nucleo de una razon social para buscarla: sin sufijos ni particulas. */
+export function nombreParaBuscar(nombre) {
+  const sin = String(nombre || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(s\.?a\.?s?|ltda|sas|e\.?s\.?p|cia|compania|colombiana|colombia|planta|de|del|la|el|y)\b/gi, " ")
+    .replace(/[^a-zA-Z0-9 ]+/g, " ")
+    .trim().split(/\s+/).filter(Boolean);
+  return sin.slice(0, 2).join(" ");
+}
+
+export async function copiar(texto) {
+  try { await navigator.clipboard.writeText(texto); return true; }
+  catch { return false; }
+}
