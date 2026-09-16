@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Any
 
 from .geo import haversine_km
-from .perfil import ORDEN_ESTADO, Estado, Prospecto
+from .perfil import ORDEN_ESTADO, Estado, Prospecto, Referencia
 from .texto import normalizar, parecido
 
 BASE = Path(__file__).resolve().parent / "archivo"
@@ -115,6 +115,10 @@ class Ficha:
     nombre: str = ""
     lat: float | None = None
     lon: float | None = None
+    #: Tramites de VITAL vinculados a mano desde el buscador. Cada uno lleva
+    #: expediente, radicado, autoridad, tramite, titular y fecha. Entran al
+    #: prospecto como referencias 'vital', igual que las del cruce automatico.
+    expedientes: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def avance(self) -> float:
@@ -140,6 +144,7 @@ class Ficha:
             "actualizado": self.actualizado,
             "avance": round(self.avance, 3),
             "nombre": self.nombre,
+            "expedientes": self.expedientes,
         }
 
 
@@ -177,6 +182,7 @@ def cargar_fichas() -> dict[str, Ficha]:
             nombre=nombre,
             lat=d.get("lat"),
             lon=d.get("lon"),
+            expedientes=d.get("expedientes", []),
         )
     return fichas
 
@@ -197,6 +203,7 @@ def guardar_fichas(fichas: dict[str, Ficha]) -> None:
                     "nombre": f.nombre,
                     "lat": f.lat,
                     "lon": f.lon,
+                    "expedientes": f.expedientes,
                 }
                 for k, f in fichas.items()
             },
@@ -346,6 +353,102 @@ def aplicar_fichas(prospectos: list[Prospecto]) -> list[Prospecto]:
     for p in prospectos:
         ficha = fichas.get(clave_estable(p.nombre, p.lat, p.lon))
         salida.append(p if ficha is None else replace(p, estado=ficha.estado))
+    return salida
+
+
+# --------------------------------------------------------------------------
+# Expedientes vinculados a mano
+# --------------------------------------------------------------------------
+
+CAMPOS_EXPEDIENTE = (
+    "id", "expediente", "radicado", "autoridad", "tramite", "tramite_legible",
+    "titular", "fecha",
+)
+
+
+def _identificador(e: dict[str, str]) -> str:
+    return e.get("expediente") or e.get("radicado") or e.get("id") or ""
+
+
+def vincular_expediente(
+    clave: str, registro: dict[str, Any], nombre: str = "",
+    lat: float | None = None, lon: float | None = None,
+) -> Ficha:
+    """Guarda en la ficha un tramite de VITAL encontrado con el buscador.
+
+    Es lo que hace una persona cuando el cruce automatico por razon social
+    no encontro el permiso (la empresa tramita con otro nombre, o a traves de
+    una filial). A partir de aqui el prospecto lleva la referencia y su
+    confianza sube exactamente igual que si lo hubiera encontrado el barrido.
+    """
+    limpio = {k: str(registro.get(k, "") or "") for k in CAMPOS_EXPEDIENTE}
+    if not _identificador(limpio):
+        raise ValueError("El tramite no tiene expediente, radicado ni identificador")
+    fichas = cargar_fichas()
+    ficha = fichas.get(clave) or Ficha(clave=clave)
+    if nombre:
+        ficha.nombre = nombre
+    if lat is not None and lon is not None:
+        ficha.lat, ficha.lon = lat, lon
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if not any(_identificador(e) == _identificador(limpio) for e in ficha.expedientes):
+        limpio["vinculado"] = ahora
+        ficha.expedientes.append(limpio)
+        ficha.historial.append({
+            "fecha": ahora, "de": ficha.estado.value, "a": ficha.estado.value,
+            "empresa": ficha.nombre,
+            "nota": f"expediente {_identificador(limpio)} vinculado desde el buscador de VITAL",
+        })
+    ficha.actualizado = ahora
+    fichas[clave] = ficha
+    guardar_fichas(fichas)
+    return ficha
+
+
+def desvincular_expediente(clave: str, identificador: str) -> Ficha:
+    fichas = cargar_fichas()
+    ficha = fichas.get(clave)
+    if ficha is None:
+        raise KeyError(f"No existe la ficha {clave}")
+    antes = len(ficha.expedientes)
+    ficha.expedientes = [e for e in ficha.expedientes if _identificador(e) != identificador]
+    if len(ficha.expedientes) == antes:
+        raise KeyError(f"La ficha no tiene el expediente {identificador}")
+    ficha.actualizado = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    guardar_fichas(fichas)
+    return ficha
+
+
+def aplicar_expedientes(prospectos: list[Prospecto]) -> list[Prospecto]:
+    """Anade a cada prospecto las referencias de los expedientes vinculados.
+
+    Va ANTES de puntuar: una referencia 'vital' sube la confianza y la
+    confianza es un factor del puntaje. No duplica lo que el cruce por razon
+    social ya encontro.
+    """
+    fichas, _ = vincular_fichas(prospectos)
+    salida: list[Prospecto] = []
+    for p in prospectos:
+        ficha = fichas.get(clave_estable(p.nombre, p.lat, p.lon))
+        if ficha is None or not ficha.expedientes:
+            salida.append(p)
+            continue
+        ya = {r.identificador for r in p.referencias if r.fuente == "vital"}
+        nuevas = tuple(
+            Referencia(
+                fuente="vital",
+                identificador=_identificador(e),
+                descripcion=(
+                    f"{e.get('tramite_legible') or e.get('tramite')} ante {e.get('autoridad')}"
+                    + (f" - radicado {e['radicado']}" if e.get("radicado") else "")
+                    + f" (vinculado a mano; titular en VITAL: {e.get('titular')})"
+                ),
+                url="https://vital-publico.minambiente.gov.co/buscador",
+                consultado=str(e.get("vinculado", ""))[:10],
+            )
+            for e in ficha.expedientes if _identificador(e) not in ya
+        )
+        salida.append(replace(p, referencias=p.referencias + nuevas) if nuevas else p)
     return salida
 
 
