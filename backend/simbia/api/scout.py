@@ -166,7 +166,7 @@ def barrido(
     prospectos = _barrido(radio_km, refrescar, _resolver_modo(modo))
     b = _ultimo_barrido.get("b")
 
-    fichas = almacen.cargar_fichas()
+    fichas, _ = almacen.vincular_fichas(prospectos)
     salida = []
     for p in prospectos:
         d = _prospecto_json(p)
@@ -231,7 +231,7 @@ def pipeline(radio_km: float = RADIO_BUSQUEDA_KM) -> dict[str, Any]:
     menos que uno caracterizado de 120.
     """
     prospectos = _barrido(radio_km)
-    fichas = almacen.cargar_fichas()
+    fichas, huerfanas = almacen.vincular_fichas(prospectos)
 
     etapas: dict[str, dict[str, Any]] = {
         e.value: {
@@ -261,7 +261,18 @@ def pipeline(radio_km: float = RADIO_BUSQUEDA_KM) -> dict[str, Any]:
     return {
         "etapas": list(etapas.values()),
         "caudal_asegurado_m3_h": round(asegurado, 1),
+        #: Solo las que corresponden a un prospecto del barrido actual. Una
+        #: ficha cuya empresa ya no aparece no es "trabajo abierto": es
+        #: trabajo que hay que reasignar, y va aparte.
         "fichas_abiertas": len(fichas),
+        "fichas_huerfanas": [
+            {
+                "clave": f.clave, "nombre": f.nombre, "estado": f.estado.value,
+                "responsable": f.responsable, "contacto": f.contacto,
+                "actualizado": f.actualizado,
+            }
+            for f in huerfanas
+        ],
     }
 
 
@@ -277,12 +288,51 @@ def ficha(cambio: CambioFicha) -> dict[str, Any]:
                 f"Etapa desconocida: {cambio.estado}. "
                 f"Validas: {[e.value for e in Estado]}",
             )
+    # La ficha guarda nombre y coordenada del prospecto para poder
+    # reencontrarla si la clave deja de coincidir en un barrido futuro.
+    p = next(
+        (x for x in _cache.get(round(RADIO_BUSQUEDA_KM, 2), [])
+         if almacen.clave_estable(x.nombre, x.lat, x.lon) == cambio.clave),
+        None,
+    ) or next(
+        (x for lista in _cache.values() for x in lista
+         if almacen.clave_estable(x.nombre, x.lat, x.lon) == cambio.clave),
+        None,
+    )
     f = almacen.actualizar_ficha(
         clave=cambio.clave, estado=estado_nuevo,
         responsable=cambio.responsable, contacto=cambio.contacto,
         proximo_paso=cambio.proximo_paso, notas=cambio.notas,
-        nombre=cambio.nombre,
+        nombre=cambio.nombre or (p.nombre if p else ""),
+        lat=p.lat if p else None, lon=p.lon if p else None,
     )
+    _invalidar()
+    return f.as_dict()
+
+
+class Reasignacion(BaseModel):
+    clave_origen: str
+    clave_destino: str
+    radio_km: float = RADIO_BUSQUEDA_KM
+
+
+@router.post("/ficha/reasignar")
+def reasignar(cambio: Reasignacion) -> dict[str, Any]:
+    """Mueve una ficha huerfana al prospecto elegido, conservando su historial."""
+    prospectos = _barrido(cambio.radio_km)
+    destino = next(
+        (p for p in prospectos
+         if almacen.clave_estable(p.nombre, p.lat, p.lon) == cambio.clave_destino),
+        None,
+    )
+    if destino is None:
+        raise HTTPException(422, "El prospecto de destino no esta en el barrido actual")
+    try:
+        f = almacen.reasignar_ficha(cambio.clave_origen, destino)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
     _invalidar()
     return f.as_dict()
 
