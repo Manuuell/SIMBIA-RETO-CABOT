@@ -7,3 +7,10 @@ build/
 .DS_Store
 data/generado/
 backend/simbia/ml/artefactos/
+
+# Estado de ejecucion del modulo de prospeccion. La configuracion de fuentes
+# (archivo/fuentes.json) SI se versiona: es configuracion, no estado.
+backend/simbia/scout/archivo/cache/
+backend/simbia/scout/archivo/instantaneas/
+backend/simbia/scout/archivo/estado.json
+backend/simbia/scout/archivo/expedientes/
