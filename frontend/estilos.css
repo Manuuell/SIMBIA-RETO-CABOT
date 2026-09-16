@@ -210,7 +210,7 @@ tr.seleccionada > td { background: var(--panel-alto); box-shadow: inset 3px 0 0 
 .control label { display: block; font-size: 11.5px; color: var(--texto-tenue); margin-bottom: 5px; }
 .control .lectura { float: right; color: var(--texto); font-variant-numeric: tabular-nums; }
 input[type=range] { width: 100%; accent-color: var(--acento); }
-input[type=text], input[type=number], select, textarea {
+input[type=text], input[type=number], input[type=email], input[type=password], select, textarea {
   background: var(--panel-alto); color: var(--texto); border: 1px solid var(--borde);
   border-radius: 7px; padding: 7px 10px; font-size: 12.5px; font-family: inherit; width: 100%;
 }
@@ -489,3 +489,16 @@ svg text { font-family: inherit; }
   .cambio { grid-template-columns: 44px 1fr; }
   .cambio .delta { grid-column: 2; }
 }
+
+/* ==========================================================================
+   Acceso
+   ========================================================================== */
+
+body.solo { display: block; }
+.acceso-caja input:focus { outline: none; border-color: var(--acento); }
+.acceso { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.acceso-caja { width: min(400px, 100%); padding: 26px 26px 22px; }
+.acceso-caja h1 { font-size: 18px; letter-spacing: -.02em; font-weight: 680; }
+.acceso-caja .error { margin-top: 4px; }
+.lateral-pie .sesion { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lateral-pie .sesion b { color: var(--texto-2); font-weight: 600; word-break: break-all; }

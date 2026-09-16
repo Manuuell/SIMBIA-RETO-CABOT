@@ -43,13 +43,22 @@ function enrutar() {
 
 async function arrancar() {
   try {
-    const [config, escenario, oferentes, salud] = await Promise.all([
+    const [config, escenario, oferentes, salud, sesion] = await Promise.all([
       pedir("/api/scout/estado"), pedir("/api/escenario"), pedir("/api/oferentes"), pedir("/salud"),
+      pedir("/api/sesion"),
     ]);
     estado.config = config; estado.escenario = escenario; estado.oferentes = oferentes;
     estado.radio = config.radio_km;
     $("pie-modo").innerHTML = `Modo de fuentes: <b>${escapar(config.modo)}</b>`;
     $("pie-version").textContent = `SIMBIA v${salud.version}`;
+    if (sesion.autenticacion) {
+      $("pie-sesion").innerHTML = `<b>${escapar(sesion.usuario || "")}</b>
+        <button class="secundario pequeno" id="btn-salir">Salir</button>`;
+      $("btn-salir").addEventListener("click", async () => {
+        await fetch("/api/salir", { method: "POST" });
+        location.replace("/acceso");
+      });
+    }
   } catch (e) {
     document.querySelector("main").insertAdjacentHTML("afterbegin",
       `<div class="error">No se pudo hablar con la API: ${escapar(e.message)}</div>`);

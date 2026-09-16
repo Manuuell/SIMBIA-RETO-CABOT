@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>SIMBIA · Acceso</title>
+  <link rel="stylesheet" href="/estilos.css?v=3">
+</head>
+<body class="solo">
+  <main class="acceso">
+    <form class="tarjeta acceso-caja" id="form-acceso" autocomplete="on">
+      <div class="marca" style="padding:0;margin-bottom:18px">
+        <div class="chevron"></div>
+        <div>
+          <h1>SIMBIA</h1>
+          <p class="sub">Simbiosis hidrica industrial · Reto Cabot</p>
+        </div>
+      </div>
+      <p class="prosa" style="margin-bottom:16px">Herramienta de uso interno. Identificate para continuar.</p>
+      <div class="control" style="margin-bottom:12px">
+        <label for="usuario">Correo</label>
+        <input type="email" id="usuario" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="control" style="margin-bottom:18px">
+        <label for="clave">Contrasena</label>
+        <input type="password" id="clave" name="password" autocomplete="current-password" required>
+      </div>
+      <div class="error" id="acceso-error" hidden></div>
+      <div class="acciones" style="margin-top:14px">
+        <button type="submit" id="btn-entrar" style="width:100%">Entrar</button>
+      </div>
+    </form>
+  </main>
+  <script type="module" src="/acceso.js?v=3"></script>
+</body>
+</html>

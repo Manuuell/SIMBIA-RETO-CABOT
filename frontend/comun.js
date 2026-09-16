@@ -11,6 +11,11 @@ export async function pedir(ruta, cuerpo) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(cuerpo),
   });
+  if (r.status === 401) {
+    // La sesion caduco o no existe: a la pagina de acceso, volviendo aqui despues.
+    location.replace(`/acceso?siguiente=${encodeURIComponent(location.pathname + location.hash)}`);
+    throw new Error("Sesion requerida");
+  }
   if (!r.ok) throw new Error(`${ruta}: ${r.status} ${(await r.text()).slice(0, 300)}`);
   return r.json();
 }
