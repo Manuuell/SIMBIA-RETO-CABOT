@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__
+from . import __version__, auth
 from .api.routes import router
 from .api.scout import router as router_scout
 
@@ -31,6 +31,9 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(router_scout)
+# Acceso con usuario y contrasena. Activo solo si SIMBIA_AUTH_HASH esta
+# definida; ver simbia/auth.py.
+auth.instalar(app, WEB)
 
 
 @app.get("/salud")
@@ -55,6 +58,8 @@ async def revalidar_estaticos(request, call_next):
     respuesta = await call_next(request)
     if not request.url.path.startswith(("/api", "/salud", "/docs", "/openapi")):
         respuesta.headers["Cache-Control"] = "no-cache"
+    if request.url.path == "/acceso":
+        respuesta.headers["Cache-Control"] = "no-store"
     return respuesta
 
 
