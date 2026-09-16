@@ -7,12 +7,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..config import Escenario
 from ..optim.blend import linea_base, optimizar
-from ..scout import almacen, ciiu, extraccion, permisos, vigilancia
+from ..scout import almacen, ciiu, extraccion, permisos, vigilancia, vital
 from ..scout.fuentes import Modo, catalogo as catalogo_fuentes, modo_actual
 from ..scout.fuentes.base import descargas_en_cache
 from ..scout.geo import PLANTA, RADIO_BUSQUEDA_KM, Sitio, proyectar
@@ -69,6 +69,9 @@ def _barrido(
         # elevan la confianza y la confianza es un factor del puntaje.
         lista, origen, fecha = permisos.consultar_detalle(modo=modo)
         enriquecidos, cruzados = permisos.enriquecer(barrido.prospectos, lista)
+        # Y los expedientes que alguien vinculo a mano desde el buscador:
+        # tambien antes de puntuar, por la misma razon.
+        enriquecidos = almacen.aplicar_expedientes(enriquecidos)
         _ultimo_barrido.update({
             "b": barrido, "modo": modo.value,
             "permisos": {
@@ -432,6 +435,69 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
         ],
         "umbral_confianza": ajustes.umbral_confianza,
     }
+
+
+# --------------------------------------------------------------------------
+# Buscador de VITAL
+# --------------------------------------------------------------------------
+
+@router.get("/vital/buscar")
+def vital_buscar(
+    q: str = "",
+    autoridad: list[str] = Query(default=[]),
+    tramite: list[str] = Query(default=[]),
+    municipio: list[str] = Query(default=[]),
+    solo_vertimientos: bool = False,
+    pagina: int = 1,
+    por_pagina: int = vital.POR_PAGINA,
+    modo: str | None = None,
+) -> dict[str, Any]:
+    """Busqueda libre en el buscador publico de VITAL, con facetas y paginas."""
+    b = vital.Busqueda(
+        texto=q, autoridades=tuple(autoridad), tramites=tuple(tramite),
+        municipios=tuple(municipio), solo_vertimientos=solo_vertimientos,
+        pagina=max(1, pagina), por_pagina=max(5, min(por_pagina, 100)),
+    )
+    return vital.buscar(b, _resolver_modo(modo)).as_dict()
+
+
+class VinculoExpediente(BaseModel):
+    clave: str
+    registro: dict[str, Any]
+    radio_km: float = RADIO_BUSQUEDA_KM
+
+
+@router.post("/vital/vincular")
+def vital_vincular(v: VinculoExpediente) -> dict[str, Any]:
+    """Asocia un tramite encontrado en el buscador a un prospecto del barrido."""
+    p = next(
+        (x for x in _barrido(v.radio_km)
+         if almacen.clave_estable(x.nombre, x.lat, x.lon) == v.clave),
+        None,
+    )
+    if p is None:
+        raise HTTPException(422, "El prospecto no esta en el barrido actual")
+    try:
+        f = almacen.vincular_expediente(v.clave, v.registro, nombre=p.nombre, lat=p.lat, lon=p.lon)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    _invalidar()
+    return f.as_dict()
+
+
+class Desvinculo(BaseModel):
+    clave: str
+    identificador: str
+
+
+@router.post("/vital/desvincular")
+def vital_desvincular(d: Desvinculo) -> dict[str, Any]:
+    try:
+        f = almacen.desvincular_expediente(d.clave, d.identificador)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    _invalidar()
+    return f.as_dict()
 
 
 # --------------------------------------------------------------------------
