@@ -14,6 +14,10 @@ WorkingDirectory=/var/www/simbia/backend
 # lanzar un barrido en modo cache o vivo sin reiniciar.
 Environment=SIMBIA_SCOUT_MODO=offline
 Environment=PYTHONUNBUFFERED=1
+# Credenciales de acceso (SIMBIA_AUTH_USUARIO, SIMBIA_AUTH_HASH,
+# SIMBIA_AUTH_SECRETO). Fichero 600 de root: systemd lo lee antes de bajar
+# privilegios. Sin el, la aplicacion arranca ABIERTA y lo avisa en el log.
+EnvironmentFile=-/etc/simbia.env
 ExecStart=/var/www/simbia/.venv/bin/python -m uvicorn simbia.main:app --host 127.0.0.1 --port 8123 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=5

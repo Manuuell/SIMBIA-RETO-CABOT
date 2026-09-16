@@ -15,6 +15,7 @@ toca el DNS.
 | Servicio | `simbia.service` (systemd), uvicorn en `127.0.0.1:8123`, modo de fuentes `offline` |
 | Vhost | `sentradns add simbia --tipo proxy --puerto 8123 --proyecto SIMBIA --max-body 40m --timeout 120s` |
 | TLS | Let's Encrypt, renovado por certbot |
+| Acceso | Usuario y contraseña en `/etc/simbia.env` (600 root); ver más abajo |
 
 `--max-body 40m` porque los PDF de expedientes viajan en base64; `--timeout
 120s` porque la frontera y las contingencias tardan varios segundos en ARM.
@@ -43,6 +44,27 @@ desde una máquina que ya la tenga:
 ```bash
 rsync -az backend/simbia/scout/archivo/cache ubuntu@VPS:/var/www/simbia/backend/simbia/scout/archivo/
 ```
+
+## Acceso con usuario y contraseña
+
+La aplicación pide identificarse si `SIMBIA_AUTH_HASH` está definida. La
+contraseña **nunca se escribe en claro**: se guarda su hash scrypt, generado
+leyendo la contraseña por stdin o pidiéndola de forma interactiva (sin eco, sin
+historial). El secreto firma la cookie de sesión; cambiarlo cierra todas las
+sesiones.
+
+```bash
+cd /var/www/simbia
+HASH=$(.venv/bin/python -m simbia.auth hash)          # pide la contraseña dos veces
+sudo install -m 600 -o root -g root /dev/null /etc/simbia.env
+printf 'SIMBIA_AUTH_USUARIO=%s\nSIMBIA_AUTH_HASH=%s\nSIMBIA_AUTH_SECRETO=%s\n' \
+  'correo@dominio' "$HASH" "$(openssl rand -hex 32)" | sudo tee /etc/simbia.env > /dev/null
+sudo systemctl restart simbia
+```
+
+Para cambiar la contraseña, repetir lo mismo (solo cambia `SIMBIA_AUTH_HASH`).
+Cinco intentos fallidos desde una IP la bloquean quince minutos; la sesión
+dura doce horas.
 
 ## Actualizar
 
