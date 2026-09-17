@@ -11,8 +11,6 @@ const TRAMOS = [
     d: "Cada empresa con su agua estimada, su confianza y un puntaje que dice a quien visitar primero." },
   { id: "empresas", n: "Paso 4", t: "Empresas",
     d: "La cartera: las elegidas con su dossier completo, expedientes, documentos y lectura con IA." },
-  { id: "embudo", n: "Paso 5", t: "Embudo comercial",
-    d: "Cuanto caudal hay contactado, caracterizado o contratado, y que cambio en el parque." },
   { id: "asistente", n: "Asistente", t: "Pregunta y escucha",
     d: "Se le escribe o se le dicta; responde con los datos de la aplicacion y lo explica hablando." },
   { id: "modelo", n: "Referencia", t: "Modelo y supuestos",
