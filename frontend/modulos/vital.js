@@ -32,12 +32,39 @@ function leerFormulario() {
   consulta.modo = document.querySelector("#vital-modo input:checked").value;
 }
 
+function lanzarBusqueda(texto, soloVertimientos = false) {
+  $("vital-q").value = texto;
+  $("vital-solo-vert").checked = soloVertimientos;
+  $("vital-solo-vert").closest("label").classList.toggle("activo", soloVertimientos);
+  buscar(1);
+}
+
+function pintarInicio(prioridades = []) {
+  if (resultado) return;
+  $("vital-titulo-resultados").textContent = "Comienza una verificación";
+  $("vital-resumen").textContent = "La búsqueda consulta evidencia pública y conserva su fecha.";
+  $("vital-resultados").innerHTML = `<div class="vital-vacio"><div class="vital-vacio-contenido">
+    <div class="vital-vacio-icono">⌕</div>
+    <h3>Del nombre de una empresa a evidencia verificable</h3>
+    <p>Busca por razón social, expediente o radicado. Después podrás revisar el trámite, abrir sus documentos y asociarlo al prospecto correcto.</p>
+    <div class="vital-flujo">
+      <div><span class="vital-flujo-num">1</span><b>Localizar</b><span>Encuentra trámites por empresa o identificador.</span></div>
+      <div><span class="vital-flujo-num">2</span><b>Revisar</b><span>Comprueba autoridad, fechas y documentos publicados.</span></div>
+      <div><span class="vital-flujo-num">3</span><b>Vincular</b><span>Incorpora el expediente a la ficha del prospecto.</span></div>
+    </div>
+    ${prioridades.length ? `<div class="vital-accesos"><span class="pie" style="width:100%;margin:0 0 2px">Verifica primero los prospectos con mayor puntaje</span>${prioridades.map((p) => `<button class="secundario pequeno" data-vital-buscar="${escapar(nombreParaBuscar(p.nombre))}">${escapar(p.nombre)}</button>`).join("")}</div>` : ""}
+  </div></div>`;
+}
+
 async function buscar(pagina = 1) {
   leerFormulario();
   if (!consulta.q) { $("vital-resumen").innerHTML = `<span style="color:var(--aviso)">Escribe una empresa, un expediente o un radicado.</span>`; return; }
   consulta.pagina = pagina;
   const btn = $("vital-btn"); btn.disabled = true; btn.textContent = "Buscando…";
-  $("vital-resultados").innerHTML = `<p class="cargando">Consultando el buscador de VITAL…</p>`;
+  $("vital-titulo-resultados").textContent = `Buscando “${consulta.q}”`;
+  $("vital-resumen").textContent = "Consultando la evidencia disponible…";
+  $("vital-resultados").innerHTML = `<div class="vital-vacio"><p class="cargando">Consultando el buscador público de VITAL…</p></div>`;
+  $("vital-paginacion").innerHTML = "";
   const params = new URLSearchParams({ q: consulta.q, pagina, modo: consulta.modo, solo_vertimientos: consulta.solo_vertimientos });
   if (consulta.autoridad) params.append("autoridad", consulta.autoridad);
   if (consulta.tramite) params.append("tramite", consulta.tramite);
@@ -54,8 +81,10 @@ async function buscar(pagina = 1) {
         resultado.origen === "red" ? "consultado ahora" : `consulta disponible${resultado.fecha_dato ? " del " + fechaCorta(resultado.fecha_dato) : ""}`);
     }
   } catch (e) {
-    $("vital-resultados").innerHTML = `<div class="error">${escapar(e.message)}</div>`;
-  } finally { btn.disabled = false; btn.textContent = "Buscar"; }
+    $("vital-titulo-resultados").textContent = "No se pudo completar la búsqueda";
+    $("vital-resumen").textContent = "Revisa la conexión e inténtalo de nuevo.";
+    $("vital-resultados").innerHTML = `<div class="error" style="margin:16px">${escapar(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = "Buscar en VITAL"; }
 }
 
 function opciones(select, valores, actual, vacio) {
@@ -66,24 +95,31 @@ function opciones(select, valores, actual, vacio) {
 
 function pintarResultado() {
   const r = resultado;
-  opciones($("vital-aut"), r.facetas.autoridad, consulta.autoridad, "Cualquier autoridad");
-  opciones($("vital-tra"), r.facetas.tramite, consulta.tramite, "Cualquier tramite");
-  opciones($("vital-mun"), r.facetas.municipio, consulta.municipio, "Cualquier municipio");
+  opciones($("vital-aut"), r.facetas.autoridad, consulta.autoridad, "Todas las autoridades");
+  opciones($("vital-tra"), r.facetas.tramite, consulta.tramite, "Todos los trámites");
+  opciones($("vital-mun"), r.facetas.municipio, consulta.municipio, "Todos los municipios");
 
-  $("vital-chip-origen").innerHTML = r.origen === "red" ? chip("consultado ahora", "ok")
-    : r.origen === "cache" ? chip(`consulta${r.fecha_dato ? " · " + fechaCorta(r.fecha_dato) : " disponible"}`, "azul")
-    : chip("sin dato", "aviso");
+  $("vital-chip-origen").innerHTML = r.origen === "red" ? chip("Fuente consultada ahora", "ok")
+    : r.origen === "cache" ? chip(`Evidencia disponible${r.fecha_dato ? " · " + fechaCorta(r.fecha_dato) : ""}`, "azul")
+    : chip("Fuente no disponible", "aviso");
+  $("vital-titulo-resultados").textContent = `Resultados para “${consulta.q}”`;
 
   if (r.origen === "sin dato") {
     $("vital-resumen").innerHTML = `<span style="color:var(--aviso)">${escapar(r.incidencia)}</span>`;
     $("vital-resultados").innerHTML = ""; $("vital-paginacion").innerHTML = "";
     return;
   }
-  $("vital-resumen").innerHTML = `<b>${r.total}</b> tramite(s) · pagina ${r.pagina} de ${r.paginas || 1}`
-    + (r.vertimientos ? ` · ${r.vertimientos} de vertimiento en esta pagina` : "")
+  $("vital-resumen").innerHTML = `<b>${r.total}</b> trámite${r.total === 1 ? "" : "s"} · página ${r.pagina} de ${r.paginas || 1}`
+    + (r.vertimientos ? ` · ${r.vertimientos} de vertimiento en esta página` : "")
     + (r.incidencia ? ` · <span style="color:var(--aviso)">${escapar(r.incidencia)}</span>` : "");
 
-  if (!r.registros.length) { $("vital-resultados").innerHTML = `<p class="pie">Nada con esos filtros. Prueba sin "solo vertimientos" o con menos palabras.</p>`; $("vital-paginacion").innerHTML = ""; return; }
+  if (!r.registros.length) {
+    $("vital-resultados").innerHTML = `<div class="vital-sin-resultados"><div><h3>No encontramos coincidencias</h3>
+      <p>Prueba con una razón social más corta, elimina algún filtro o desactiva “Solo vertimientos” para revisar otros trámites de la empresa.</p>
+      ${consulta.solo_vertimientos ? `<button class="secundario pequeno" style="margin-top:12px" data-vital-ampliar>Buscar todos los trámites</button>` : ""}</div></div>`;
+    $("vital-paginacion").innerHTML = "";
+    return;
+  }
 
   $("vital-resultados").innerHTML = `<table>
     <thead><tr><th>Titular</th><th>Tramite</th><th>Autoridad</th><th>Expediente</th><th>Fecha</th><th></th></tr></thead>
@@ -101,7 +137,7 @@ function pintarResultado() {
 
   $("vital-paginacion").innerHTML = `
     <button class="secundario pequeno" id="vital-prev" ${r.pagina <= 1 ? "disabled" : ""}>← Anterior</button>
-    <span class="pie" style="margin:0">pagina ${r.pagina} de ${r.paginas || 1}</span>
+    <span class="pie" style="margin:0">página ${r.pagina} de ${r.paginas || 1}</span>
     <button class="secundario pequeno" id="vital-next" ${r.pagina >= (r.paginas || 1) ? "disabled" : ""}>Siguiente →</button>`;
   $("vital-prev").addEventListener("click", () => buscar(r.pagina - 1));
   $("vital-next").addEventListener("click", () => buscar(r.pagina + 1));
@@ -299,30 +335,42 @@ function montarAccionesDetalle() {
 function pintarLaterales() {
   const b = estado.barrido;
   if (!b) return;
-  const sin = b.prospectos.filter((p) => !tienePermiso(p) && (p.puntaje || 0) > 0)
+  const evaluables = b.prospectos.filter((p) => (p.puntaje || 0) > 0);
+  const sin = evaluables.filter((p) => !tienePermiso(p))
     .sort((a, c) => (c.puntaje || 0) - (a.puntaje || 0));
-  $("vital-pendientes").innerHTML = sin.length ? `<table><tbody>${sin.map((p) => `<tr>
-      <td><b>${escapar(p.nombre)}</b><span class="sub">${escapar(p.sector)} · puntaje ${(p.puntaje || 0).toFixed(0)}</span></td>
-      <td class="num"><button class="secundario pequeno btn-buscar-p" data-q="${escapar(nombreParaBuscar(p.nombre))}">Buscar</button></td>
-    </tr>`).join("")}</tbody></table>`
-    : `<p class="pie">Todos los prospectos viables tienen expediente localizado.</p>`;
-  $("vital-pendientes").querySelectorAll(".btn-buscar-p").forEach((btn) => btn.addEventListener("click", () => {
-    $("vital-q").value = btn.dataset.q;
-    $("vital-solo-vert").checked = false;      // la empresa puede tramitar otra cosa
-    buscar(1);
-    $("vital-q").scrollIntoView({ behavior: "smooth", block: "center" });
-  }));
+  const conEvidencia = evaluables.length - sin.length;
+  const asociados = b.prospectos.filter((p) => (p.ficha?.expedientes || []).length);
+  const documentos = b.prospectos.reduce((n, p) => n + (p.ficha?.documentos || []).length, 0);
+  const avance = evaluables.length ? Math.round(conEvidencia / evaluables.length * 100) : 0;
 
-  const con = b.prospectos.filter((p) => (p.ficha?.expedientes || []).length);
-  $("vital-vinculados").innerHTML = con.length ? con.map((p) => `
-    <div style="padding:6px 0;border-bottom:1px solid var(--borde-suave)">
-      <b>${escapar(p.nombre)}</b>
-      ${p.ficha.expedientes.map((e) => `<div class="sub" style="display:flex;gap:8px;align-items:center;margin-top:3px">
-        <code>${escapar(e.expediente || e.radicado)}</code> ${escapar(e.tramite_legible || e.tramite)} · ${escapar((e.autoridad || "").trim())}
-        <button class="secundario pequeno btn-quitar" data-clave="${p.clave}" data-id="${escapar(e.expediente || e.radicado)}" style="margin-left:auto">Quitar</button>
+  $("vital-metricas").innerHTML = `<div class="vital-metricas">
+      <div class="vital-metrica"><b>${conEvidencia}</b><span>con evidencia VITAL</span></div>
+      <div class="vital-metrica"><b>${sin.length}</b><span>por verificar</span></div>
+      <div class="vital-metrica"><b>${documentos}</b><span>documentos guardados</span></div>
+    </div>
+    <div class="vital-progreso" style="--avance:${avance}%"><i></i></div>
+    <div class="vital-progreso-nota"><span>${avance}% de cobertura</span><span>${conEvidencia} de ${evaluables.length} prospectos</span></div>`;
+
+  const pendiente = (p, i) => `<div class="vital-pendiente">
+    <span class="vital-rango">${i + 1}</span>
+    <div><b title="${escapar(p.nombre)}">${escapar(p.nombre)}</b><span class="sub">${escapar(p.sector)} · puntaje ${(p.puntaje || 0).toFixed(0)}</span></div>
+    <button class="secundario pequeno" data-vital-buscar="${escapar(nombreParaBuscar(p.nombre))}">Verificar</button>
+  </div>`;
+  const principales = sin.slice(0, 6);
+  const restantes = sin.slice(6);
+  $("vital-pendientes").innerHTML = sin.length ? principales.map(pendiente).join("")
+    + (restantes.length ? `<details class="vital-mas"><summary>Ver ${restantes.length} prospectos más</summary>${restantes.map((p, i) => pendiente(p, i + 6)).join("")}</details>` : "")
+    : `<p class="pie">Todos los prospectos viables tienen expediente localizado.</p>`;
+
+  $("vital-vinculados").innerHTML = asociados.length ? asociados.map((p) => `
+    <div class="vital-vinculo">
+      <div class="vital-vinculo-cab"><b>${escapar(p.nombre)}</b>${chip(`${p.ficha.expedientes.length}`, "ok")}</div>
+      ${p.ficha.expedientes.map((e) => `<div class="sub">
+        <code>${escapar(e.expediente || e.radicado)}</code> · ${escapar((e.autoridad || "").trim())}
+        <button class="secundario pequeno btn-quitar" data-clave="${p.clave}" data-id="${escapar(e.expediente || e.radicado)}" style="float:right">Quitar</button>
       </div>`).join("")}
     </div>`).join("")
-    : `<p class="pie">Ninguno todavia. Busca una empresa y pulsa "Vincular" en el detalle de un tramite.</p>`;
+    : `<p class="pie">Todavía no hay asociaciones manuales. Abre un resultado y selecciona “Vincular”.</p>`;
   $("vital-vinculados").querySelectorAll(".btn-quitar").forEach((btn) => btn.addEventListener("click", async () => {
     btn.disabled = true;
     try {
@@ -331,6 +379,7 @@ function pintarLaterales() {
       await cargarBarrido({ refrescar: true });
     } catch (e) { alert(e.message); btn.disabled = false; }
   }));
+  pintarInicio(sin.slice(0, 3));
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +387,17 @@ function pintarLaterales() {
 export default {
   id: "vital",
   async montar() {
+    $("vital-chip-origen").innerHTML = chip("Fuente oficial · MinAmbiente", "neutra");
     $("vital-form").addEventListener("submit", (ev) => { ev.preventDefault(); buscar(1); });
+    $("mod-vital").addEventListener("click", (ev) => {
+      const acceso = ev.target.closest("[data-vital-buscar]");
+      if (acceso) {
+        lanzarBusqueda(acceso.dataset.vitalBuscar, false);
+        $("vital-q").scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (ev.target.closest("[data-vital-ampliar]")) lanzarBusqueda(consulta.q, false);
+    });
     ["vital-aut", "vital-tra", "vital-mun", "vital-solo-vert"].forEach((id) =>
       $(id).addEventListener("change", () => {
         $("vital-solo-vert").closest("label").classList.toggle("activo", $("vital-solo-vert").checked);

@@ -1,10 +1,8 @@
-/* Modulo: el asistente, como pantalla completa.
+/* Espacio de trabajo conversacional del asistente.
  *
- * En el centro, el orbe: respira en reposo, emite ondas cuando escucha, gira
- * cuando piensa y vibra con la voz mientras habla (la amplitud sale del audio
- * real, con un AnalyserNode). Debajo, la pregunta y la respuesta en grande;
- * al pie, la barra para escribir o dictar. Mas abajo, la conversacion y lo
- * que el asistente sabe ahora mismo.
+ * La conversacion es el contenido principal, el compositor permanece a mano
+ * y el contexto conectado se ve en un panel lateral. El orbe queda reducido
+ * a un indicador de estado y conserva la reaccion a la voz real.
  */
 
 import { $, anotar, chip, escapar, estado, pedir } from "../comun.js";
@@ -57,7 +55,6 @@ function detenerAudio() {
   }
   for (let i = 1; i <= 5; i++) $("orbe").style.setProperty(`--b${i}`, "0.15");
   if ($("orbe").dataset.estado === "hablando") ponerEstado("reposo");
-  $("btn-escuchar").textContent = "🔊 Escuchar"; $("btn-escuchar").disabled = false;
 }
 
 /** Parte un texto en fragmentos de unas pocas frases, para leerlo por trozos. */
@@ -131,7 +128,6 @@ function nuevaCola() {
   c.correr = async () => {
     if (c.corriendo) return;
     c.corriendo = true;
-    const btn = $("btn-escuchar"); btn.textContent = "⏹ Parar"; btn.disabled = false;
     if ($("orbe").dataset.estado !== "hablando") $("orbe-estado").textContent = "Preparando voz…";
     let i = 0;
     try {
@@ -169,23 +165,46 @@ function moduloAnterior() {
   return sessionStorage.getItem("simbia.modulo_previo") || "asistente";
 }
 
-function pintarDialogo() {
-  const ultimoUsuario = [...historial].reverse().find((m) => m.rol === "usuario");
-  const ultimoAsistente = historial.at(-1)?.rol === "asistente" ? historial.at(-1) : null;
-  $("asistente-pregunta").textContent = ultimoUsuario ? ultimoUsuario.contenido : "";
-  $("asistente-respuesta").innerHTML = ultimoAsistente
-    ? escapar(ultimoAsistente.contenido).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>")
-    : "";
-  $("asistente-respuesta-acciones").hidden = !ultimoAsistente;
-  $("btn-escuchar").hidden = !(ia?.voz);
+function formatear(texto) {
+  return escapar(texto || "")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .split(/\n{2,}/)
+    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
-function pintarHistorial() {
+function pintarHistorial(enCurso = false) {
   const caja = $("asistente-historial");
-  caja.innerHTML = historial.length
-    ? historial.map((m) => `<div class="burbuja ${m.rol}">${escapar(m.contenido).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>")}</div>`).join("")
-    : `<p class="pie">Todavia no hay conversacion.</p>`;
+  if (!historial.length) {
+    caja.innerHTML = `<div class="asistente-vacio">
+      <div class="asistente-vacio-marca">S</div>
+      <div><h2>¿Qué quieres analizar?</h2>
+        <p>Consulta la prospección, compara empresas o pide evidencia de los expedientes. Cada respuesta distingue datos medidos, declarados e inferidos.</p></div>
+      <div class="sugerencias">${SUGERENCIAS.slice(0, 4).map((s) => `<button class="secundario" data-pregunta="${escapar(s)}">${escapar(s)}</button>`).join("")}</div>
+    </div>`;
+    return;
+  }
+  caja.innerHTML = historial.map((m, i) => {
+    const esAsistente = m.rol === "asistente";
+    const escribiendo = enCurso && i === historial.length - 1 && esAsistente;
+    return `<article class="mensaje ${m.rol}">
+      <div class="mensaje-avatar">${esAsistente ? "S" : "TÚ"}</div>
+      <div><div class="mensaje-cabecera">${esAsistente ? "SIMBIA" : "Tú"}</div>
+        <div class="mensaje-contenido">${m.contenido ? formatear(m.contenido) : "Analizando el contexto…"}${escribiendo ? '<span class="cursor-respuesta"></span>' : ""}</div>
+        ${esAsistente && m.contenido ? `<div class="mensaje-acciones">
+          <button class="secundario" data-accion="copiar" data-indice="${i}">Copiar</button>
+          ${ia?.voz ? `<button class="secundario" data-accion="escuchar" data-indice="${i}">Escuchar</button>` : ""}
+        </div>` : ""}
+      </div>
+    </article>`;
+  }).join("");
   caja.scrollTop = caja.scrollHeight;
+}
+
+function ajustarEntrada() {
+  const entrada = $("asistente-entrada");
+  entrada.style.height = "auto";
+  entrada.style.height = `${Math.min(entrada.scrollHeight, 150)}px`;
 }
 
 async function preguntar(texto) {
@@ -193,8 +212,9 @@ async function preguntar(texto) {
   if (!texto || !ia?.disponible) return;
   detenerAudio();
   $("asistente-entrada").value = "";
+  ajustarEntrada();
   historial.push({ rol: "usuario", contenido: texto });
-  pintarDialogo(); pintarHistorial();
+  pintarHistorial();
   ponerEstado("pensando");
   $("asistente-enviar").disabled = true;
   // La respuesta llega por trozos: se pinta segun llega y, si hay voz, cada
@@ -223,6 +243,7 @@ async function preguntar(texto) {
     if (r.status === 401) { location.replace("/acceso"); return; }
     if (!r.ok) throw new Error((await r.json()).detail || `${r.status}`);
     historial.push(respuesta);
+    pintarHistorial(true);
     const lector = r.body.getReader(), decodificador = new TextDecoder();
     let resto = "", contexto = null;
     for (;;) {
@@ -238,14 +259,14 @@ async function preguntar(texto) {
         if (d.delta) {
           if (!respuesta.contenido) ponerEstado("reposo", "Respondiendo…");
           respuesta.contenido += d.delta;
-          pintarDialogo();
+          pintarHistorial(true);
           enviarFrasesCompletas(false);
         }
         if (d.fin) contexto = d.contexto;
       }
     }
     respuesta.contenido = respuesta.contenido.trim();
-    pintarDialogo(); pintarHistorial();
+    pintarHistorial();
     enviarFrasesCompletas(true);
     colaLocal?.cerrar();
     ponerEstado($("orbe").dataset.estado === "hablando" ? "hablando" : "reposo", $("orbe").dataset.estado === "hablando" ? "Hablando" : "Respondido. ¿Algo mas?");
@@ -255,7 +276,7 @@ async function preguntar(texto) {
     colaLocal?.cerrar();
     respuesta.contenido = (respuesta.contenido ? respuesta.contenido + "\n\n" : "") + `No pude responder: ${e.message}`;
     if (!historial.includes(respuesta)) historial.push(respuesta);
-    pintarDialogo(); pintarHistorial();
+    pintarHistorial();
     ponerEstado("reposo", "Algo fallo. Intentalo de nuevo.");
   } finally {
     $("asistente-enviar").disabled = false;
@@ -298,14 +319,18 @@ async function pintarSabe() {
   try {
     const c = await pedir(`/api/asistente/contexto?radio_km=${estado.radio}&clave=${encodeURIComponent(contextoClave)}`);
     const sinResumen = c.documentos.filter((d) => !d.con_resumen);
+    const fuente = c.modo_fuentes === "live" ? "Fuentes públicas consultadas" : "Fuentes públicas verificadas";
     caja.innerHTML = `
       <div class="sabe-fila">${chip(`${c.prospectos} prospectos`, "neutra")} ${chip(`${c.cartera.length} en cartera`, c.cartera.length ? "ok" : "neutra")}
-        ${chip(`${c.documentos.length} documento(s)`, "neutra")} ${chip(`fuentes: ${c.modo_fuentes}`, "neutra")}
+        ${chip(`${c.documentos.length} documentos`, "neutra")}
         ${c.empresa_en_pantalla ? chip(`en pantalla: ${escapar(c.empresa_en_pantalla)}`, "azul") : ""}</div>
-      ${c.cartera.length ? `<p class="pie">Cartera: ${c.cartera.map(escapar).join(", ")}.</p>` : `<p class="pie">La cartera esta vacia: el asistente vera los prospectos, pero no fichas ni documentos. <a href="#empresas">Ir a Empresas</a>.</p>`}
-      ${c.documentos.length ? `<ul class="refs">${c.documentos.map((d) => `<li>📄 ${escapar(d.archivo)} <span class="sub" style="display:inline">· ${escapar(d.empresa)}</span> ${d.con_resumen ? chip("resumido", "ok") : chip("sin resumen", "aviso")}</li>`).join("")}</ul>` : ""}
-      ${sinResumen.length ? `<p class="pie" style="color:var(--aviso)">${sinResumen.length} documento(s) sin resumen: el asistente no puede leerlos hasta que pulses "Resumir" en <a href="#empresas">Empresas</a>.</p>` : ""}
-      <p class="pie">El asistente responde solo con estos datos y dice de donde sale cada cifra. Lo inferido lo presenta como inferido.</p>`;
+      <h3 class="asistente-seccion">Cobertura</h3>
+      <p class="pie">${escapar(fuente)} · radio de ${estado.radio} km.</p>
+      ${c.cartera.length ? `<h3 class="asistente-seccion">Cartera activa</h3><p class="pie">${c.cartera.map(escapar).join(", ")}.</p>` : `<p class="pie">La cartera está vacía. El asistente puede comparar prospectos, pero aún no tiene fichas ni documentos. <a href="#empresas">Ir a Empresas</a>.</p>`}
+      ${c.documentos.length ? `<h3 class="asistente-seccion">Evidencia documental</h3><ul class="refs">${c.documentos.map((d) => `<li>📄 ${escapar(d.archivo)} <span class="sub" style="display:inline">· ${escapar(d.empresa)}</span> ${d.con_resumen ? chip("analizado", "ok") : chip("pendiente", "aviso")}</li>`).join("")}</ul>` : ""}
+      ${sinResumen.length ? `<p class="pie" style="color:var(--aviso)">${sinResumen.length} documento(s) pendientes de análisis. Puedes procesarlos desde <a href="#empresas">Empresas</a>.</p>` : ""}
+      <h3 class="asistente-seccion">Criterio de respuesta</h3>
+      <p class="pie">Separa evidencia medida, datos declarados y estimaciones. Cuando falta soporte, lo indica explícitamente.</p>`;
   } catch (e) {
     caja.innerHTML = `<p class="pie">${escapar(e.message)}</p>`;
   }
@@ -318,21 +343,22 @@ export default {
   async montar() {
     $("asistente-form").addEventListener("submit", (ev) => { ev.preventDefault(); preguntar($("asistente-entrada").value); });
     $("asistente-entrada").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); preguntar($("asistente-entrada").value); } });
+    $("asistente-entrada").addEventListener("input", ajustarEntrada);
     $("asistente-voz-auto").checked = leerSolas;
     $("asistente-voz-auto").addEventListener("change", (ev) => { leerSolas = ev.target.checked; if (!leerSolas) detenerAudio(); });
-    $("btn-escuchar").addEventListener("click", () => {
-      if (audio || cola) { detenerAudio(); return; }
-      const ultimo = [...historial].reverse().find((m) => m.rol === "asistente");
-      if (ultimo) hablar(ultimo.contenido);
+    $("asistente-limpiar").addEventListener("click", () => { historial.length = 0; detenerAudio(); pintarHistorial(); ponerEstado(ia?.disponible ? "reposo" : "sin_ia"); });
+    $("asistente-historial").addEventListener("click", async (ev) => {
+      const sugerencia = ev.target.closest("[data-pregunta]");
+      if (sugerencia) { preguntar(sugerencia.dataset.pregunta); return; }
+      const boton = ev.target.closest("[data-accion]");
+      if (!boton) return;
+      const mensaje = historial[Number(boton.dataset.indice)];
+      if (!mensaje) return;
+      if (boton.dataset.accion === "escuchar") { hablar(mensaje.contenido); return; }
+      try { await navigator.clipboard.writeText(mensaje.contenido); boton.textContent = "Copiado"; }
+      catch { boton.textContent = "No se pudo"; }
+      setTimeout(() => { boton.textContent = "Copiar"; }, 1400);
     });
-    $("btn-copiar-respuesta").addEventListener("click", async (ev) => {
-      const ultimo = [...historial].reverse().find((m) => m.rol === "asistente");
-      try { await navigator.clipboard.writeText(ultimo?.contenido || ""); ev.target.textContent = "Copiada"; } catch { ev.target.textContent = "No se pudo"; }
-      setTimeout(() => { ev.target.textContent = "Copiar"; }, 1500);
-    });
-    $("asistente-limpiar").addEventListener("click", () => { historial.length = 0; detenerAudio(); pintarDialogo(); pintarHistorial(); ponerEstado(ia?.disponible ? "reposo" : "sin_ia"); });
-    $("asistente-sugerencias").innerHTML = SUGERENCIAS.map((s) => `<button class="secundario pequeno">${escapar(s)}</button>`).join("");
-    $("asistente-sugerencias").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => preguntar(b.textContent)));
     window.addEventListener("hashchange", () => {
       const anterior = sessionStorage.getItem("simbia.modulo_actual") || "";
       sessionStorage.setItem("simbia.modulo_previo", anterior);
@@ -341,8 +367,9 @@ export default {
     montarDictado();
     try { ia = await pedir("/api/asistente/estado"); }
     catch (e) { ia = { disponible: false, motivo: e.message }; }
+    const modeloVisible = ia?.modelo === "gpt-5.4-mini" ? "GPT-5.4 mini · análisis activo" : ia?.modelo;
     $("asistente-chip").innerHTML = ia.disponible
-      ? chip(`${escapar(ia.proveedor)} · ${escapar(ia.modelo)}${ia.voz ? " · voz" : ""}`, "ok")
+      ? chip(escapar(modeloVisible), "ok")
       : chip("IA no configurada", "aviso");
     $("asistente-voz-auto").closest("label").hidden = !(ia.disponible && ia.voz);
     if (!ia.disponible) {
@@ -352,7 +379,7 @@ export default {
     } else {
       ponerEstado("reposo");
     }
-    pintarDialogo(); pintarHistorial();
+    pintarHistorial();
   },
   async mostrar() { if (ia?.disponible) pintarSabe(); },
 };

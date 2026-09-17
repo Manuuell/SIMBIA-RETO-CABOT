@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SIMBIA · Simbiosis hidrica industrial · Reto Cabot</title>
-  <link rel="stylesheet" href="estilos.css?v=3">
+  <link rel="stylesheet" href="estilos.css?v=5">
 </head>
 <body>
 
@@ -243,41 +243,54 @@
     <div class="cabecera">
       <div>
         <h1>Buscador VITAL</h1>
-        <p class="intro">Busca tramites ambientales por empresa, expediente o radicado en el buscador publico
-          del Ministerio de Ambiente, filtra por autoridad y tipo, y vincula lo que encuentres al prospecto
-          que corresponda.</p>
+        <p class="intro">Localiza trámites y expedientes ambientales, revisa su evidencia documental y
+          vincúlala con los prospectos de SIMBIA.</p>
       </div>
       <div class="acciones-cab"><span id="vital-chip-origen"></span></div>
     </div>
-    <div class="rejilla dos-tercios">
-      <div class="tarjeta">
-        <form class="buscador" id="vital-form">
-          <input type="search" id="vital-q" placeholder="Empresa, expediente o radicado — p. ej. Yara, Petroambiental, VDA-00020-24" autocomplete="off">
-          <button type="submit" id="vital-btn">Buscar</button>
-        </form>
-        <div class="filtros">
-          <label class="casilla activo"><input type="checkbox" id="vital-solo-vert" checked> solo vertimientos</label>
-          <select id="vital-aut"><option value="">Cualquier autoridad</option></select>
-          <select id="vital-tra"><option value="">Cualquier tramite</option></select>
-          <select id="vital-mun"><option value="">Cualquier municipio</option></select>
-          <div class="opciones" id="vital-modo" hidden>
-            <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Evidencia disponible</label>
-            <label><input type="radio" name="vital-modo" value="vivo"> Actualizar ahora</label>
-            <label><input type="radio" name="vital-modo" value="offline"> Ultima consulta</label>
+    <div class="vital-workspace">
+      <div class="vital-principal">
+        <div class="vital-busqueda-panel">
+          <form class="buscador vital-buscador" id="vital-form">
+            <div class="vital-campo-busqueda">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" id="vital-q" placeholder="Empresa, expediente o radicado" autocomplete="off" aria-label="Buscar en VITAL">
+            </div>
+            <button type="submit" id="vital-btn">Buscar en VITAL</button>
+          </form>
+          <div class="vital-ejemplos">Prueba con <button data-vital-buscar="Lamitech">Lamitech</button>, <button data-vital-buscar="Abocol">Abocol</button> o un radicado como <button data-vital-buscar="VDA-00020-24">VDA-00020-24</button>.</div>
+          <div class="filtros vital-filtros">
+            <label class="casilla activo"><input type="checkbox" id="vital-solo-vert" checked> Solo vertimientos</label>
+            <select id="vital-aut" aria-label="Filtrar por autoridad"><option value="">Todas las autoridades</option></select>
+            <select id="vital-tra" aria-label="Filtrar por trámite"><option value="">Todos los trámites</option></select>
+            <select id="vital-mun" aria-label="Filtrar por municipio"><option value="">Todos los municipios</option></select>
+            <div class="opciones" id="vital-modo" hidden>
+              <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Evidencia disponible</label>
+              <label><input type="radio" name="vital-modo" value="vivo"> Actualizar ahora</label>
+              <label><input type="radio" name="vital-modo" value="offline"> Última consulta</label>
+            </div>
           </div>
         </div>
-        <p class="pie" id="vital-resumen">Los filtros de autoridad, tramite y municipio se rellenan con lo que
-          devuelva la primera busqueda.</p>
-        <div class="tabla-envoltorio" id="vital-resultados"></div>
-        <div class="acciones" id="vital-paginacion"></div>
-        <details class="ayuda">
-          <summary>Que es VITAL y que se puede esperar de este buscador</summary>
+
+        <div class="vital-resultados-panel">
+          <div class="vital-resultados-cab">
+            <div>
+              <span class="vital-sobrelinea">Evidencia pública</span>
+              <h2 id="vital-titulo-resultados">Resultados</h2>
+            </div>
+            <p class="pie" id="vital-resumen">Busca una empresa para comenzar.</p>
+          </div>
+          <div class="tabla-envoltorio" id="vital-resultados"></div>
+          <div class="acciones vital-paginacion" id="vital-paginacion"></div>
+        </div>
+
+        <details class="ayuda vital-ayuda">
+          <summary>Qué información aporta VITAL</summary>
           <div class="cuerpo">
             <p><b>VITAL</b> es la Ventanilla Integral de Tramites Ambientales del Ministerio. Publica los
               tramites radicados ante las autoridades del pais (EPA Cartagena, CARDIQUE, ANLA…): quien pidio
-              que, ante quien, con que expediente y cuando. <b>No publica los documentos</b>: el caudal
-              autorizado y la caracterizacion viven en el expediente, que se pide por derecho de peticion
-              citando el numero. Para eso esta "Redactar solicitud".</p>
+              que, ante quien, con que expediente y cuando. Cuando el portal expone documentos, SIMBIA permite
+              revisarlos y guardarlos en la ficha del prospecto.</p>
             <p>La busqueda es texto libre sobre titular, proyecto, expediente y radicado. Una empresa puede
               tramitar con otra razon social o a traves de una filial: si "solo vertimientos" no encuentra
               nada, quita el filtro y mira que otros tramites tiene.</p>
@@ -286,16 +299,21 @@
           </div>
         </details>
       </div>
-      <div>
-        <div class="tarjeta bloque">
-          <h3>Prospectos sin expediente <span class="nota">buscarlos de un clic</span></h3>
+
+      <aside class="vital-lateral">
+        <div class="tarjeta vital-cobertura">
+          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Avance documental</span><h3>Cobertura de expedientes</h3></div></div>
+          <div id="vital-metricas"><p class="cargando">…</p></div>
+        </div>
+        <div class="tarjeta vital-pendientes-card">
+          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Siguiente acción</span><h3>Prospectos por verificar</h3></div><span class="nota">por prioridad</span></div>
           <div id="vital-pendientes"><p class="cargando">…</p></div>
         </div>
-        <div class="tarjeta bloque">
-          <h3>Expedientes vinculados a mano</h3>
+        <div class="tarjeta vital-vinculados-card">
+          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Evidencia confirmada</span><h3>Expedientes asociados</h3></div></div>
           <div id="vital-vinculados"></div>
         </div>
-      </div>
+      </aside>
     </div>
   </section>
 
@@ -570,56 +588,52 @@
 
   <!-- ================================================================ asistente -->
   <section class="modulo" id="mod-asistente">
-    <div class="cabecera">
-      <div>
-        <h1>Asistente</h1>
-        <p class="intro">Pregunta por los prospectos, la cartera, los expedientes y los documentos guardados. Responde con
-          los datos de la aplicacion, dice de donde sale cada cifra y puede explicartelo hablando.</p>
-      </div>
-      <div class="acciones-cab">
-        <span id="asistente-chip"></span>
-        <label class="casilla" style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--texto-tenue);padding:6px 10px;border:1px solid var(--borde);border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="asistente-voz-auto" checked> leer en voz alta</label>
-        <button class="secundario pequeno" id="asistente-limpiar">Nueva conversacion</button>
-      </div>
-    </div>
-
-    <div class="escena">
-      <div class="orbe-zona">
-        <div class="orbe" id="orbe" data-estado="reposo" aria-hidden="true">
-          <div class="orbe-anillo a1"></div><div class="orbe-anillo a2"></div><div class="orbe-anillo a3"></div>
-          <div class="orbe-halo"></div>
-          <div class="orbe-nucleo"></div>
-          <div class="orbe-barras"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="asistente-app">
+      <header class="asistente-barra">
+        <div class="asistente-identidad">
+          <div class="asistente-avatar">
+            <div class="orbe" id="orbe" data-estado="reposo" aria-hidden="true">
+              <div class="orbe-anillo a1"></div><div class="orbe-anillo a2"></div><div class="orbe-anillo a3"></div>
+              <div class="orbe-halo"></div>
+              <div class="orbe-nucleo"></div>
+              <div class="orbe-barras"><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div>
+            <h1>Asistente SIMBIA</h1>
+            <p class="orbe-estado" id="orbe-estado">Cargando…</p>
+          </div>
         </div>
-        <p class="orbe-estado" id="orbe-estado">Cargando…</p>
-      </div>
-
-      <div class="dialogo">
-        <p class="pregunta" id="asistente-pregunta"></p>
-        <div class="respuesta" id="asistente-respuesta"></div>
-        <div class="acciones" id="asistente-respuesta-acciones" hidden style="justify-content:center">
-          <button class="secundario pequeno" id="btn-escuchar">🔊 Escuchar</button>
-          <button class="secundario pequeno" id="btn-copiar-respuesta">Copiar</button>
+        <div class="asistente-acciones">
+          <span id="asistente-chip"></span>
+          <label class="asistente-voz"><input type="checkbox" id="asistente-voz-auto" checked> Voz</label>
+          <button class="secundario pequeno" id="asistente-limpiar">＋ Nueva conversación</button>
         </div>
-      </div>
+      </header>
 
-      <form class="barra-pregunta" id="asistente-form">
-        <button type="button" class="secundario" id="asistente-mic" title="Dictar">🎤</button>
-        <textarea id="asistente-entrada" rows="2" placeholder="Escribe una pregunta… (Enter envia, Shift+Enter salto de linea)"></textarea>
-        <button type="submit" id="asistente-enviar">Preguntar</button>
-      </form>
-      <div class="sugerencias" id="asistente-sugerencias"></div>
-    </div>
+      <div class="asistente-workspace">
+        <main class="asistente-chat">
+          <div class="conversacion" id="asistente-historial" aria-live="polite"></div>
 
-    <div class="rejilla dos" style="margin-top:22px">
-      <div class="tarjeta">
-        <h3>Conversacion</h3>
-        <div class="conversacion" id="asistente-historial"></div>
-      </div>
-      <div class="tarjeta">
-        <h3>Que sabe ahora</h3>
-        <div id="asistente-sabe"><p class="cargando">…</p></div>
+          <div class="asistente-composer-zona">
+            <form class="barra-pregunta" id="asistente-form">
+              <textarea id="asistente-entrada" rows="1" placeholder="Pregunta sobre prospectos, expedientes o documentos…" aria-label="Mensaje para el asistente"></textarea>
+              <div class="asistente-composer-pie">
+                <button type="button" class="secundario asistente-icono" id="asistente-mic" title="Dictar" aria-label="Dictar pregunta">🎤</button>
+                <span>Enter para enviar · Shift + Enter para nueva línea</span>
+                <button type="submit" id="asistente-enviar">Enviar ↑</button>
+              </div>
+            </form>
+          </div>
+        </main>
+
+        <aside class="asistente-contexto">
+          <div class="asistente-contexto-titulo">
+            <div><span class="asistente-contexto-punto"></span><h2>Contexto conectado</h2></div>
+            <p>Datos disponibles para esta conversación</p>
+          </div>
+          <div id="asistente-sabe"><p class="cargando">…</p></div>
+        </aside>
       </div>
     </div>
   </section>
@@ -709,6 +723,6 @@
 <aside class="panel-lateral" id="panel-revision"></aside>
 
 
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
