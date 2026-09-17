@@ -25,6 +25,7 @@ const resumenesPedidos = new Set();
 const analisis = {};         // ruta -> analisis completo del documento
 let trabajos = {};           // clave -> trabajo del lote (progreso)
 const enVital = {};          // clave -> lo que VITAL tiene de la empresa, por nombre
+let verTodoVital = false;
 let sondeo = null;
 
 const FICHA_VACIA = { estado: "detectado", expedientes: [], documentos: [], historial: [], en_cartera: false };
@@ -198,14 +199,16 @@ function bloqueEnVital(e, vinculados) {
   const grupos = v.expedientes.filter((g) => !ya.has(g.expediente || g.radicado));
   if (!v.expedientes.length) return `<p class="pie">Nada a nombre de "${escapar(e.nombre)}" (${v.total} resultado(s) para "${escapar(v.consulta)}", ninguno con titular parecido). Prueba en el <a href="#vital?q=${encodeURIComponent(v.consulta)}">Buscador VITAL</a> por si tramita con otra razon social.</p>`;
   if (!grupos.length) return `<p class="pie">Todo lo que hay a su nombre ya esta vinculado.</p>`;
-  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) en ${v.expedientes.length} expediente(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "cache" : "consultado ahora"}). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
-    <table><tbody>${grupos.map((g, i) => `<tr>
-      <td><code>${escapar(g.expediente || g.radicado)}</code><span class="sub">${escapar(g.titular)}</span></td>
+  const mostrar = verTodoVital ? grupos : grupos.slice(0, 10);
+  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "cache" : "consultado ahora"}), en ${v.expedientes.length} expediente(s) o grupo(s). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
+    <table><tbody>${mostrar.map((g, i) => `<tr>
+      <td>${g.expediente ? `<code>${escapar(g.expediente)}</code>` : `<span class="sub" style="display:inline">sin expediente</span>`}<span class="sub">${escapar(g.titular)}</span></td>
       <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}
         <span class="sub">${g.tramites.slice(0, 3).map((t) => `${escapar(t.tramite)} ×${t.n}`).join(" · ")}${g.tramites.length > 3 ? " · …" : ""}</span></td>
       <td class="sub" style="white-space:nowrap">${escapar(g.autoridad)}<br>${escapar(g.desde)}${g.hasta !== g.desde ? " → " + escapar(g.hasta) : ""} · ${g.n}</td>
       <td class="num"><button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="sin identificadores del VITAL antiguo"`}>Vincular</button></td>
-    </tr>`).join("")}</tbody></table>`;
+    </tr>`).join("")}</tbody></table>
+    ${grupos.length > 10 ? `<div class="acciones"><button class="secundario pequeno btn-vital-todos">${verTodoVital ? "Mostrar menos" : `Mostrar los ${grupos.length}`}</button></div>` : ""}`;
 }
 
 async function cargarEnVital(e, modo) {
@@ -519,6 +522,7 @@ function pintarDossier() {
   caja.querySelector(".btn-seguir-dossier")?.addEventListener("click", (ev) => { ev.target.disabled = true; seguir(e.clave, e.nombre); });
   caja.querySelector(".btn-analizar")?.addEventListener("click", (ev) => analizarExpedientes([e.clave], ev.target));
   caja.querySelector(".btn-vital-vivo")?.addEventListener("click", () => { delete enVital[e.clave]; pintarDossier(); cargarEnVital(e, "vivo"); });
+  caja.querySelector(".btn-vital-todos")?.addEventListener("click", () => { verTodoVital = !verTodoVital; pintarDossier(); });
   caja.querySelectorAll(".btn-vincular-grupo").forEach((b) => b.addEventListener("click", () => {
     const ya = new Set(tramites.map((t) => t.identificador));
     const grupos = enVital[e.clave].expedientes.filter((g) => !ya.has(g.expediente || g.radicado));

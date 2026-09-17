@@ -340,11 +340,15 @@ def buscar_por_empresa(nombre: str, modo: Modo | None = None, paginas: int = 2) 
     for x in registros:
         if parecido(nombre, x.titular) < UMBRAL_TITULAR:
             continue
-        clave = x.expediente or x.radicado or x.id
+        # Con expediente, el expediente es la unidad. Sin el, los autos y
+        # oficios sueltos se agrupan por tipo y autoridad: cada radicado
+        # aparte seria una lista de sesenta filas sin sentido.
+        clave = x.expediente or f"{x.tramite_legible}|{x.autoridad.strip()}"
         g = grupos.setdefault(clave, {
             "expediente": x.expediente, "radicado": x.radicado, "autoridad": x.autoridad.strip(),
             "titular": x.titular, "tramites": {}, "n": 0, "desde": x.fecha, "hasta": x.fecha,
             "es_vertimiento": False, "es_licencia": False, "representativo": None,
+            "sin_expediente": not x.expediente,
         })
         g["n"] += 1
         g["tramites"][x.tramite_legible] = g["tramites"].get(x.tramite_legible, 0) + 1
@@ -358,10 +362,10 @@ def buscar_por_empresa(nombre: str, modo: Modo | None = None, paginas: int = 2) 
             g["representativo"] = x.as_dict()
         elif rep is None:
             g["representativo"] = x.as_dict()
-    salida = sorted(
-        grupos.values(),
-        key=lambda g: (not g["es_vertimiento"], not g["es_licencia"], g["hasta"]),
-    )
+    # Lo mas reciente primero y, por encima, la categoria: vertimientos,
+    # licencias, el resto con expediente, y al final lo suelto.
+    salida = sorted(grupos.values(), key=lambda g: g["hasta"], reverse=True)
+    salida.sort(key=lambda g: (not g["es_vertimiento"], not g["es_licencia"], g["sin_expediente"]))
     for g in salida:
         g["tramites"] = [{"tramite": k, "n": v} for k, v in sorted(g["tramites"].items(), key=lambda kv: -kv[1])]
     return {

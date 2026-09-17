@@ -204,6 +204,9 @@ def test_buscar_por_empresa_agrupa_por_expediente_y_filtra_por_titular(cache_tem
     assert lam["representativo"]["sol_id"] == "5"        # el mas reciente con ids
     assert lam["tramites"] == [{"tramite": "LICENCIA AMBIENTAL", "n": 2}]
     assert r["coincidentes"] == 4
+    # Lo suelto sin expediente se agrupa por tipo y va al final.
+    suelto = r["expedientes"][-1]
+    assert suelto["sin_expediente"] and suelto["tramites"][0]["tramite"] == "Auto Liquidación"
     # Sin red y sin cache: lo dice, no revienta.
     r2 = vital.buscar_por_empresa("Nadie Conocido Ltda", modo=Modo.OFFLINE)
     assert r2["origen"] == "sin dato" and r2["expedientes"] == []
