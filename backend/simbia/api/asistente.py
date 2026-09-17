@@ -35,6 +35,23 @@ def estado() -> dict[str, Any]:
     }
 
 
+@router.get("/contexto")
+def contexto(radio_km: float = RADIO_BUSQUEDA_KM, clave: str = "") -> dict[str, Any]:
+    """Que sabe el asistente ahora mismo, sin llamar al modelo."""
+    barrido = api_scout.barrido(radio_km=radio_km)
+    c = asistente.construir_contexto({}, barrido, api_scout.EXPEDIENTES, clave=clave)
+    return {
+        "prospectos": len(c.prospectos) + len(c.cartera),
+        "cartera": [p["empresa"] for p in c.cartera],
+        "documentos": [
+            {"empresa": d["empresa"], "archivo": d["archivo"], "con_resumen": not isinstance(d["resumen"], str)}
+            for d in c.documentos
+        ],
+        "empresa_en_pantalla": c.empresa_en_pantalla,
+        "modo_fuentes": c.resumen_barrido.get("modo_fuentes"),
+    }
+
+
 class Pregunta(BaseModel):
     mensaje: str = Field(min_length=1, max_length=asistente.MAX_MENSAJE)
     historial: list[dict[str, str]] = Field(default_factory=list)

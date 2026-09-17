@@ -13,7 +13,7 @@ import {
   fmt, kpi, pedir, sello, textoSolicitud, tienePermiso,
 } from "../comun.js";
 import { abrirPanel } from "./prospectos.js";
-import { fijarEmpresaEnPantalla } from "../asistente.js";
+import { fijarEmpresaEnPantalla } from "./asistente.js";
 
 let cartera = null;
 let elegida = null;          // clave de la empresa abierta

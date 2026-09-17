@@ -17,6 +17,8 @@ const TRAMOS = [
     d: "Que mezclar, con que tren de tratamiento, cuanto acido y a que ciclos. Con el catalogo supuesto o con los prospectos reales." },
   { id: "operacion", n: "Paso 7", t: "Operacion e IA",
     d: "Demanda a 24 h, deteccion de fugas y riesgo de ensuciamiento a 7 dias." },
+  { id: "asistente", n: "Asistente", t: "Pregunta y escucha",
+    d: "Se le escribe o se le dicta; responde con los datos de la aplicacion y lo explica hablando." },
   { id: "modelo", n: "Referencia", t: "Modelo y supuestos",
     d: "Que da por supuesto la aplicacion y como calcula cada cosa." },
 ];

@@ -52,17 +52,17 @@
       <span class="n">7</span>
       <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
     </a>
+    <div class="grupo">Asistente</div>
+    <a href="#asistente" data-modulo="asistente" class="destacado">
+      <span class="n">✦</span>
+      <span><span class="t">Asistente</span><br><span class="d">Pregunta, escucha, dicta</span></span>
+    </a>
     <div class="grupo">Referencia</div>
     <a href="#modelo" data-modulo="modelo">
       <span class="n">8</span>
       <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
     </a>
   </nav>
-
-  <div class="lateral-asistente">
-    <button id="btn-asistente">💬 Asistente</button>
-    <span class="sub">Pregunta por los prospectos y los documentos</span>
-  </div>
 
   <div class="lateral-pie">
     <span class="sesion" id="pie-sesion"></span>
@@ -553,6 +553,62 @@
     </div>
   </section>
 
+  <!-- ================================================================ asistente -->
+  <section class="modulo" id="mod-asistente">
+    <div class="cabecera">
+      <div>
+        <h1>Asistente</h1>
+        <p class="intro">Pregunta por los prospectos, la cartera, los expedientes y los documentos guardados. Responde con
+          los datos de la aplicacion, dice de donde sale cada cifra y puede explicartelo hablando.</p>
+      </div>
+      <div class="acciones-cab">
+        <span id="asistente-chip"></span>
+        <label class="casilla" style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--texto-tenue);padding:6px 10px;border:1px solid var(--borde);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="asistente-voz-auto" checked> leer en voz alta</label>
+        <button class="secundario pequeno" id="asistente-limpiar">Nueva conversacion</button>
+      </div>
+    </div>
+
+    <div class="escena">
+      <div class="orbe-zona">
+        <div class="orbe" id="orbe" data-estado="reposo" aria-hidden="true">
+          <div class="orbe-anillo a1"></div><div class="orbe-anillo a2"></div><div class="orbe-anillo a3"></div>
+          <div class="orbe-halo"></div>
+          <div class="orbe-nucleo"></div>
+          <div class="orbe-barras"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <p class="orbe-estado" id="orbe-estado">Cargando…</p>
+      </div>
+
+      <div class="dialogo">
+        <p class="pregunta" id="asistente-pregunta"></p>
+        <div class="respuesta" id="asistente-respuesta"></div>
+        <div class="acciones" id="asistente-respuesta-acciones" hidden style="justify-content:center">
+          <button class="secundario pequeno" id="btn-escuchar">🔊 Escuchar</button>
+          <button class="secundario pequeno" id="btn-copiar-respuesta">Copiar</button>
+        </div>
+      </div>
+
+      <form class="barra-pregunta" id="asistente-form">
+        <button type="button" class="secundario" id="asistente-mic" title="Dictar">🎤</button>
+        <textarea id="asistente-entrada" rows="2" placeholder="Escribe una pregunta… (Enter envia, Shift+Enter salto de linea)"></textarea>
+        <button type="submit" id="asistente-enviar">Preguntar</button>
+      </form>
+      <div class="sugerencias" id="asistente-sugerencias"></div>
+    </div>
+
+    <div class="rejilla dos" style="margin-top:22px">
+      <div class="tarjeta">
+        <h3>Conversacion</h3>
+        <div class="conversacion" id="asistente-historial"></div>
+      </div>
+      <div class="tarjeta">
+        <h3>Que sabe ahora</h3>
+        <div id="asistente-sabe"><p class="cargando">…</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ================================================================ 6 -->
   <section class="modulo" id="mod-modelo">
     <div class="cabecera">
@@ -642,23 +698,6 @@
 <div class="velo" id="velo"></div>
 <aside class="panel-lateral" id="panel-prospecto"></aside>
 
-<aside class="asistente" id="asistente" aria-label="Asistente">
-  <div class="asistente-cab">
-    <div><b>Asistente</b> <span id="asistente-estado"></span></div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <label class="casilla" style="font-size:11px;display:inline-flex;gap:5px;align-items:center;color:var(--texto-tenue)">
-        <input type="checkbox" id="asistente-voz-auto"> leer en voz alta</label>
-      <button class="secundario pequeno" id="asistente-limpiar" title="Nueva conversacion">Limpiar</button>
-      <button class="secundario pequeno" id="asistente-cerrar">Cerrar</button>
-    </div>
-  </div>
-  <div class="asistente-mensajes" id="asistente-mensajes"></div>
-  <div class="asistente-entrada">
-    <button class="secundario" id="asistente-mic" title="Dictar">🎤</button>
-    <textarea id="asistente-entrada" rows="2" placeholder="Escribe una pregunta… (Enter envia, Shift+Enter salto de linea)"></textarea>
-    <button id="asistente-enviar">Enviar</button>
-  </div>
-</aside>
 
 <script type="module" src="app.js?v=3"></script>
 </body>

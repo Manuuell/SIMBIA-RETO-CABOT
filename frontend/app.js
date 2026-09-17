@@ -7,7 +7,7 @@
  */
 
 import { $, estado, pedir, escapar } from "./comun.js";
-import { montarAsistente } from "./asistente.js";
+import asistente from "./modulos/asistente.js";
 import inicio from "./modulos/inicio.js";
 import datos from "./modulos/datos.js";
 import vital from "./modulos/vital.js";
@@ -18,7 +18,7 @@ import optimizador from "./modulos/optimizador.js";
 import operacion from "./modulos/operacion.js";
 import modelo from "./modulos/modelo.js";
 
-const MODULOS = { inicio, datos, vital, prospectos, empresas, embudo, optimizador, operacion, modelo };
+const MODULOS = { inicio, datos, vital, prospectos, empresas, embudo, optimizador, operacion, asistente, modelo };
 const montados = new Set();
 let actual = null;
 
@@ -69,7 +69,6 @@ async function arrancar() {
   }
   window.addEventListener("hashchange", enrutar);
   enrutar();
-  montarAsistente();
 }
 
 arrancar();
