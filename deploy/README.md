@@ -66,6 +66,25 @@ Para cambiar la contraseña, repetir lo mismo (solo cambia `SIMBIA_AUTH_HASH`).
 Cinco intentos fallidos desde una IP la bloquean quince minutos; la sesión
 dura doce horas.
 
+## IA por API: extraccion, asistente y voz
+
+Con `OPENAI_API_KEY` en `/etc/simbia.env` se activan la lectura de permisos en
+PDF, el asistente (panel "Asistente" en la barra lateral) y la voz. La clave se
+pide por teclado, sin eco:
+
+```bash
+read -rs -p 'OPENAI_API_KEY: ' K && echo && printf 'OPENAI_API_KEY=%s\n' "$K" | sudo tee -a /etc/simbia.env > /dev/null && unset K
+sudo systemctl restart simbia
+```
+
+Modelos por defecto: `gpt-4.1-mini` (texto y PDF) y `gpt-4o-mini-tts` con la voz
+`nova`; se cambian con `SIMBIA_IA_MODELO`, `SIMBIA_IA_MODELO_VOZ` y
+`SIMBIA_IA_VOZ`. Cada pregunta al asistente envia el contexto de la aplicacion
+(unas decenas de KB); cada documento se resume una sola vez y el resumen queda
+junto al archivo (`*.resumen.json`).
+
+Para rotar la clave: sustituir la linea en `/etc/simbia.env` y reiniciar.
+
 ## Documentos guardados desde el buscador
 
 "Guardar en expediente" deja los archivos en

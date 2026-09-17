@@ -61,6 +61,8 @@ backend/simbia/
 │   ├── vital.py           Buscador libre de trámites en VITAL (facetas, páginas, caché)
 │   ├── documentos.py      Documentos de un trámite desde el VITAL antiguo: ver, descargar, guardar
 │   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
+├── ia.py                  Proveedor de IA por API (OpenAI o Anthropic), en un solo sitio
+├── asistente.py           Asistente: contexto de la aplicación + conversación + resúmenes de documentos
 ├── api/                   API REST (FastAPI)
 └── main.py                Aplicación
 
@@ -84,6 +86,7 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 | 6 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
 | 7 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
 | 8 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+| — | **Asistente** (botón en la barra lateral) | Se le escribe o se le dicta; responde con los datos de la aplicación (prospectos, cartera, expedientes, documentos, resultado) y puede leer la respuesta en voz alta. |
 
 La prospección alimenta al optimizador: las empresas que encuentra el barrido
 entran al mismo optimizador, con la misma química y las mismas restricciones. Lo
