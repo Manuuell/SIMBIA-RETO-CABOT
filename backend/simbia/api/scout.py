@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from urllib.parse import quote
 from pydantic import BaseModel, Field
 
@@ -225,6 +225,7 @@ class CambioFicha(BaseModel):
     proximo_paso: str | None = None
     notas: str | None = None
     nombre: str = ""
+    en_cartera: bool | None = None
 
 
 @router.get("/pipeline")
@@ -310,7 +311,106 @@ def ficha(cambio: CambioFicha) -> dict[str, Any]:
         proximo_paso=cambio.proximo_paso, notas=cambio.notas,
         nombre=cambio.nombre or (p.nombre if p else ""),
         lat=p.lat if p else None, lon=p.lon if p else None,
+        en_cartera=cambio.en_cartera,
     )
+    _invalidar()
+    return f.as_dict()
+
+
+# --------------------------------------------------------------------------
+# Cartera: las empresas elegidas y su expediente completo
+# --------------------------------------------------------------------------
+
+EXPEDIENTES = Path(__file__).resolve().parents[1] / "scout" / "archivo" / "expedientes"
+
+
+def _ruta_expediente(relativa: str) -> Path:
+    """Solo dentro de archivo/expedientes; nada de salir con '..'."""
+    base = EXPEDIENTES.resolve()
+    candidata = (base.parent / relativa).resolve() if relativa.startswith("expedientes/") else (base / relativa).resolve()
+    if base not in candidata.parents or not candidata.is_file():
+        raise HTTPException(404, "El documento no esta en el expediente")
+    return candidata
+
+
+@router.get("/cartera")
+def cartera(radio_km: float = RADIO_BUSQUEDA_KM) -> dict[str, Any]:
+    """Las empresas en cartera con todo lo que se sabe de ellas."""
+    prospectos = _barrido(radio_km)
+    fichas, huerfanas = almacen.vincular_fichas(prospectos)
+    salida = []
+    for p in prospectos:
+        d = _prospecto_json(p)
+        f = fichas.get(d["clave"])
+        if f is None or not f.en_cartera:
+            continue
+        d["ficha"] = f.as_dict()
+        salida.append(d)
+    orden = {e.value: i for i, e in enumerate(ORDEN_ESTADO)}
+    salida.sort(key=lambda d: (-orden.get(d["ficha"]["estado"], -1), -(d["puntaje"] or 0)))
+    return {
+        "empresas": salida,
+        "huerfanas": [
+            {"clave": f.clave, "nombre": f.nombre, "estado": f.estado.value}
+            for f in huerfanas if f.en_cartera
+        ],
+        "extraccion_ia": dict(zip(("disponible", "motivo"), extraccion.disponible())),
+    }
+
+
+@router.get("/expediente/archivo")
+def expediente_archivo(ruta: str, descargar: bool = False):
+    """Un documento guardado en el expediente local, en linea o como descarga."""
+    archivo = _ruta_expediente(ruta)
+    tipo = documentos._tipo(archivo.name, archivo.read_bytes()[:8])
+    return FileResponse(
+        archivo, media_type=tipo,
+        content_disposition_type="attachment" if descargar or tipo == "application/octet-stream" else "inline",
+        filename=archivo.name,
+    )
+
+
+class LecturaExpediente(BaseModel):
+    ruta: str
+
+
+@router.post("/expediente/leer")
+def expediente_leer(entrada: LecturaExpediente) -> dict[str, Any]:
+    """Lee con IA un documento ya guardado en el expediente."""
+    ok, motivo = extraccion.disponible()
+    if not ok:
+        raise HTTPException(503, motivo)
+    archivo = _ruta_expediente(entrada.ruta)
+    if archivo.read_bytes()[:4] != b"%PDF":
+        raise HTTPException(422, "Solo se leen PDF")
+    return extraccion.extraer_pdf(archivo).as_dict()
+
+
+class Declaracion(BaseModel):
+    clave: str
+    calidad: dict[str, float] = Field(default_factory=dict)
+    caudal_m3_h: float | None = None
+    fuente: str = "documento del expediente"
+    radio_km: float = RADIO_BUSQUEDA_KM
+
+
+@router.post("/declarar")
+def declarar(d: Declaracion) -> dict[str, Any]:
+    """Aplica al prospecto lo que un documento declara: pasa a DECLARADO."""
+    p = next(
+        (x for x in _barrido(d.radio_km)
+         if almacen.clave_estable(x.nombre, x.lat, x.lon) == d.clave),
+        None,
+    )
+    if p is None:
+        raise HTTPException(422, "El prospecto no esta en el barrido actual")
+    try:
+        f = almacen.declarar_calidad(
+            d.clave, d.calidad, d.caudal_m3_h, d.fuente[:120],
+            nombre=p.nombre, lat=p.lat, lon=p.lon,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
     _invalidar()
     return f.as_dict()
 
