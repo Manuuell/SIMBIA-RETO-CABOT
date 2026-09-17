@@ -622,3 +622,6 @@ nav.modulos a.destacado.activo .n { background: var(--acento); }
 @media (prefers-reduced-motion: reduce) {
   .orbe-nucleo, .orbe-anillo { animation: none !important; }
 }
+
+.empresas-lista { max-height: calc(100vh - 260px); overflow: auto; padding-right: 2px; }
+.pestanas button.activa, .pestanas button { white-space: nowrap; }

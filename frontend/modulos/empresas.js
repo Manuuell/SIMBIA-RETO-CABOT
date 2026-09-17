@@ -17,14 +17,31 @@ import { fijarEmpresaEnPantalla } from "./asistente.js";
 
 let cartera = null;
 let elegida = null;          // clave de la empresa abierta
+let vista = "cartera";       // "cartera" | "todos"
 const detallesTramite = {};  // radicado -> detalle del VITAL antiguo
 const lecturas = {};         // ruta -> resultado de la lectura con IA
 const resumenes = {};        // ruta -> resumen del documento (para el asistente y para leer)
 
+const FICHA_VACIA = { estado: "detectado", expedientes: [], documentos: [], historial: [], en_cartera: false };
+
+/** Todos los prospectos del barrido, con ficha (vacia si no tienen). */
+function todas() {
+  return (estado.barrido?.prospectos || []).map((p) => ({ ...p, ficha: p.ficha || { ...FICHA_VACIA, clave: p.clave } }));
+}
+
+function enCartera() { return todas().filter((e) => e.ficha.en_cartera); }
+
+function visibles() {
+  const lista = vista === "cartera" ? enCartera() : todas();
+  const orden = ["contratado", "piloto", "caracterizado", "nda", "contactado", "calificado", "detectado", "descartado"];
+  return lista.sort((a, b) => (orden.indexOf(a.ficha.estado) - orden.indexOf(b.ficha.estado)) || ((b.puntaje || 0) - (a.puntaje || 0)));
+}
+
 async function cargar() {
   cartera = await pedir(`/api/scout/cartera?radio_km=${estado.radio}`);
-  if (elegida && !cartera.empresas.some((e) => e.clave === elegida)) elegida = null;
-  if (!elegida && cartera.empresas.length) elegida = cartera.empresas[0].clave;
+  const lista = visibles();
+  if (elegida && !todas().some((e) => e.clave === elegida)) elegida = null;
+  if (!elegida && lista.length) elegida = lista[0].clave;
   pintar();
 }
 
@@ -34,21 +51,32 @@ async function cargar() {
 
 function pintarLista() {
   const lista = $("empresas-lista");
-  $("empresas-kpi").innerHTML = cartera.empresas.length
-    ? `${cartera.empresas.length} empresa(s) · ${fmt.num(cartera.empresas.reduce((s, e) => s + e.caudal_m3_h, 0))} m³/h`
-    : "";
-  if (!cartera.empresas.length) {
-    lista.innerHTML = `<div class="info-caja"><b>La cartera esta vacia.</b> Marca una empresa desde su ficha en
-      <a href="#prospectos">Prospectos</a> ("Seguir en cartera"), o simplemente trabaja sobre ella: mover de etapa,
-      vincular un expediente desde el <a href="#vital">Buscador VITAL</a> o guardar un documento la anaden solas.</div>`;
+  const enC = enCartera(), total = todas().length;
+  $("empresas-kpi").innerHTML = `${enC.length} en cartera · ${fmt.num(enC.reduce((s, e) => s + e.caudal_m3_h, 0))} m³/h`;
+  $("empresas-vista").innerHTML = `
+    <button class="${vista === "cartera" ? "activa" : ""}" data-vista="cartera">Cartera (${enC.length})</button>
+    <button class="${vista === "todos" ? "activa" : ""}" data-vista="todos">Todos los prospectos (${total})</button>`;
+  $("empresas-vista").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    vista = b.dataset.vista; const l = visibles(); if (!l.some((e) => e.clave === elegida)) elegida = l[0]?.clave || null; pintar();
+  }));
+
+  const filas = visibles();
+  if (!filas.length) {
+    lista.innerHTML = vista === "cartera"
+      ? `<div class="info-caja"><b>La cartera esta vacia.</b> Pasa a <b>Todos los prospectos</b> y pulsa "Seguir" en las que quieras trabajar,
+         o hazlo desde su ficha en <a href="#prospectos">Prospectos</a>. Tambien entran solas al mover de etapa, vincular un expediente
+         en el <a href="#vital">Buscador VITAL</a> o guardar un documento.</div>`
+      : `<p class="pie">No hay prospectos en el barrido. Ejecuta uno en <a href="#datos">Datos externos</a>.</p>`;
     return;
   }
-  lista.innerHTML = cartera.empresas.map((e) => {
+  lista.innerHTML = filas.map((e) => {
     const f = e.ficha;
     return `<a href="#empresas" class="empresa-item${e.clave === elegida ? " activa" : ""}" data-clave="${e.clave}">
-      <div class="nombre">${escapar(e.nombre)}</div>
+      <div class="nombre" style="display:flex;gap:8px;align-items:center">${escapar(e.nombre)}
+        ${f.en_cartera ? `<span class="chip ok sin-punto" style="margin-left:auto">en cartera</span>`
+          : `<button class="pequeno btn-seguir" data-clave="${e.clave}" data-nombre="${escapar(e.nombre)}" style="margin-left:auto">Seguir</button>`}</div>
       <div class="sub">${escapar(e.sector)}</div>
-      <div class="chips">${chip(f.estado, f.estado === "descartado" ? "alerta" : f.estado === "detectado" ? "neutra" : "ok")}
+      <div class="chips">${f.estado !== "detectado" ? chip(f.estado, f.estado === "descartado" ? "alerta" : "ok") : ""}
         ${sello(e.metodo_calidad)}
         ${(e.referencias || []).some((r) => r.fuente === "vital") ? chip("expediente", "azul") : ""}
         ${(f.documentos || []).length ? chip(`${f.documentos.length} doc.`, "neutra") : ""}</div>
@@ -56,8 +84,20 @@ function pintarLista() {
     </a>`;
   }).join("");
   lista.querySelectorAll(".empresa-item").forEach((a) => a.addEventListener("click", (ev) => {
+    if (ev.target.closest("button")) return;
     ev.preventDefault(); elegida = a.dataset.clave; pintar();
   }));
+  lista.querySelectorAll(".btn-seguir").forEach((b) => b.addEventListener("click", async (ev) => {
+    ev.preventDefault(); ev.stopPropagation(); b.disabled = true; b.textContent = "…";
+    await seguir(b.dataset.clave, b.dataset.nombre);
+  }));
+}
+
+async function seguir(clave, nombre) {
+  await pedir("/api/scout/ficha", { clave, nombre, en_cartera: true });
+  anotar(`<b>${escapar(nombre)}</b> entra en la cartera`, "ok");
+  elegida = clave;
+  await cargarBarrido({ refrescar: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -170,8 +210,8 @@ function bloqueLectura(e, d, l) {
 
 function pintarDossier() {
   const caja = $("empresa-dossier");
-  const e = cartera.empresas.find((x) => x.clave === elegida);
-  if (!e) { caja.innerHTML = cartera.empresas.length ? "" : `<p class="pie">Nada que mostrar.</p>`; return; }
+  const e = todas().find((x) => x.clave === elegida);
+  if (!e) { caja.innerHTML = `<p class="pie">Elige una empresa de la lista.</p>`; return; }
   const f = e.ficha, c = e.calidad, ix = e.indices || {};
   const plan = e.notas.split(" | ").find((t) => t.startsWith("Plan:") || t.startsWith("No viable")) || "";
   const tramites = tramitesDe(e);
@@ -188,7 +228,8 @@ function pintarDossier() {
       <div class="acciones-cab">
         <button class="secundario pequeno btn-ficha">Editar ficha</button>
         <a class="chip neutra sin-punto" href="#vital?q=${encodeURIComponent(e.nombre.split(/ - | S\\.A/i)[0])}">Buscar en VITAL</a>
-        <button class="secundario pequeno btn-quitar">Quitar de la cartera</button>
+        ${f.en_cartera ? `<button class="secundario pequeno btn-quitar">Quitar de la cartera</button>`
+                       : `<button class="pequeno btn-seguir-dossier">Seguir en cartera</button>`}
       </div>
     </div>
     <div class="rejilla kpis" style="grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
@@ -206,7 +247,7 @@ function pintarDossier() {
           <dt>Contacto</dt><dd>${escapar(f.contacto || "—")}</dd>
           <dt>Siguiente paso</dt><dd>${escapar(f.proximo_paso || f.requisito || "—")}</dd>
           ${f.notas ? `<dt>Notas</dt><dd>${escapar(f.notas)}</dd>` : ""}
-          <dt>Actualizada</dt><dd>${fechaCorta(f.actualizado) || "—"}</dd>
+          <dt>Actualizada</dt><dd>${fechaCorta(f.actualizado) || "sin ficha todavia"}</dd>
         </dl>
         ${(f.historial || []).length ? `<h4 style="margin:12px 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">Historial</h4>
           <ul class="refs">${f.historial.slice().reverse().slice(0, 8).map((h) => `<li>${h.fecha?.slice(0, 10)} · ${h.nota ? `<i>${escapar(h.nota)}</i>` : `${escapar(h.de)} → <b>${escapar(h.a)}</b>`}</li>`).join("")}</ul>` : ""}
@@ -250,7 +291,8 @@ function pintarDossier() {
 
   // -- acciones ------------------------------------------------------------
   caja.querySelector(".btn-ficha").addEventListener("click", () => abrirPanel(e.clave));
-  caja.querySelector(".btn-quitar").addEventListener("click", async () => {
+  caja.querySelector(".btn-seguir-dossier")?.addEventListener("click", (ev) => { ev.target.disabled = true; seguir(e.clave, e.nombre); });
+  caja.querySelector(".btn-quitar")?.addEventListener("click", async () => {
     if (!confirm(`¿Quitar ${e.nombre} de la cartera? La ficha y sus documentos se conservan.`)) return;
     await pedir("/api/scout/ficha", { clave: e.clave, nombre: e.nombre, en_cartera: false });
     anotar(`${escapar(e.nombre)} sale de la cartera`, "neutra");
