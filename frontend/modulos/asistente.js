@@ -79,13 +79,16 @@ async function hablar(texto) {
     const orbe = $("orbe");
     const animar = () => {
       analizador.getByteFrequencyData(datos);
-      let suma = 0; for (const v of datos) suma += v;
-      const media = suma / datos.length / 255;
-      orbe.style.setProperty("--amp", (1 + media * 0.6).toFixed(3));
-      const tramo = Math.floor(datos.length / 5);
+      // La voz humana vive en los bins bajos; se pondera esa banda para que
+      // el orbe responda a la voz y no al ruido de fondo.
+      const voz = datos.subarray(2, 40);
+      let suma = 0; for (const v of voz) suma += v;
+      const media = suma / voz.length / 255;
+      orbe.style.setProperty("--amp", (1 + Math.min(media * 1.6, 0.45)).toFixed(3));
+      const tramo = Math.floor(voz.length / 5);
       for (let i = 0; i < 5; i++) {
-        let s = 0; for (let j = i * tramo; j < (i + 1) * tramo; j++) s += datos[j];
-        orbe.style.setProperty(`--b${i + 1}`, Math.max(0.15, s / tramo / 255 * 1.4).toFixed(3));
+        let pico = 0; for (let j = i * tramo; j < (i + 1) * tramo; j++) pico = Math.max(pico, voz[j]);
+        orbe.style.setProperty(`--b${i + 1}`, Math.max(0.15, Math.min(pico / 255 * 1.3, 1)).toFixed(3));
       }
       audio.raf = requestAnimationFrame(animar);
     };
