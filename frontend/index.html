@@ -59,6 +59,11 @@
     </a>
   </nav>
 
+  <div class="lateral-asistente">
+    <button id="btn-asistente">💬 Asistente</button>
+    <span class="sub">Pregunta por los prospectos y los documentos</span>
+  </div>
+
   <div class="lateral-pie">
     <span class="sesion" id="pie-sesion"></span>
     <span id="pie-modo"></span>
@@ -636,6 +641,24 @@
 
 <div class="velo" id="velo"></div>
 <aside class="panel-lateral" id="panel-prospecto"></aside>
+
+<aside class="asistente" id="asistente" aria-label="Asistente">
+  <div class="asistente-cab">
+    <div><b>Asistente</b> <span id="asistente-estado"></span></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <label class="casilla" style="font-size:11px;display:inline-flex;gap:5px;align-items:center;color:var(--texto-tenue)">
+        <input type="checkbox" id="asistente-voz-auto"> leer en voz alta</label>
+      <button class="secundario pequeno" id="asistente-limpiar" title="Nueva conversacion">Limpiar</button>
+      <button class="secundario pequeno" id="asistente-cerrar">Cerrar</button>
+    </div>
+  </div>
+  <div class="asistente-mensajes" id="asistente-mensajes"></div>
+  <div class="asistente-entrada">
+    <button class="secundario" id="asistente-mic" title="Dictar">🎤</button>
+    <textarea id="asistente-entrada" rows="2" placeholder="Escribe una pregunta… (Enter envia, Shift+Enter salto de linea)"></textarea>
+    <button id="asistente-enviar">Enviar</button>
+  </div>
+</aside>
 
 <script type="module" src="app.js?v=3"></script>
 </body>

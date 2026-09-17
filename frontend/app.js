@@ -7,6 +7,7 @@
  */
 
 import { $, estado, pedir, escapar } from "./comun.js";
+import { montarAsistente } from "./asistente.js";
 import inicio from "./modulos/inicio.js";
 import datos from "./modulos/datos.js";
 import vital from "./modulos/vital.js";
@@ -68,6 +69,7 @@ async function arrancar() {
   }
   window.addEventListener("hashchange", enrutar);
   enrutar();
+  montarAsistente();
 }
 
 arrancar();

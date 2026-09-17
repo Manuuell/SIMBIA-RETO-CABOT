@@ -13,11 +13,13 @@ import {
   fmt, kpi, pedir, sello, textoSolicitud, tienePermiso,
 } from "../comun.js";
 import { abrirPanel } from "./prospectos.js";
+import { fijarEmpresaEnPantalla } from "../asistente.js";
 
 let cartera = null;
 let elegida = null;          // clave de la empresa abierta
 const detallesTramite = {};  // radicado -> detalle del VITAL antiguo
 const lecturas = {};         // ruta -> resultado de la lectura con IA
+const resumenes = {};        // ruta -> resumen del documento (para el asistente y para leer)
 
 async function cargar() {
   cartera = await pedir(`/api/scout/cartera?radio_km=${estado.radio}`);
@@ -130,12 +132,22 @@ function bloqueDocumentos(e) {
         <span style="margin-left:auto;display:flex;gap:6px">
           <a class="chip azul sin-punto" target="_blank" rel="noopener" href="/api/scout/expediente/archivo?ruta=${encodeURIComponent(d.ruta)}">Ver</a>
           <a class="chip neutra sin-punto" href="/api/scout/expediente/archivo?ruta=${encodeURIComponent(d.ruta)}&descargar=true">Descargar</a>
-          ${d.tipo === "application/pdf" ? `<button class="pequeno btn-leer" data-ruta="${escapar(d.ruta)}" ${ia.disponible ? "" : `disabled title="${escapar(ia.motivo)}"`}>Leer con IA</button>` : ""}
+          ${d.tipo === "application/pdf" ? `<button class="secundario pequeno btn-resumir" data-ruta="${escapar(d.ruta)}" ${ia.disponible ? "" : `disabled title="${escapar(ia.motivo)}"`}>Resumir</button>
+          <button class="pequeno btn-leer" data-ruta="${escapar(d.ruta)}" ${ia.disponible ? "" : `disabled title="${escapar(ia.motivo)}"`}>Leer con IA</button>` : ""}
         </span>
       </div>
+      ${resumenes[d.ruta] ? bloqueResumen(resumenes[d.ruta]) : ""}
       ${l ? bloqueLectura(e, d, l) : ""}
     </div>`;
   }).join("") + (ia.disponible ? "" : `<p class="pie">Leer con IA no esta configurado en este servidor: ${escapar(ia.motivo)}</p>`);
+}
+
+function bloqueResumen(r) {
+  if (r.cargando) return `<p class="cargando">Resumiendo el documento…</p>`;
+  if (r.error) return `<div class="error" style="margin-top:8px">${escapar(r.error)}</div>`;
+  return `<div class="info-caja" style="margin-top:8px"><b>${escapar(r.titulo)}</b><br>${escapar(r.resumen)}
+    ${(r.puntos_clave || []).length ? `<ul style="margin:6px 0 0;padding-left:18px">${r.puntos_clave.map((x) => `<li>${escapar(x)}</li>`).join("")}</ul>` : ""}
+    ${r.caudal_m3_h ? `<p class="pie" style="margin:6px 0 0">Caudal declarado: <b>${r.caudal_m3_h} m³/h</b></p>` : ""}</div>`;
 }
 
 function bloqueLectura(e, d, l) {
@@ -259,6 +271,13 @@ function pintarDossier() {
   }));
   caja.querySelectorAll(".btn-guardar-doc").forEach((b) => b.addEventListener("click", () => guardarDocumento(e, b)));
   caja.querySelectorAll(".btn-leer").forEach((b) => b.addEventListener("click", () => leerDocumento(e, b.dataset.ruta)));
+  caja.querySelectorAll(".btn-resumir").forEach((b) => b.addEventListener("click", () => resumirDocumento(b.dataset.ruta)));
+  // Resumenes ya generados: se muestran sin llamar al modelo.
+  (e.ficha.documentos || []).forEach(async (d) => {
+    if (resumenes[d.ruta]) return;
+    try { const r = await fetch(`/api/asistente/documento/resumen?ruta=${encodeURIComponent(d.ruta)}`); if (r.ok) { resumenes[d.ruta] = await r.json(); pintarDossier(); } }
+    catch { /* sin resumen */ }
+  });
   caja.querySelectorAll(".btn-aplicar").forEach((b) => b.addEventListener("click", () => aplicarLectura(e, b.dataset.ruta, b)));
 }
 
@@ -284,6 +303,15 @@ async function guardarDocumento(e, btn) {
     anotar(`Documento guardado en la ficha de <b>${escapar(e.nombre)}</b>: ${escapar(r.nombre)}`, "ok");
     await cargarBarrido({ refrescar: true });
   } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Guardar"; }
+}
+
+async function resumirDocumento(ruta) {
+  resumenes[ruta] = { cargando: true }; pintarDossier();
+  try {
+    resumenes[ruta] = await pedir("/api/asistente/documento/resumen", { ruta });
+    anotar(`Documento resumido: <b>${escapar(resumenes[ruta].titulo)}</b>`, "ok", "el asistente ya lo conoce");
+  } catch (err) { resumenes[ruta] = { error: err.message }; }
+  pintarDossier();
 }
 
 async function leerDocumento(e, ruta) {
@@ -312,6 +340,7 @@ async function aplicarLectura(e, ruta, btn) {
 
 function pintar() {
   if (!cartera) return;
+  fijarEmpresaEnPantalla(elegida);
   pintarLista();
   pintarDossier();
 }

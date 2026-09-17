@@ -536,3 +536,28 @@ body.solo { display: block; }
 .tramite { padding: 8px 0; border-bottom: 1px solid var(--borde-suave); font-size: 12.5px; }
 .tramite:last-child { border-bottom: none; }
 #empresa-dossier .bloque { margin-bottom: 14px; }
+
+/* ==========================================================================
+   Asistente
+   ========================================================================== */
+
+.lateral-asistente { padding: 0 8px; display: grid; gap: 4px; }
+.lateral-asistente button { width: 100%; }
+.lateral-asistente .sub { font-size: 11px; color: var(--texto-tenue); text-align: center; }
+.asistente {
+  position: fixed; right: 16px; bottom: 16px; width: min(440px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px));
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra);
+  display: none; flex-direction: column; z-index: 45; overflow: hidden;
+}
+.asistente.abierto { display: flex; }
+.asistente-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--borde); font-size: 13px; }
+.asistente-mensajes { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.burbuja { max-width: 92%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.burbuja.usuario { align-self: flex-end; background: rgba(242,118,46,.16); border: 1px solid rgba(242,118,46,.35); }
+.burbuja.asistente { align-self: flex-start; background: var(--panel-alto); border: 1px solid var(--borde); color: var(--texto-2); }
+.burbuja.pensando { color: var(--texto-tenue); }
+.burbuja-acciones { margin-top: 6px; }
+.sugerencias { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.asistente-entrada { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--borde); align-items: end; }
+.asistente-entrada textarea { resize: none; }
+#asistente-mic.grabando { border-color: var(--alerta); color: var(--alerta); }
