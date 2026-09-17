@@ -27,11 +27,11 @@ function pintarKpis(d) {
     kpi("Con simbiosis viable", r.viables, "mantienen los ciclos de la linea base con algun tren"),
     kpi("Caudal prospectado", `${fmt.num(r.caudal_total_m3_h)} m³/h`, `${fmt.num(r.caudal_viable_m3_h)} m³/h en las viables`),
     kpi("Con permiso de vertimiento", conPermiso, "expediente localizado en VITAL"),
-    kpi("Entran al optimizador", r.promovibles, `confianza ≥ ${estado.config.umbral_promocion} · media ${r.confianza_media.toFixed(2)}`),
+    kpi("Con confianza suficiente", r.promovibles, `≥ ${estado.config.umbral_promocion} para entrar en la mezcla · media ${r.confianza_media.toFixed(2)}`),
   ].join("");
   const f = d.fuentes.find((x) => x.fuente === "osm");
   $("prospectos-origen").innerHTML =
-    `fuentes: modo ${d.modo}${f?.fecha_dato ? " · datos del " + fechaCorta(f.fecha_dato) : ""} · cambiar →`;
+    `OpenStreetMap + VITAL${f?.fecha_dato ? " · datos del " + fechaCorta(f.fecha_dato) : ""} · radio ${d.radio_km} km · cambiar →`;
 }
 
 function pilaPuntaje(p) {
@@ -175,7 +175,7 @@ function pintarPanel(clave) {
     ${(f.documentos || []).length ? `<div class="seccion">
       <h4>Documentos del expediente guardados</h4>
       <ul class="refs">${f.documentos.map((d) => `<li>📄 ${escapar(d.nombre)} <span class="sub" style="display:inline">· ${(d.bytes / 1e6).toFixed(2)} MB · radicado ${escapar(d.radicado)} · ${fechaCorta(d.guardado)}</span></li>`).join("")}</ul>
-      <p class="pie">Estan en el servidor, en <code>archivo/expedientes/</code>. Para leerlos con IA: Datos externos → paso 3.</p>
+      <p class="pie">Se leen con IA y se revisan desde <a href="#empresas">Empresas</a>, en el dossier de la empresa.</p>
     </div>` : ""}
 
     <div class="seccion">
