@@ -36,6 +36,9 @@ function breve(texto) {
   return corte > 0 && corte < t.length - 2 ? t.slice(0, corte + 1) : t;
 }
 
+// Como se llama cada modo en pantalla (los valores internos no se muestran).
+const NOMBRE_MODO = { offline: "sin red", cache: "cache primero", vivo: "en vivo" };
+
 const QUE_PASARA = {
   offline: (c) => `Se leera la <b>cache local</b>: ${c}. No se hara ninguna peticion externa.`,
   cache: (c) => `Se usara la cache si sigue fresca (${c}) y se consultara la red solo para lo que haya caducado o no este descargado.`,
@@ -84,7 +87,10 @@ function tarjetaFuente({ codigo, nombre, licencia, verificada, nota, aporta, res
 function pintarFuentes() {
   const cfg = estado.config, b = estado.barrido;
   const porCodigo = Object.fromEntries((b?.fuentes || []).map((f) => [f.fuente, f]));
-  const tarjetas = cfg.fuentes.map((f) => tarjetaFuente({
+  // Una fuente que no aplica en esta zona (datos.gov.co no publica los
+  // permisos de Cartagena) no se muestra: no aporta nada que decidir.
+  const aplican = cfg.fuentes.filter((f) => f.verificada || !(f.nota_configuracion || "").startsWith("No aplica"));
+  const tarjetas = aplican.map((f) => tarjetaFuente({
     codigo: f.codigo, nombre: f.nombre, licencia: f.licencia, verificada: f.verificada,
     nota: f.nota_configuracion, aporta: INFO_FUENTE[f.codigo]?.aporta || "",
     resultado: porCodigo[f.codigo],
@@ -101,14 +107,14 @@ function pintarFuentes() {
     const total = (b.fuentes || []).reduce((s, f) => s + f.registros, 0);
     const conDato = (b.fuentes || []).filter((f) => f.registros > 0).length;
     $("paso1-estado").innerHTML = chip(
-      `${total} registros de ${conDato} fuente(s) → ${b.resumen.detectados} prospectos`,
+      `${total} registros de ${conDato} fuente${conDato === 1 ? "" : "s"} → ${b.resumen.detectados} prospectos`,
       total ? "ok" : "aviso",
     );
     $("paso1-num").className = "paso-num " + (total ? "hecho" : "");
-    $("datos-chip-modo").innerHTML = chip(`ultimo barrido: modo ${b.modo} · radio ${b.radio_km} km`, "neutra");
+    $("datos-chip-modo").innerHTML = chip(`ultimo barrido: ${NOMBRE_MODO[b.modo] || b.modo} · radio ${b.radio_km} km`, "neutra");
   } else {
     $("paso1-estado").innerHTML = chip("sin ejecutar", "neutra");
-    $("datos-chip-modo").innerHTML = chip(`modo configurado: ${cfg.modo}`, "neutra");
+    $("datos-chip-modo").innerHTML = chip(`modo por defecto: ${NOMBRE_MODO[cfg.modo] || cfg.modo}`, "neutra");
   }
   pintarQuePasara();
 }
@@ -168,7 +174,7 @@ async function ejecutarBarrido() {
   estado.radio = radioPedido();
   boton.disabled = true; boton.textContent = "Consultando…";
   $("paso1-estado").innerHTML = chip("en curso", "azul");
-  anotar(`Barrido iniciado en modo <b>${modo}</b>, radio ${estado.radio} km`, "acento",
+  anotar(`Barrido iniciado (<b>${NOMBRE_MODO[modo] || modo}</b>), radio ${estado.radio} km`, "acento",
     pedido !== estado.radio ? `pediste ${pedido} km; el tope es ${RADIO_MAX_KM} km` : "");
   const t0 = performance.now();
   try {
@@ -481,7 +487,7 @@ export default {
     pintarBitacora(bitacora());
     pintarTodo();
     if (!estado.barrido) {
-      anotar(`Cargando el ultimo barrido conocido (modo configurado: ${estado.config.modo})…`, "neutra");
+      anotar(`Cargando el ultimo barrido conocido…`, "neutra");
       try {
         const d = await cargarBarrido();
         anotar(`${d.resumen.detectados} prospectos cargados desde el servidor`, "ok",
