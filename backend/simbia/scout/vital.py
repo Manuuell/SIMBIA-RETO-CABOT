@@ -96,6 +96,10 @@ class Registro:
     fecha: str              # AAAA-MM-DD de creacion
     fecha_fin: str
     origen: str             # VITAL | SILAMC
+    #: Identificadores que necesita el VITAL antiguo para el detalle y los
+    #: documentos (ver documentos.py). Sin ellos no hay forma de llegar.
+    sol_id: str = ""
+    solicitante_id: str = ""
 
     @property
     def es_vertimiento(self) -> bool:
@@ -109,6 +113,7 @@ class Registro:
             "radicado": self.radicado, "proyecto": self.proyecto,
             "municipio": self.municipio, "departamento": self.departamento,
             "fecha": self.fecha, "fecha_fin": self.fecha_fin, "origen": self.origen,
+            "sol_id": self.sol_id, "solicitante_id": self.solicitante_id,
             "es_vertimiento": self.es_vertimiento, "url": PORTAL,
         }
 
@@ -129,6 +134,8 @@ def interpretar(fila: dict[str, Any]) -> Registro:
         fecha=_limpio(fila.get("tar_fecha_creacion"))[:10],
         fecha_fin=_limpio(fila.get("tar_fecha_finalizacion"))[:10],
         origen=_limpio(fila.get("origen")),
+        sol_id=_limpio(fila.get("tar_sol_id")),
+        solicitante_id=_limpio(fila.get("sol_id_solicitante")),
     )
 
 
@@ -163,9 +170,13 @@ class Busqueda:
             "filters": filtros,
         }
 
+    #: Sube cuando cambia lo que se guarda por registro: una cache anterior
+    #: no tendria los campos nuevos y se serviria incompleta.
+    VERSION_CACHE = 2
+
     @property
     def clave(self) -> str:
-        return json.dumps(self.cuerpo(), sort_keys=True, ensure_ascii=False)
+        return json.dumps({"v": self.VERSION_CACHE, **self.cuerpo()}, sort_keys=True, ensure_ascii=False)
 
 
 @dataclass
@@ -217,7 +228,7 @@ def _facetas(crudas: dict[str, Any] | None) -> dict[str, list[str]]:
 def _de_cache(b: Busqueda, datos: dict[str, Any], fecha: str) -> Resultado:
     return Resultado(
         busqueda=b,
-        registros=[Registro(**r) for r in datos["registros"]],
+        registros=[Registro(**{"sol_id": "", "solicitante_id": "", **r}) for r in datos["registros"]],
         total=datos["total"], paginas=datos["paginas"],
         facetas=datos.get("facetas", {}), origen="cache", fecha_dato=fecha,
     )
