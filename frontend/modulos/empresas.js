@@ -493,7 +493,11 @@ function pintarDossier() {
     <div class="tarjeta bloque" style="margin-top:14px">
       <h3>Expedientes y tramites <span class="nota">${tramites.length ? `${tramites.length} en VITAL` : "ninguno localizado"}</span>
         ${primero ? `<button class="secundario pequeno btn-solicitud" style="margin-left:auto">Redactar solicitud</button>` : ""}</h3>
-      ${tramites.length ? tramites.map((t) => bloqueTramite(e, t)).join("") : `<p class="pie">Ningun tramite localizado. <a href="#vital?q=${encodeURIComponent(e.nombre.split(/ - | S\\.A/i)[0])}">Buscar en VITAL</a> y vincular el que corresponda.</p>`}
+      ${tramites.length ? tramites.map((t) => bloqueTramite(e, t)).join("") : `<p class="pie">Ningun tramite vinculado todavia.</p>`}
+      <div class="seccion" style="margin-top:10px">
+        <h4 style="margin:10px 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">En VITAL a nombre de la empresa</h4>
+        <div id="bloque-vital">${bloqueEnVital(e, tramites)}</div>
+      </div>
       <div class="caja-solicitud" hidden style="margin-top:10px">
         <textarea rows="12" readonly class="txt-solicitud"></textarea>
         <div class="acciones"><button class="pequeno btn-copiar-solicitud">Copiar solicitud</button><span class="pie" style="margin:0">Rellena los corchetes antes de enviarla.</span></div>
