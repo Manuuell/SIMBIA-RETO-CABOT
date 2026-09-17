@@ -362,7 +362,11 @@
           barrido para elegir. De cada una, todo lo que se sabe: datos y caracterizacion, ficha comercial, expedientes y
           tramites con sus documentos, y la lectura con IA de lo guardado para aplicar al prospecto lo que declara.</p>
       </div>
-      <div class="acciones-cab"><span class="chip neutra sin-punto" id="empresas-kpi"></span></div>
+      <div class="acciones-cab">
+        <span id="empresas-lote"></span>
+        <span class="chip neutra sin-punto" id="empresas-kpi"></span>
+        <button class="secundario pequeno" id="btn-analizar-todos" data-texto="Analizar todos los expedientes">Analizar todos los expedientes</button>
+      </div>
     </div>
     <div class="rejilla tercio-dos">
       <div>
@@ -703,6 +707,7 @@
 
 <div class="velo" id="velo"></div>
 <aside class="panel-lateral" id="panel-prospecto"></aside>
+<aside class="panel-lateral" id="panel-revision"></aside>
 
 
 <script type="module" src="app.js?v=3"></script>

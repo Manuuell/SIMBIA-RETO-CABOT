@@ -75,6 +75,32 @@ def test_la_calidad_declarada_pasa_el_prospecto_a_declarado(almacen_temporal):
     assert m.metodo_calidad is Metodo.MEDIDO and m.calidad.dqo == 45.0
 
 
+def test_marcar_como_medido_exige_laboratorio_y_sube_a_medido(almacen_temporal):
+    p = _prospecto()
+    clave = almacen.clave_estable(p.nombre, p.lat, p.lon)
+    with pytest.raises(ValueError):
+        almacen.declarar_calidad(clave, {"dqo": 40.0}, None, "doc", metodo="medido")
+    with pytest.raises(ValueError):
+        almacen.declarar_calidad(clave, {"dqo": 40.0}, None, "doc", metodo="inventado")
+    f = almacen.declarar_calidad(
+        clave, {"dqo": 40.0, "ph": 7.5}, 27.0, "Informe OT-13996-1.pdf", nombre=p.nombre, lat=p.lat, lon=p.lon,
+        metodo="medido", informe={"laboratorio": "Lab Acreditado SAS", "informe": "OT-13996-1", "fecha": "2025-12-01", "muestras": 3, "punto": "Efluente 1", "vacio": ""},
+    )
+    assert f.metodo_declarado == "medido" and f.informe_declarado["laboratorio"] == "Lab Acreditado SAS" and "vacio" not in f.informe_declarado
+    assert "medida" in f.historial[-1]["nota"] and "Lab Acreditado" in f.historial[-1]["nota"]
+    (q,) = almacen.aplicar_expedientes([p])
+    assert q.metodo_calidad is Metodo.MEDIDO and q.metodo_caudal is Metodo.MEDIDO
+    assert q.calidad.dqo == 40.0 and q.caudal_m3_h == 27.0
+    ref = next(r for r in q.referencias if r.fuente == "analitica")
+    assert ref.identificador == "OT-13996-1" and "Efluente 1" in ref.descripcion and "3 muestras" in ref.descripcion
+    assert q.confianza > 0.9
+    # Volver a declarar como 'declarado' no degrada lo medido del prospecto de base.
+    medido = _prospecto(metodo_calidad=Metodo.MEDIDO)
+    almacen.declarar_calidad(clave, {"tds": 500.0}, None, "otro.pdf", metodo="declarado")
+    (m,) = almacen.aplicar_expedientes([medido])
+    assert m.metodo_calidad is Metodo.MEDIDO and m.calidad.tds == 500.0
+
+
 def test_declarar_nada_se_rechaza(almacen_temporal):
     with pytest.raises(ValueError):
         almacen.declarar_calidad("x", {"inventado": 3}, None, "doc")

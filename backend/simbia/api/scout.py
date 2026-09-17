@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from ..config import Escenario
 from ..optim.blend import linea_base, optimizar
-from ..scout import almacen, ciiu, documentos, extraccion, permisos, vigilancia, vital
+from ..scout import almacen, analisis, ciiu, documentos, extraccion, lote, permisos, vigilancia, vital
 from ..scout.fuentes import Modo, catalogo as catalogo_fuentes, modo_actual
 from ..scout.fuentes.base import descargas_en_cache
 from ..scout.geo import PLANTA, RADIO_BUSQUEDA_KM, Sitio, proyectar
@@ -345,6 +345,11 @@ def cartera(radio_km: float = RADIO_BUSQUEDA_KM) -> dict[str, Any]:
         if f is None or not f.en_cartera:
             continue
         d["ficha"] = f.as_dict()
+        for doc in d["ficha"]["documentos"]:
+            try:
+                doc["analizado"] = analisis.ruta_analisis(_ruta_expediente(doc["ruta"])).is_file()
+            except HTTPException:
+                doc["analizado"] = False
         salida.append(d)
     orden = {e.value: i for i, e in enumerate(ORDEN_ESTADO)}
     salida.sort(key=lambda d: (-orden.get(d["ficha"]["estado"], -1), -(d["puntaje"] or 0)))
@@ -392,6 +397,9 @@ class Declaracion(BaseModel):
     caudal_m3_h: float | None = None
     fuente: str = "documento del expediente"
     radio_km: float = RADIO_BUSQUEDA_KM
+    #: Lo decide la persona que revisa: 'declarado' o 'medido'.
+    metodo: str = "declarado"
+    informe: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/declarar")
@@ -408,6 +416,7 @@ def declarar(d: Declaracion) -> dict[str, Any]:
         f = almacen.declarar_calidad(
             d.clave, d.calidad, d.caudal_m3_h, d.fuente[:120],
             nombre=p.nombre, lat=p.lat, lon=p.lon,
+            metodo=d.metodo, informe=d.informe,
         )
     except ValueError as exc:
         raise HTTPException(422, str(exc))
@@ -661,6 +670,84 @@ def vital_archivar(a: ArchivarDocumento) -> dict[str, Any]:
         "guardado": relativa, "nombre": d.nombre, "bytes": len(d.contenido),
         "tipo": d.tipo, "es_pdf": d.tipo == "application/pdf", "ficha": ficha,
     }
+
+
+class AnalizarExpedientes(BaseModel):
+    """Que empresas analizar. Vacio = todas las de la cartera con tramites."""
+    claves: list[str] = Field(default_factory=list)
+    radio_km: float = RADIO_BUSQUEDA_KM
+
+
+@router.post("/expediente/analizar")
+def expediente_analizar(a: AnalizarExpedientes) -> dict[str, Any]:
+    """Encola el analisis de expedientes: descarga los PDF de VITAL y los lee con IA."""
+    ok, motivo = extraccion.disponible()
+    if not ok:
+        raise HTTPException(503, motivo)
+    prospectos = _barrido(a.radio_km)
+    fichas, _ = almacen.vincular_fichas(prospectos)
+    elegidos = []
+    for p in prospectos:
+        clave = almacen.clave_estable(p.nombre, p.lat, p.lon)
+        f = fichas.get(clave)
+        if a.claves and clave not in a.claves:
+            continue
+        if not a.claves and not (f and f.en_cartera):
+            continue
+        elegidos.append((clave, p, f))
+    if not elegidos:
+        raise HTTPException(422, "Ninguna empresa que analizar: elige una o mete alguna en la cartera")
+
+    encolados = []
+    for clave, p, f in elegidos:
+        tramites = lote.tramites_de(p, f)
+
+        def tarea(t, p=p, f=f, clave=clave, tramites=tramites):
+            def guardar(doc):
+                almacen.anotar_documento(clave, doc, nombre=p.nombre, lat=p.lat, lon=p.lon)
+            lote.analizar_empresa(t, tramites, EXPEDIENTES, guardar, al_terminar=_invalidar)
+
+        encolados.append(lote.COLA.encolar(clave, p.nombre, tarea).as_dict())
+    return {"encolados": encolados}
+
+
+@router.get("/expediente/analizar/estado")
+def expediente_analizar_estado() -> dict[str, Any]:
+    trabajos = lote.COLA.estado()
+    return {
+        "trabajos": trabajos,
+        "activos": sum(1 for t in trabajos if t["estado"] in ("en cola", "en curso")),
+    }
+
+
+@router.get("/expediente/analisis")
+def expediente_analisis(ruta: str) -> dict[str, Any]:
+    """El analisis guardado de un documento; 404 si aun no se ha hecho."""
+    archivo = _ruta_expediente(ruta)
+    r = analisis.cargar_analisis(archivo)
+    if r is None:
+        raise HTTPException(404, "Ese documento no se ha analizado todavia")
+    return r
+
+
+class AnalizarUno(BaseModel):
+    ruta: str
+    forzar: bool = False
+
+
+@router.post("/expediente/analisis")
+def expediente_analizar_uno(a: AnalizarUno) -> dict[str, Any]:
+    """Analiza un documento ya guardado (sincrono: un solo PDF)."""
+    ok, motivo = extraccion.disponible()
+    if not ok:
+        raise HTTPException(503, motivo)
+    archivo = _ruta_expediente(a.ruta)
+    if archivo.read_bytes()[:4] != b"%PDF":
+        raise HTTPException(422, "Solo se analizan PDF")
+    try:
+        return analisis.analizar_documento(archivo, forzar=a.forzar)
+    except Exception as exc:                                # noqa: BLE001
+        raise HTTPException(502, f"No se pudo analizar: {type(exc).__name__}: {exc}")
 
 
 class VinculoExpediente(BaseModel):

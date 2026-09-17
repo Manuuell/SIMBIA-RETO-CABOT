@@ -21,6 +21,9 @@ let vista = "cartera";       // "cartera" | "todos"
 const detallesTramite = {};  // radicado -> detalle del VITAL antiguo
 const lecturas = {};         // ruta -> resultado de la lectura con IA
 const resumenes = {};        // ruta -> resumen del documento (para el asistente y para leer)
+const analisis = {};         // ruta -> analisis completo del documento
+let trabajos = {};           // clave -> trabajo del lote (progreso)
+let sondeo = null;
 
 const FICHA_VACIA = { estado: "detectado", expedientes: [], documentos: [], historial: [], en_cartera: false };
 
@@ -169,7 +172,9 @@ function bloqueDocumentos(e) {
     return `<div class="tramite">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         📄 <b>${escapar(d.nombre)}</b><span class="sub" style="display:inline">${(d.bytes / 1e6).toFixed(2)} MB · radicado ${escapar(d.radicado)} · ${fechaCorta(d.guardado)}</span>
+        ${d.analizado || analisis[d.ruta] ? chip("analizado", "ok") : ""}
         <span style="margin-left:auto;display:flex;gap:6px">
+          ${d.tipo === "application/pdf" ? `<button class="pequeno btn-revisar" data-ruta="${escapar(d.ruta)}" ${ia.disponible || d.analizado ? "" : `disabled title="${escapar(ia.motivo)}"`}>${d.analizado || analisis[d.ruta] ? "Revisar" : "Analizar y revisar"}</button>` : ""}
           <a class="chip azul sin-punto" target="_blank" rel="noopener" href="/api/scout/expediente/archivo?ruta=${encodeURIComponent(d.ruta)}">Ver</a>
           <a class="chip neutra sin-punto" href="/api/scout/expediente/archivo?ruta=${encodeURIComponent(d.ruta)}&descargar=true">Descargar</a>
           ${d.tipo === "application/pdf" ? `<button class="secundario pequeno btn-resumir" data-ruta="${escapar(d.ruta)}" ${ia.disponible ? "" : `disabled title="${escapar(ia.motivo)}"`}>Resumir</button>
@@ -180,6 +185,181 @@ function bloqueDocumentos(e) {
       ${l ? bloqueLectura(e, d, l) : ""}
     </div>`;
   }).join("") + (ia.disponible ? "" : `<p class="pie">Leer con IA no esta configurado en este servidor: ${escapar(ia.motivo)}</p>`);
+}
+
+function bloqueTrabajo(e) {
+  const t = trabajos[e.clave];
+  if (!t) return "";
+  const tono = { "en cola": "neutra", "en curso": "azul", hecho: "ok", error: "alerta" }[t.estado] || "neutra";
+  return `<div class="tarjeta bloque" style="margin-top:14px" id="bloque-trabajo">
+    <h3>Analisis del expediente ${chip(t.estado, tono)}
+      <span class="nota">${t.documentos} documento(s) · ${t.analizados} analizado(s)</span></h3>
+    <div class="bitacora" style="max-height:220px">${t.pasos.slice().reverse().map((p) => `<div class="linea">
+      <span class="hora">${escapar(p.hora.slice(11, 19))}</span><span class="ico ${p.tono}"></span><span class="txt">${escapar(p.texto)}</span></div>`).join("")}</div>
+  </div>`;
+}
+
+async function sondear() {
+  try {
+    const d = await pedir("/api/scout/expediente/analizar/estado");
+    const antes = JSON.stringify(trabajos);
+    trabajos = Object.fromEntries(d.trabajos.map((t) => [t.clave, t]));
+    const cambio = JSON.stringify(trabajos) !== antes;
+    if (cambio && trabajos[elegida]) pintarDossier();
+    $("empresas-lote").innerHTML = d.activos ? chip(`${d.activos} analisis en curso`, "azul") : "";
+    if (!d.activos) {
+      clearInterval(sondeo); sondeo = null;
+      if (cambio) await cargarBarrido({ refrescar: true });
+    }
+  } catch { /* sin consecuencias: se reintenta */ }
+}
+
+function empezarSondeo() {
+  if (sondeo) return;
+  sondear();
+  sondeo = setInterval(sondear, 2500);
+}
+
+async function analizarExpedientes(claves, boton) {
+  if (boton) { boton.disabled = true; boton.textContent = "Encolando…"; }
+  try {
+    const d = await pedir("/api/scout/expediente/analizar", { claves, radio_km: estado.radio });
+    anotar(`Analisis encolado: ${d.encolados.map((t) => escapar(t.nombre)).join(", ")}`, "azul",
+      "descarga los PDF del expediente en VITAL y los lee con IA; unos segundos por documento");
+    empezarSondeo();
+  } catch (e) { alert(e.message); }
+  finally { if (boton) { boton.disabled = false; boton.textContent = boton.dataset.texto || "Analizar expediente con IA"; } }
+}
+
+// ---------------------------------------------------------------------------
+// Revision: el humano decide que se aplica y como
+// ---------------------------------------------------------------------------
+
+const NOMBRE_PARAM = {
+  ph: "pH", t_c: "Temperatura (°C)", tds: "TDS", dureza_ca: "Dureza Ca (CaCO₃)", alcalinidad: "Alcalinidad (CaCO₃)",
+  cloruros: "Cloruros", sulfatos: "Sulfatos", silice: "Sílice", sst: "SST", dqo: "DQO", n_amoniacal: "N amoniacal",
+  fosfatos: "Fosfatos", hierro: "Hierro",
+};
+
+async function abrirRevision(e, ruta) {
+  const panel = $("panel-revision");
+  panel.innerHTML = `<p class="cargando">Cargando el analisis…</p>`;
+  panel.classList.add("abierto"); $("velo").classList.add("abierto");
+  const doc = (e.ficha.documentos || []).find((d) => d.ruta === ruta) || { nombre: ruta };
+  try {
+    let a = analisis[ruta];
+    if (!a) {
+      const r = await fetch(`/api/scout/expediente/analisis?ruta=${encodeURIComponent(ruta)}`);
+      if (r.ok) a = await r.json();
+      else {
+        panel.innerHTML = `<p class="cargando">Analizando ${escapar(doc.nombre)} con IA (un solo PDF, unos 20 s)…</p>`;
+        a = await pedir("/api/scout/expediente/analisis", { ruta });
+      }
+      analisis[ruta] = a;
+    }
+    pintarRevision(e, doc, a);
+  } catch (err) {
+    panel.innerHTML = `<button class="secundario pequeno cerrar" id="btn-cerrar-revision">Cerrar</button><div class="error">${escapar(err.message)}</div>`;
+    $("btn-cerrar-revision").addEventListener("click", cerrarRevision);
+  }
+}
+
+function cerrarRevision() { $("panel-revision").classList.remove("abierto"); $("velo").classList.remove("abierto"); }
+
+function pintarRevision(e, doc, a) {
+  const panel = $("panel-revision");
+  const puntos = Object.keys(a.puntos || {});
+  const conDatos = puntos.filter((p) => Object.keys(a.puntos[p].calidad).length);
+  const puntoInicial = conDatos[0] ?? puntos[0] ?? "";
+  const esLab = Boolean(a.laboratorio);
+  const caudal = a.caudal_autorizado_m3_h ?? a.caudal_medido_m3_h;
+
+  panel.innerHTML = `
+    <button class="secundario pequeno cerrar" id="btn-cerrar-revision">Cerrar</button>
+    <h2>Revisar: ${escapar(a.titulo || doc.nombre)}</h2>
+    <p class="sub">${chip(a.tipo_documento, "neutra")} confianza de lectura ${(a.confianza ?? 0).toFixed(2)} · ${escapar(doc.nombre)}
+      · <a href="/api/scout/expediente/archivo?ruta=${encodeURIComponent(doc.ruta)}" target="_blank" rel="noopener">ver PDF</a></p>
+    <div class="info-caja" style="font-size:12px">${escapar(a.resumen || "")}</div>
+    ${(a.puntos_clave || []).length ? `<ul class="refs" style="margin-top:8px">${a.puntos_clave.map((x) => `<li>${escapar(x)}</li>`).join("")}</ul>` : ""}
+    <dl class="pares" style="margin-top:10px">
+      ${a.expediente ? `<dt>Expediente</dt><dd>${escapar(a.expediente)}${a.autoridad ? " · " + escapar(a.autoridad) : ""}</dd>` : ""}
+      ${(a.resoluciones || []).length ? `<dt>Resoluciones</dt><dd>${escapar(a.resoluciones.join("; "))}</dd>` : ""}
+      ${a.vigencia_hasta ? `<dt>Vigencia</dt><dd>${escapar(a.vigencia_hasta)}</dd>` : ""}
+      ${a.cuerpo_receptor ? `<dt>Receptor</dt><dd>${escapar(a.cuerpo_receptor)}</dd>` : ""}
+      ${esLab ? `<dt>Laboratorio</dt><dd>${escapar(a.laboratorio)}${a.numero_informe ? " · informe " + escapar(a.numero_informe) : ""}${a.acreditado_ideam ? " · " + chip("acreditado IDEAM", "ok") : ""}</dd>` : ""}
+      ${a.fecha_muestreo ? `<dt>Muestreo</dt><dd>${escapar(a.fecha_muestreo)}${a.muestras ? " · " + a.muestras + " muestra(s)" : ""}</dd>` : ""}
+      ${a.observaciones ? `<dt>Observaciones</dt><dd>${escapar(a.observaciones)}</dd>` : ""}
+    </dl>
+
+    <div class="seccion">
+      <h4>Que aplicar a ${escapar(e.nombre)}</h4>
+      ${puntos.length > 1 ? `<div class="control" style="margin-bottom:8px"><label>Punto de muestreo</label>
+        <select id="rev-punto">${puntos.map((p) => `<option value="${escapar(p)}"${p === puntoInicial ? " selected" : ""}>${escapar(p || "(sin punto)")} · ${Object.keys(a.puntos[p].calidad).length} parametro(s)</option>`).join("")}</select>
+        <p class="pie">Elige el efluente que se reutilizaria. Los demas puntos no se aplican.</p></div>` : ""}
+      <div id="rev-tabla"></div>
+      <div style="margin-top:8px;font-size:12.5px">
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="rev-caudal" ${caudal ? "checked" : "disabled"}>
+          Caudal: <b>${caudal ?? "—"} m³/h</b> ${a.caudal_autorizado_m3_h ? "(autorizado)" : a.caudal_medido_m3_h ? "(medido)" : ""} <span class="sub" style="display:inline">· hoy ${fmt.num(e.caudal_m3_h, 1)} m³/h ${sello(e.metodo_caudal)}</span></label>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <h4>Como se marca</h4>
+      <div class="opciones">
+        <label class="${esLab ? "" : "activo"}"><input type="radio" name="rev-metodo" value="declarado" ${esLab ? "" : "checked"}> Declarado</label>
+        <label class="${esLab ? "activo" : ""}"><input type="radio" name="rev-metodo" value="medido" ${esLab ? "checked" : ""}> Medido (laboratorio)</label>
+      </div>
+      <p class="pie"><b>Declarado</b>: lo reporta la empresa o su permiso. <b>Medido</b>: analitica de un laboratorio acreditado sobre esta corriente; exige citar el laboratorio y el informe.</p>
+      <div class="ficha-form" id="rev-informe" ${esLab ? "" : "hidden"}>
+        <div><label>Laboratorio</label><input type="text" id="rev-lab" value="${escapar(a.laboratorio || "")}"></div>
+        <div><label>Informe</label><input type="text" id="rev-inf" value="${escapar(a.numero_informe || "")}"></div>
+        <div><label>Fecha de muestreo</label><input type="text" id="rev-fecha" value="${escapar(a.fecha_muestreo || "")}"></div>
+        <div><label>Muestras</label><input type="number" id="rev-muestras" value="${a.muestras || 0}" min="0"></div>
+      </div>
+    </div>
+
+    <div class="acciones" style="margin-top:14px">
+      <button id="btn-aplicar-revision">Aplicar al prospecto</button>
+      <span class="pie" style="margin:0" id="rev-msg">Pisa el arquetipo solo en los parametros marcados. Se puede repetir con otro documento.</span>
+    </div>`;
+
+  const pintarTabla = () => {
+    const punto = $("rev-punto") ? $("rev-punto").value : puntoInicial;
+    const cal = (a.puntos[punto] || { calidad: {} }).calidad;
+    const claves = Object.keys(cal);
+    $("rev-tabla").innerHTML = claves.length ? `<table><thead><tr><th></th><th>Parametro</th><th class="num">Documento</th><th class="num">Hoy (${escapar(e.metodo_calidad)})</th></tr></thead>
+      <tbody>${claves.map((k) => `<tr>
+        <td><input type="checkbox" class="rev-param" value="${k}" checked></td>
+        <td>${NOMBRE_PARAM[k] || k}</td>
+        <td class="num"><b>${fmt.num(cal[k], k === "ph" ? 2 : 1)}</b></td>
+        <td class="num sub">${e.calidad[k] != null ? fmt.num(e.calidad[k], k === "ph" ? 2 : 1) : "—"}</td></tr>`).join("")}</tbody></table>`
+      : `<p class="pie">Este punto no trae parametros que el modelo conozca.${(a.puntos[punto]?.no_reconocidos || []).length ? " Sin mapear: " + escapar(a.puntos[punto].no_reconocidos.join(", ")) : ""}</p>`;
+  };
+  pintarTabla();
+  $("rev-punto")?.addEventListener("change", pintarTabla);
+  panel.querySelectorAll("input[name=rev-metodo]").forEach((r) => r.addEventListener("change", () => {
+    panel.querySelectorAll(".opciones label").forEach((l) => l.classList.toggle("activo", l.querySelector("input").checked));
+    $("rev-informe").hidden = panel.querySelector("input[name=rev-metodo]:checked").value !== "medido";
+  }));
+  $("btn-cerrar-revision").addEventListener("click", cerrarRevision);
+  $("btn-aplicar-revision").addEventListener("click", async () => {
+    const punto = $("rev-punto") ? $("rev-punto").value : puntoInicial;
+    const cal = (a.puntos[punto] || { calidad: {} }).calidad;
+    const elegidos = Object.fromEntries([...panel.querySelectorAll(".rev-param:checked")].map((c) => [c.value, cal[c.value]]));
+    const metodo = panel.querySelector("input[name=rev-metodo]:checked").value;
+    const conCaudal = $("rev-caudal").checked && caudal;
+    if (!Object.keys(elegidos).length && !conCaudal) { $("rev-msg").textContent = "Marca al menos un parametro o el caudal."; return; }
+    const informe = metodo === "medido" ? { laboratorio: $("rev-lab").value.trim(), informe: $("rev-inf").value.trim(), fecha: $("rev-fecha").value.trim(), muestras: $("rev-muestras").value, punto } : {};
+    if (metodo === "medido" && !informe.laboratorio) { $("rev-msg").textContent = "Para marcar como medido hay que citar el laboratorio."; return; }
+    if (!confirm(`Aplicar a ${e.nombre} como ${metodo}: ${Object.keys(elegidos).join(", ") || "sin parametros"}${conCaudal ? " y caudal " + caudal + " m³/h" : ""}. ¿Continuar?`)) return;
+    $("btn-aplicar-revision").disabled = true;
+    try {
+      await pedir("/api/scout/declarar", { clave: e.clave, calidad: elegidos, caudal_m3_h: conCaudal ? caudal : null, fuente: doc.nombre, radio_km: estado.radio, metodo, informe });
+      anotar(`${escapar(e.nombre)}: ${Object.keys(elegidos).length} parametro(s) aplicados como <b>${metodo}</b> desde ${escapar(doc.nombre)}`, "ok", "confianza y puntaje recalculados");
+      cerrarRevision();
+      await cargarBarrido({ refrescar: true });
+    } catch (err) { $("rev-msg").textContent = err.message; $("btn-aplicar-revision").disabled = false; }
+  });
 }
 
 function bloqueResumen(r) {
@@ -226,6 +406,7 @@ function pintarDossier() {
           ${tienePermiso(e) ? chip("expediente localizado", "azul") : chip("sin expediente", "aviso")}</div>
       </div>
       <div class="acciones-cab">
+        <button class="pequeno btn-analizar" ${cartera.extraccion_ia.disponible ? "" : `disabled title="${escapar(cartera.extraccion_ia.motivo)}"`}>Analizar expediente con IA</button>
         <button class="secundario pequeno btn-ficha">Editar ficha</button>
         <a class="chip neutra sin-punto" href="#vital?q=${encodeURIComponent(e.nombre.split(/ - | S\\.A/i)[0])}">Buscar en VITAL</a>
         ${f.en_cartera ? `<button class="secundario pequeno btn-quitar">Quitar de la cartera</button>`
@@ -269,6 +450,8 @@ function pintarDossier() {
       </div>
     </div>
 
+    ${bloqueTrabajo(e)}
+
     <div class="tarjeta bloque" style="margin-top:14px">
       <h3>Expedientes y tramites <span class="nota">${tramites.length ? `${tramites.length} en VITAL` : "ninguno localizado"}</span>
         ${primero ? `<button class="secundario pequeno btn-solicitud" style="margin-left:auto">Redactar solicitud</button>` : ""}</h3>
@@ -292,6 +475,8 @@ function pintarDossier() {
   // -- acciones ------------------------------------------------------------
   caja.querySelector(".btn-ficha").addEventListener("click", () => abrirPanel(e.clave));
   caja.querySelector(".btn-seguir-dossier")?.addEventListener("click", (ev) => { ev.target.disabled = true; seguir(e.clave, e.nombre); });
+  caja.querySelector(".btn-analizar")?.addEventListener("click", (ev) => analizarExpedientes([e.clave], ev.target));
+  caja.querySelectorAll(".btn-revisar").forEach((b) => b.addEventListener("click", () => abrirRevision(e, b.dataset.ruta)));
   caja.querySelector(".btn-quitar")?.addEventListener("click", async () => {
     if (!confirm(`¿Quitar ${e.nombre} de la cartera? La ficha y sus documentos se conservan.`)) return;
     await pedir("/api/scout/ficha", { clave: e.clave, nombre: e.nombre, en_cartera: false });
@@ -390,6 +575,15 @@ function pintar() {
 export default {
   id: "empresas",
   async montar() {
+    $("btn-analizar-todos").addEventListener("click", (ev) => {
+      const n = enCartera().length;
+      if (!n) { alert("La cartera esta vacia: no hay expedientes que analizar."); return; }
+      if (!confirm(`Analizar los expedientes de las ${n} empresa(s) en cartera. Descarga sus PDF de VITAL y los lee con IA (coste por documento). ¿Continuar?`)) return;
+      analizarExpedientes([], ev.target);
+    });
+    $("velo").addEventListener("click", cerrarRevision);
+    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") cerrarRevision(); });
+    empezarSondeo();
     bus.on("barrido", () => cargar().catch((e) => { $("empresa-dossier").innerHTML = `<div class="error">${escapar(e.message)}</div>`; }));
     if (!estado.barrido) await cargarBarrido();
     await cargar();

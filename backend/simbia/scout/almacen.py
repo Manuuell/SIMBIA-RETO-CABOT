@@ -129,6 +129,11 @@ class Ficha:
     calidad_declarada: dict[str, float] = field(default_factory=dict)
     caudal_declarado_m3_h: float | None = None
     fuente_declarada: str = ""
+    #: 'declarado' (la empresa o su permiso lo reporta) o 'medido' (informe
+    #: de laboratorio acreditado). Lo decide una persona en la revision.
+    metodo_declarado: str = "declarado"
+    #: Si es medido: laboratorio, informe, fecha, muestras, punto.
+    informe_declarado: dict[str, Any] = field(default_factory=dict)
 
     @property
     def tiene_trabajo(self) -> bool:
@@ -167,6 +172,8 @@ class Ficha:
             "calidad_declarada": self.calidad_declarada,
             "caudal_declarado_m3_h": self.caudal_declarado_m3_h,
             "fuente_declarada": self.fuente_declarada,
+            "metodo_declarado": self.metodo_declarado,
+            "informe_declarado": self.informe_declarado,
         }
 
 
@@ -210,6 +217,8 @@ def cargar_fichas() -> dict[str, Ficha]:
             calidad_declarada=d.get("calidad_declarada", {}) or {},
             caudal_declarado_m3_h=d.get("caudal_declarado_m3_h"),
             fuente_declarada=d.get("fuente_declarada", ""),
+            metodo_declarado=d.get("metodo_declarado", "declarado"),
+            informe_declarado=d.get("informe_declarado", {}) or {},
         )
         # Fichas anteriores al campo: si ya habia trabajo sobre la empresa, es
         # que alguien la eligio. Se deduce una vez y se guarda con la ficha.
@@ -240,6 +249,8 @@ def guardar_fichas(fichas: dict[str, Ficha]) -> None:
                     "calidad_declarada": f.calidad_declarada,
                     "caudal_declarado_m3_h": f.caudal_declarado_m3_h,
                     "fuente_declarada": f.fuente_declarada,
+                    "metodo_declarado": f.metodo_declarado,
+                    "informe_declarado": f.informe_declarado,
                 }
                 for k, f in fichas.items()
             },
@@ -484,6 +495,7 @@ PARAMETROS_DECLARABLES = frozenset({
 def declarar_calidad(
     clave: str, calidad: dict[str, float], caudal_m3_h: float | None,
     fuente: str, nombre: str = "", lat: float | None = None, lon: float | None = None,
+    metodo: str = "declarado", informe: dict[str, Any] | None = None,
 ) -> Ficha:
     """Guarda en la ficha lo que un documento del expediente declara del agua.
 
@@ -505,16 +517,23 @@ def declarar_calidad(
     if lat is not None and lon is not None:
         ficha.lat, ficha.lon = lat, lon
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if metodo not in ("declarado", "medido"):
+        raise ValueError("El metodo tiene que ser 'declarado' o 'medido'")
+    if metodo == "medido" and not (informe or {}).get("laboratorio"):
+        raise ValueError("Marcar como medido exige citar el laboratorio (y a ser posible el informe)")
     ficha.calidad_declarada = {**ficha.calidad_declarada, **validos}
     if caudal_m3_h is not None and caudal_m3_h > 0:
         ficha.caudal_declarado_m3_h = float(caudal_m3_h)
     ficha.fuente_declarada = fuente
+    ficha.metodo_declarado = metodo
+    ficha.informe_declarado = {k: str(v) for k, v in (informe or {}).items() if v not in (None, "")}
     ficha.en_cartera = True
     ficha.historial.append({
         "fecha": ahora, "de": ficha.estado.value, "a": ficha.estado.value,
         "empresa": ficha.nombre,
-        "nota": f"calidad declarada desde '{fuente}': {', '.join(sorted(validos)) or 'sin parametros'}"
-                + (f", caudal {caudal_m3_h:g} m3/h" if caudal_m3_h else ""),
+        "nota": f"calidad {'medida' if metodo == 'medido' else 'declarada'} desde '{fuente}': {', '.join(sorted(validos)) or 'sin parametros'}"
+                + (f", caudal {caudal_m3_h:g} m3/h" if caudal_m3_h else "")
+                + (f" — {informe.get('laboratorio')}" if metodo == "medido" and informe else ""),
     })
     ficha.actualizado = ahora
     fichas[clave] = ficha
@@ -572,25 +591,42 @@ def aplicar_expedientes(prospectos: list[Prospecto]) -> list[Prospecto]:
 
 
 def _aplicar_declarado(p: Prospecto, ficha: Ficha) -> Prospecto:
-    """Calidad y caudal declarados en un documento del expediente."""
+    """Calidad y caudal tomados de un documento del expediente, con el metodo
+    que decidio la persona que lo reviso: declarado o medido."""
     from .perfil import Metodo
+    objetivo = Metodo.MEDIDO if ficha.metodo_declarado == "medido" else Metodo.DECLARADO
+    orden = [Metodo.SUPUESTO, Metodo.INFERIDO, Metodo.DECLARADO, Metodo.MEDIDO]
+    mejora = lambda actual: orden.index(objetivo) > orden.index(actual)   # noqa: E731
     cambios: dict[str, Any] = {}
     if ficha.calidad_declarada:
         validos = {k: v for k, v in ficha.calidad_declarada.items() if hasattr(p.calidad, k)}
         if validos:
             cambios["calidad"] = replace(p.calidad, **validos)
             cambios["campos_medidos"] = p.campos_medidos | frozenset(validos)
-            if p.metodo_calidad in (Metodo.INFERIDO, Metodo.SUPUESTO):
-                cambios["metodo_calidad"] = Metodo.DECLARADO
+            if mejora(p.metodo_calidad):
+                cambios["metodo_calidad"] = objetivo
     if ficha.caudal_declarado_m3_h:
         cambios["caudal_m3_h"] = ficha.caudal_declarado_m3_h
-        if p.metodo_caudal in (Metodo.INFERIDO, Metodo.SUPUESTO):
-            cambios["metodo_caudal"] = Metodo.DECLARADO
+        if mejora(p.metodo_caudal):
+            cambios["metodo_caudal"] = objetivo
     if cambios:
-        cambios["referencias"] = p.referencias + (Referencia(
-            fuente="expediente", identificador=ficha.fuente_declarada or "documento",
-            descripcion="Calidad y/o caudal declarados en un documento del expediente, leido con IA y confirmado a mano",
-        ),)
+        inf = ficha.informe_declarado
+        if objetivo is Metodo.MEDIDO:
+            ref = Referencia(
+                fuente="analitica", identificador=inf.get("informe") or ficha.fuente_declarada or "informe",
+                descripcion=(
+                    f"{inf.get('punto') or 'vertimiento'} - {inf.get('laboratorio', '')}"
+                    + (f", {inf['muestras']} muestras" if inf.get("muestras") else "")
+                    + (f", muestreo {inf['fecha']}" if inf.get("fecha") else "")
+                    + " (informe del expediente, leido con IA y revisado a mano)"
+                ),
+            )
+        else:
+            ref = Referencia(
+                fuente="expediente", identificador=ficha.fuente_declarada or "documento",
+                descripcion="Calidad y/o caudal declarados en un documento del expediente, leido con IA y revisado a mano",
+            )
+        cambios["referencias"] = p.referencias + (ref,)
     return replace(p, **cambios) if cambios else p
 
 

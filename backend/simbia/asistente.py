@@ -211,11 +211,19 @@ def construir_contexto(
         for d in (p.get("ficha") or {}).get("documentos") or []:
             archivo = (expedientes_dir.parent / d["ruta"]).resolve()
             resumen_doc = None
-            if archivo.is_file() and ruta_resumen(archivo).is_file():
-                try:
-                    resumen_doc = json.loads(ruta_resumen(archivo).read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
-                    resumen_doc = None
+            for candidata in (archivo.with_name(archivo.name + ".analisis.json"), ruta_resumen(archivo)):
+                if archivo.is_file() and candidata.is_file():
+                    try:
+                        bruto = json.loads(candidata.read_text(encoding="utf-8"))
+                        # Del analisis completo, lo que el asistente necesita.
+                        resumen_doc = {k: bruto.get(k) for k in (
+                            "tipo_documento", "titulo", "resumen", "puntos_clave", "expediente", "autoridad",
+                            "vigencia_hasta", "resoluciones", "laboratorio", "numero_informe", "fecha_muestreo",
+                            "caudal_autorizado_m3_h", "caudal_medido_m3_h", "puntos", "confianza",
+                        ) if k in bruto}
+                        break
+                    except (json.JSONDecodeError, OSError):
+                        resumen_doc = None
             documentos.append({
                 "empresa": p["nombre"], "archivo": d["nombre"], "radicado": d.get("radicado"),
                 "resumen": resumen_doc or "sin resumen todavia: generarlo desde la cartera",
