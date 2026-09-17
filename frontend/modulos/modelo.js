@@ -47,14 +47,5 @@ export default {
       <tbody>${LIMITES.map(([k, n, u]) => `<tr><td>${n}</td><td class="num">${fmt.num(lim[k], u ? 0 : 1)} ${u}</td></tr>`).join("")}</tbody></table>
       <p class="pie">Practica habitual para acero al carbono, relleno de PVC e intercambiadores de acero inoxidable 304.
         Ciclos explorables: ${estado.escenario.torre.ciclos_min} a ${estado.escenario.torre.ciclos_max}; linea base ${estado.escenario.torre.ciclos_base}.</p>`;
-
-    $("tabla-oferentes").innerHTML = `<table><thead><tr><th>Cod</th><th>Vecino</th><th>Corriente</th>
-      <th class="num">m³/h</th><th class="num">km</th><th class="num">USD/m³</th><th class="num">TDS</th><th class="num">DQO</th><th>Limitante</th></tr></thead>
-      <tbody>${estado.oferentes.map((o) => `<tr>
-        <td><b>${o.codigo}</b></td><td>${escapar(o.empresa)}</td><td class="sub">${escapar(o.corriente)}</td>
-        <td class="num">${o.caudal_disponible_m3_h}</td><td class="num">${o.distancia_km}</td>
-        <td class="num" style="color:${o.precio_usd_m3 < 0 ? "var(--ok)" : "inherit"}">${o.precio_usd_m3.toFixed(2)}</td>
-        <td class="num">${fmt.num(o.calidad.tds)}</td><td class="num">${fmt.num(o.calidad.dqo)}</td>
-        <td class="sub">${escapar(o.notas.split(". ").at(-1))}</td></tr>`).join("")}</tbody></table>`;
   },
 };
