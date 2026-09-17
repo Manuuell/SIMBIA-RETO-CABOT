@@ -162,16 +162,10 @@ def conversar(
     if p is None:
         raise RuntimeError(disponible()[1])
     adjuntos = [_pdf_a_bloque(a, p) for a in (adjuntos_pdf or []) if _comprobar_pdf(a) is None]
+    entrada = _entrada_conversacion(p, mensajes, adjuntos)
 
     if p.nombre == "openai":
         from openai import OpenAI
-        entrada: list[dict[str, Any]] = []
-        for i, m in enumerate(mensajes):
-            rol = "assistant" if m["rol"] == "asistente" else "user"
-            contenido: list[dict[str, Any]] = [{"type": "output_text" if rol == "assistant" else "input_text", "text": m["contenido"]}]
-            if rol == "user" and i == len(mensajes) - 1 and adjuntos:
-                contenido = adjuntos + contenido
-            entrada.append({"role": rol, "content": contenido})
         r = OpenAI().responses.create(
             model=p.modelo, instructions=instrucciones, input=entrada,
             max_output_tokens=max_tokens,
@@ -179,36 +173,104 @@ def conversar(
         return (r.output_text or "").strip()
 
     import anthropic
-    entrada = []
-    for i, m in enumerate(mensajes):
-        rol = "assistant" if m["rol"] == "asistente" else "user"
-        contenido: list[dict[str, Any]] = [{"type": "text", "text": m["contenido"]}]
-        if rol == "user" and i == len(mensajes) - 1 and adjuntos:
-            contenido = adjuntos + contenido
-        entrada.append({"role": rol, "content": contenido})
     r = anthropic.Anthropic().messages.create(
         model=p.modelo, max_tokens=max_tokens, system=instrucciones, messages=entrada,
     )
     return "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()
 
 
+def _entrada_conversacion(p: Proveedor, mensajes, adjuntos):
+    entrada: list[dict[str, Any]] = []
+    for i, m in enumerate(mensajes):
+        rol = "assistant" if m["rol"] == "asistente" else "user"
+        if p.nombre == "openai":
+            contenido: list[dict[str, Any]] = [{"type": "output_text" if rol == "assistant" else "input_text", "text": m["contenido"]}]
+        else:
+            contenido = [{"type": "text", "text": m["contenido"]}]
+        if rol == "user" and i == len(mensajes) - 1 and adjuntos:
+            contenido = adjuntos + contenido
+        entrada.append({"role": rol, "content": contenido})
+    return entrada
+
+
+def conversar_stream(
+    instrucciones: str,
+    mensajes: list[dict[str, str]],
+    max_tokens: int = 900,
+):
+    """Como `conversar`, pero devuelve los trozos de texto segun llegan.
+
+    Es lo que permite mostrar la respuesta desde el primer segundo y empezar
+    a leerla en voz alta frase a frase, sin esperar al final.
+    """
+    p = proveedor()
+    if p is None:
+        raise RuntimeError(disponible()[1])
+    entrada = _entrada_conversacion(p, mensajes, [])
+    if p.nombre == "openai":
+        from openai import OpenAI
+        flujo = OpenAI().responses.create(
+            model=p.modelo, instructions=instrucciones, input=entrada,
+            max_output_tokens=max_tokens, stream=True,
+        )
+        for evento in flujo:
+            if getattr(evento, "type", "") == "response.output_text.delta":
+                yield evento.delta
+        return
+    import anthropic
+    with anthropic.Anthropic().messages.stream(
+        model=p.modelo, max_tokens=max_tokens, system=instrucciones, messages=entrada,
+    ) as flujo:
+        for trozo in flujo.text_stream:
+            yield trozo
+
+
 # --------------------------------------------------------------------------
 # Voz
 # --------------------------------------------------------------------------
 
-def sintetizar_voz(texto: str) -> bytes:
-    """MP3 con el texto leido. Solo OpenAI tiene voz."""
-    p = proveedor()
-    if p is None or not p.tiene_voz:
-        raise RuntimeError("La voz necesita OpenAI (OPENAI_API_KEY)")
+INSTRUCCION_VOZ = (
+    "Habla en espanol neutro, con tono claro y cercano, como una colega de "
+    "ingenieria explicando un resultado."
+)
+
+
+def _texto_voz(texto: str) -> str:
     texto = texto.strip()
     if not texto:
         raise ValueError("Nada que leer")
     if len(texto) > MAX_TEXTO_VOZ:
         texto = texto[:MAX_TEXTO_VOZ].rsplit(" ", 1)[0] + "…"
+    return texto
+
+def sintetizar_voz(texto: str) -> bytes:
+    """MP3 con el texto leido, entero. Solo OpenAI tiene voz."""
+    p = proveedor()
+    if p is None or not p.tiene_voz:
+        raise RuntimeError("La voz necesita OpenAI (OPENAI_API_KEY)")
+    texto = _texto_voz(texto)
     from openai import OpenAI
     r = OpenAI().audio.speech.create(
         model=p.modelo_voz, voice=p.voz, input=texto, response_format="mp3",
-        instructions="Habla en espanol neutro, con tono claro y cercano, como una colega de ingenieria explicando un resultado.",
+        instructions=INSTRUCCION_VOZ,
     )
     return r.content
+
+
+def sintetizar_voz_stream(texto: str):
+    """El MP3 por trozos, segun el proveedor lo genera.
+
+    El primer sonido llega en torno a un segundo aunque el texto sea largo:
+    el navegador reproduce mientras el resto se sigue generando.
+    """
+    p = proveedor()
+    if p is None or not p.tiene_voz:
+        raise RuntimeError("La voz necesita OpenAI (OPENAI_API_KEY)")
+    texto = _texto_voz(texto)
+    from openai import OpenAI
+    with OpenAI().audio.speech.with_streaming_response.create(
+        model=p.modelo_voz, voice=p.voz, input=texto, response_format="mp3",
+        instructions=INSTRUCCION_VOZ,
+    ) as r:
+        for trozo in r.iter_bytes(8192):
+            yield trozo

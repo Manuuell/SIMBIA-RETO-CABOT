@@ -29,6 +29,7 @@ from . import ia
 
 MAX_HISTORIAL = 12
 MAX_MENSAJE = 4_000
+MAX_TOKENS_RESPUESTA = 600
 MAX_PROSPECTOS_CONTEXTO = 40
 
 INSTRUCCIONES = """\
@@ -37,8 +38,10 @@ de Cabot en Cartagena: reducir el consumo de agua de la planta reutilizando agua
 rechazo de empresas vecinas en las torres de enfriamiento.
 
 Respondes en espanol, con claridad y sin rodeos, como una colega de ingenieria. Tus \
-respuestas se pueden leer en voz alta: frases completas, sin tablas ni listas largas, \
-sin markdown salvo negritas ocasionales. Maximo unos 180 palabras salvo que pidan detalle.
+respuestas se leen en voz alta: frases completas y cortas, sin tablas ni listas, sin \
+markdown salvo alguna negrita. Empieza por la respuesta, no por el contexto. Extension \
+normal: 3 a 5 frases (60-100 palabras). Solo si piden 'detalle', 'completo' o 'todo', \
+hasta 180 palabras. Una pregunta de si/no o de un dato se responde en una o dos frases.
 
 REGLAS
 - Usa SOLO los datos del bloque CONTEXTO. Si algo no esta ahi, dilo: "eso no esta en \
@@ -236,4 +239,14 @@ def responder(mensaje: str, historial: list[dict[str, str]], contexto: Contexto)
         raise ValueError("Escribe una pregunta")
     instrucciones = INSTRUCCIONES + "\n\nCONTEXTO (datos actuales de la aplicacion, en JSON):\n" + contexto.texto()
     mensajes = recortar_historial(historial) + [{"rol": "usuario", "contenido": mensaje}]
-    return ia.conversar(instrucciones, mensajes).strip()
+    return ia.conversar(instrucciones, mensajes, max_tokens=MAX_TOKENS_RESPUESTA).strip()
+
+
+def responder_stream(mensaje: str, historial: list[dict[str, str]], contexto: Contexto):
+    """Los trozos de la respuesta segun llegan del modelo."""
+    mensaje = mensaje.strip()[:MAX_MENSAJE]
+    if not mensaje:
+        raise ValueError("Escribe una pregunta")
+    instrucciones = INSTRUCCIONES + "\n\nCONTEXTO (datos actuales de la aplicacion, en JSON):\n" + contexto.texto()
+    mensajes = recortar_historial(historial) + [{"rol": "usuario", "contenido": mensaje}]
+    yield from ia.conversar_stream(instrucciones, mensajes, max_tokens=MAX_TOKENS_RESPUESTA)

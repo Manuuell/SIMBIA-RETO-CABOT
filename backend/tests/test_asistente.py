@@ -157,3 +157,40 @@ def test_preguntar_por_api_con_proveedor_simulado(cliente, con_openai, monkeypat
     monkeypatch.setattr(ia, "sintetizar_voz", lambda texto: b"ID3audio")
     r = cliente.post("/api/asistente/voz", json={"texto": "hola"})
     assert r.status_code == 200 and r.headers["content-type"].startswith("audio/mpeg") and r.content == b"ID3audio"
+
+
+def test_la_respuesta_en_streaming_llega_como_eventos(cliente, con_openai, monkeypatch, tmp_path):
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    def falso(instrucciones, mensajes, max_tokens=900):
+        yield "Hola. "; yield "Lamitech "; yield "primero."
+    monkeypatch.setattr(ia, "conversar_stream", falso)
+    r = cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "¿quien?"})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+    assert r.headers["x-accel-buffering"] == "no"
+    tramas = [json.loads(t[6:]) for t in r.text.strip().split("\n\n") if t.startswith("data: ")]
+    assert [t.get("delta") for t in tramas[:3]] == ["Hola. ", "Lamitech ", "primero."]
+    assert tramas[-1]["fin"] is True and "contexto" in tramas[-1]
+
+
+def test_un_fallo_del_proveedor_en_streaming_se_reporta_como_evento(cliente, con_openai, monkeypatch, tmp_path):
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    def roto(instrucciones, mensajes, max_tokens=900):
+        yield "Empiezo"
+        raise ConnectionError("se cayo")
+    monkeypatch.setattr(ia, "conversar_stream", roto)
+    r = cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "x"})
+    tramas = [json.loads(t[6:]) for t in r.text.strip().split("\n\n") if t.startswith("data: ")]
+    assert tramas[0]["delta"] == "Empiezo" and "ConnectionError" in tramas[-1]["error"]
+
+
+def test_la_voz_se_prepara_y_se_sirve_en_streaming(cliente, con_openai, monkeypatch):
+    monkeypatch.setattr(ia, "sintetizar_voz_stream", lambda texto: iter([b"ID3", b"mp3", texto.encode()[:3]]))
+    r = cliente.post("/api/asistente/voz/preparar", json={"texto": "Hola mundo"})
+    assert r.status_code == 200
+    url = r.json()["url"]
+    assert url.startswith("/api/asistente/voz/") and url.endswith(".mp3")
+    r = cliente.get(url)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("audio/mpeg")
+    assert r.headers["x-accel-buffering"] == "no" and r.content == b"ID3mp3Hol"
+    assert cliente.get("/api/asistente/voz/no-existe.mp3").status_code == 404
+    assert cliente.post("/api/asistente/voz/preparar", json={"texto": "   "}).status_code == 422

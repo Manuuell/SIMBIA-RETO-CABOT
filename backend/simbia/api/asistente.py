@@ -5,8 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import json
+import secrets
+import time
+
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .. import asistente, ia
@@ -89,8 +93,107 @@ def preguntar(q: Pregunta) -> dict[str, Any]:
     }
 
 
+def _contexto_de(q: "Pregunta") -> asistente.Contexto:
+    barrido = api_scout.barrido(radio_km=q.radio_km)
+    try:
+        kpis = api_base.kpis()
+    except Exception:                                   # noqa: BLE001
+        kpis = {}
+    return asistente.construir_contexto(
+        kpis, barrido, api_scout.EXPEDIENTES, modulo=q.modulo, clave=q.clave,
+    )
+
+
+def _resumen_contexto(c: asistente.Contexto) -> dict[str, Any]:
+    return {
+        "prospectos": len(c.prospectos), "cartera": len(c.cartera),
+        "documentos": len(c.documentos),
+        "documentos_sin_resumen": sum(1 for d in c.documentos if isinstance(d["resumen"], str)),
+        "empresa_en_pantalla": c.empresa_en_pantalla,
+    }
+
+
+#: nginx retiene las respuestas hasta completarlas salvo que se le diga que no.
+#: Sin esta cabecera, el streaming llegaria de golpe al final.
+SIN_BUFFER = {"X-Accel-Buffering": "no", "Cache-Control": "no-store"}
+
+
+@router.post("/preguntar/stream")
+def preguntar_stream(q: Pregunta):
+    """La respuesta segun se genera, como eventos SSE: {delta} ... {fin, contexto}."""
+    _exigir_ia()
+    contexto = _contexto_de(q)
+    resumen = _resumen_contexto(contexto)
+
+    def evento(obj: dict[str, Any]) -> str:
+        return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+    def generar():
+        try:
+            for trozo in asistente.responder_stream(q.mensaje, q.historial, contexto):
+                if trozo:
+                    yield evento({"delta": trozo})
+            yield evento({"fin": True, "contexto": resumen})
+        except ValueError as exc:
+            yield evento({"error": str(exc)})
+        except Exception as exc:                        # noqa: BLE001
+            yield evento({"error": f"El proveedor de IA no respondio: {type(exc).__name__}: {exc}"})
+
+    return StreamingResponse(generar(), media_type="text/event-stream", headers=SIN_BUFFER)
+
+
 class TextoVoz(BaseModel):
     texto: str = Field(min_length=1, max_length=20_000)
+
+
+# Textos pendientes de leer: id -> (texto, caduca). La reproduccion en el
+# navegador necesita una URL GET para sonar mientras descarga; el texto se
+# deja aqui un momento en vez de meterlo en la URL.
+_voces: dict[str, tuple[str, float]] = {}
+VOZ_TTL_S = 600
+VOZ_MAX = 200
+
+
+def _limpiar_voces() -> None:
+    ahora = time.time()
+    for k in [k for k, (_, caduca) in _voces.items() if caduca < ahora]:
+        _voces.pop(k, None)
+    while len(_voces) > VOZ_MAX:
+        _voces.pop(next(iter(_voces)), None)
+
+
+@router.post("/voz/preparar")
+def voz_preparar(t: TextoVoz) -> dict[str, Any]:
+    """Registra un texto y devuelve la URL desde la que suena en streaming."""
+    p = _exigir_ia()
+    if not p.tiene_voz:
+        raise HTTPException(503, "La voz necesita OpenAI (OPENAI_API_KEY)")
+    if not t.texto.strip():
+        raise HTTPException(422, "Nada que leer")
+    _limpiar_voces()
+    id_ = secrets.token_urlsafe(12)
+    _voces[id_] = (t.texto, time.time() + VOZ_TTL_S)
+    return {"id": id_, "url": f"/api/asistente/voz/{id_}.mp3"}
+
+
+@router.get("/voz/{id_}.mp3")
+def voz_stream(id_: str):
+    """El MP3 por trozos segun se genera: el navegador reproduce mientras llega."""
+    p = _exigir_ia()
+    if not p.tiene_voz:
+        raise HTTPException(503, "La voz necesita OpenAI (OPENAI_API_KEY)")
+    entrada = _voces.get(id_)
+    if entrada is None or entrada[1] < time.time():
+        raise HTTPException(404, "Ese texto ya no esta disponible; vuelve a pedir la voz")
+    texto = entrada[0]
+
+    def generar():
+        try:
+            yield from ia.sintetizar_voz_stream(texto)
+        except Exception:                               # noqa: BLE001
+            return
+
+    return StreamingResponse(generar(), media_type="audio/mpeg", headers=SIN_BUFFER)
 
 
 @router.post("/voz")
