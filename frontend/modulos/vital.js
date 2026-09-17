@@ -177,11 +177,11 @@ function paramsTramite(x) {
 }
 
 function bloqueDocumentos(x) {
-  if (!puedeVerDocumentos(x)) return `<p class="pie">Este registro no trae los identificadores del VITAL antiguo; no se puede llegar a sus documentos.</p>`;
+  if (!puedeVerDocumentos(x)) return `<p class="pie">Este registro no enlaza con el portal de expedientes; no se puede llegar a sus documentos desde aqui.</p>`;
   const d = detalles[x.radicado];
   if (!d) return `<div class="acciones" style="margin-top:0"><button class="pequeno btn-ver-docs">Ver documentos</button>
-    <span class="pie" style="margin:0">Consulta el VITAL antiguo: unos segundos por carpeta.</span></div>`;
-  if (d.cargando) return `<p class="cargando">Abriendo el expediente en el VITAL antiguo…</p>`;
+    <span class="pie" style="margin:0">Consulta el portal de expedientes: unos segundos por carpeta.</span></div>`;
+  if (d.cargando) return `<p class="cargando">Abriendo el expediente en el portal de VITAL…</p>`;
   if (d.origen_dato === "sin dato") return `<div class="aviso-caja">${escapar(d.incidencia)}</div>
     <div class="acciones"><button class="secundario pequeno btn-ver-docs" data-modo="vivo">Reintentar en vivo</button></div>`;
 
@@ -206,7 +206,7 @@ function bloqueDocumentos(x) {
         <a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></span></div>
     ${d.proyecto || d.ubicacion ? `<p class="pie" style="margin:0 0 6px">${escapar([d.proyecto, d.ubicacion].filter(Boolean).join(" · "))}</p>` : ""}
     ${carpetas}
-    <p class="pie">"Ver" abre el documento en una pestana nueva (los PDF se muestran en el navegador). "Guardar en expediente" lo deja en el servidor, junto al resto de la evidencia del prospecto, para leerlo con IA en Datos externos.</p>
+    <p class="pie">"Ver" abre el documento en una pestana nueva (los PDF se muestran en el navegador). "Guardar en expediente" lo guarda en la aplicacion, junto al resto de la evidencia del prospecto, para leerlo con IA en Datos externos.</p>
     <div class="archivado-msg"></div>`;
 }
 
@@ -230,7 +230,7 @@ async function cargarDetalle(x, modo) {
     const q = paramsTramite(x); if (modo) q.set("modo", modo);
     const d = await pedir(`/api/scout/vital/detalle?${q}`);
     detalles[x.radicado] = d;
-    if (d.origen_dato === "sin dato") anotar(`VITAL antiguo: sin detalle para ${escapar(x.radicado)}`, "aviso", escapar(d.incidencia));
+    if (d.origen_dato === "sin dato") anotar(`Portal de expedientes: sin detalle para ${escapar(x.radicado)}`, "aviso", escapar(d.incidencia));
     else anotar(`Expediente de <b>${escapar(d.solicitante)}</b>: ${d.total_archivos} documento(s) en ${d.carpetas.length} carpeta(s)`,
       d.origen_dato === "red" ? "ok" : "azul", `radicado ${escapar(x.radicado)}${d.expediente ? " · expediente " + escapar(d.expediente) : ""}`);
   } catch (e) {
@@ -250,7 +250,7 @@ async function archivarDocumento(x, btn) {
     });
     btn.textContent = "Guardado";
     const msg = $("vital-resultados").querySelector(".archivado-msg");
-    msg.innerHTML = `<div class="ok-caja" style="margin-top:8px"><b>Guardado.</b> ${escapar(r.nombre)} (${(r.bytes / 1e6).toFixed(2)} MB) en <code>${escapar(r.guardado)}</code>${r.ficha ? ` y anotado en la ficha de <b>${escapar(r.ficha.nombre)}</b>` : " (sin prospecto elegido: no se anoto en ninguna ficha)"}.</div>`;
+    msg.innerHTML = `<div class="ok-caja" style="margin-top:8px"><b>Guardado.</b> ${escapar(r.nombre)} (${(r.bytes / 1e6).toFixed(2)} MB)${r.ficha ? ` y anotado en la ficha de <b>${escapar(r.ficha.nombre)}</b>` : " (sin prospecto elegido: no se anoto en ninguna ficha)"}.</div>`;
     anotar(`Documento guardado: <b>${escapar(r.nombre)}</b>${r.ficha ? " en la ficha de " + escapar(r.ficha.nombre) : ""}`, "ok");
     if (r.ficha) await cargarBarrido({ refrescar: true });
   } catch (e) {

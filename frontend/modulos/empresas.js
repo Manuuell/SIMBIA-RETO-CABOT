@@ -140,11 +140,11 @@ function bloqueTramite(e, t) {
   const d = detallesTramite[t.radicado];
   let docs = "";
   if (!puede) {
-    docs = `<p class="pie">Sin identificadores del VITAL antiguo. <a href="#vital?q=${encodeURIComponent(t.radicado || t.identificador)}">Buscarlo en VITAL</a> para llegar a sus documentos.</p>`;
+    docs = `<p class="pie">Este tramite no enlaza con sus documentos. <a href="#vital?q=${encodeURIComponent(t.radicado || t.identificador)}">Buscarlo en VITAL</a> para llegar a sus documentos.</p>`;
   } else if (!d) {
     docs = `<div class="acciones" style="margin-top:6px"><button class="secundario pequeno btn-docs" data-radicado="${escapar(t.radicado)}">Ver documentos del tramite</button></div>`;
   } else if (d.cargando) {
-    docs = `<p class="cargando">Abriendo el expediente en el VITAL antiguo…</p>`;
+    docs = `<p class="cargando">Abriendo el expediente en el portal de VITAL…</p>`;
   } else if (d.origen_dato === "sin dato") {
     docs = `<div class="aviso-caja">${escapar(d.incidencia)}</div>`;
   } else {
@@ -187,7 +187,7 @@ function bloqueDocumentos(e) {
       ${resumenes[d.ruta] ? bloqueResumen(resumenes[d.ruta]) : ""}
       ${l ? bloqueLectura(e, d, l) : ""}
     </div>`;
-  }).join("") + (ia.disponible ? "" : `<p class="pie">Leer con IA no esta configurado en este servidor: ${escapar(ia.motivo)}</p>`);
+  }).join("") + (ia.disponible ? "" : `<p class="pie">La lectura con IA no esta disponible: ${escapar(ia.motivo)}</p>`);
 }
 
 function bloqueEnVital(e, vinculados) {
@@ -206,7 +206,7 @@ function bloqueEnVital(e, vinculados) {
       <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}
         <span class="sub">${g.tramites.slice(0, 3).map((t) => `${escapar(t.tramite)} ×${t.n}`).join(" · ")}${g.tramites.length > 3 ? " · …" : ""}</span></td>
       <td class="sub" style="white-space:nowrap">${escapar(g.autoridad)}<br>${escapar(g.desde)}${g.hasta !== g.desde ? " → " + escapar(g.hasta) : ""} · ${g.n}</td>
-      <td class="num"><button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="sin identificadores del VITAL antiguo"`}>Vincular</button></td>
+      <td class="num"><button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="este tramite no enlaza con el portal de expedientes"`}>Vincular</button></td>
     </tr>`).join("")}</tbody></table>
     ${grupos.length > 10 ? `<div class="acciones"><button class="secundario pequeno btn-vital-todos">${verTodoVital ? "Mostrar menos" : `Mostrar los ${grupos.length}`}</button></div>` : ""}`;
 }
@@ -508,7 +508,7 @@ function pintarDossier() {
     </div>
 
     <div class="tarjeta bloque">
-      <h3>Documentos guardados <span class="nota">en el servidor, junto al resto de la evidencia</span></h3>
+      <h3>Documentos guardados <span class="nota">junto al resto de la evidencia de la empresa</span></h3>
       ${bloqueDocumentos(e)}
     </div>
 
