@@ -51,7 +51,7 @@ async function buscar(pagina = 1) {
     } else {
       anotar(`VITAL: <b>${resultado.total}</b> tramites para <b>${escapar(consulta.q)}</b>${consulta.solo_vertimientos ? " (solo vertimientos)" : ""}`,
         resultado.origen === "red" ? "ok" : "azul",
-        resultado.origen === "red" ? "consultado ahora" : `desde la cache${resultado.fecha_dato ? " del " + fechaCorta(resultado.fecha_dato) : ""}`);
+        resultado.origen === "red" ? "consultado ahora" : `consulta disponible${resultado.fecha_dato ? " del " + fechaCorta(resultado.fecha_dato) : ""}`);
     }
   } catch (e) {
     $("vital-resultados").innerHTML = `<div class="error">${escapar(e.message)}</div>`;
@@ -71,7 +71,7 @@ function pintarResultado() {
   opciones($("vital-mun"), r.facetas.municipio, consulta.municipio, "Cualquier municipio");
 
   $("vital-chip-origen").innerHTML = r.origen === "red" ? chip("consultado ahora", "ok")
-    : r.origen === "cache" ? chip(`cache${r.fecha_dato ? " · " + fechaCorta(r.fecha_dato) : ""}`, "azul")
+    : r.origen === "cache" ? chip(`consulta${r.fecha_dato ? " · " + fechaCorta(r.fecha_dato) : " disponible"}`, "azul")
     : chip("sin dato", "aviso");
 
   if (r.origen === "sin dato") {
@@ -202,7 +202,7 @@ function bloqueDocumentos(x) {
 
   return `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">${estado}
-      <span class="pie" style="margin:0 0 0 auto">${d.origen_dato === "cache" ? `cache${d.fecha_dato ? " · " + fechaCorta(d.fecha_dato) : ""}` : "consultado ahora"} ·
+      <span class="pie" style="margin:0 0 0 auto">${d.origen_dato === "cache" ? `consulta disponible${d.fecha_dato ? " · " + fechaCorta(d.fecha_dato) : ""}` : "consultado ahora"} ·
         <a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></span></div>
     ${d.proyecto || d.ubicacion ? `<p class="pie" style="margin:0 0 6px">${escapar([d.proyecto, d.ubicacion].filter(Boolean).join(" · "))}</p>` : ""}
     ${carpetas}

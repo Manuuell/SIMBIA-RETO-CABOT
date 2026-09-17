@@ -187,7 +187,7 @@ function bloqueDocumentos(e) {
       ${resumenes[d.ruta] ? bloqueResumen(resumenes[d.ruta]) : ""}
       ${l ? bloqueLectura(e, d, l) : ""}
     </div>`;
-  }).join("") + (ia.disponible ? "" : `<p class="pie">La lectura con IA no esta disponible: ${escapar(ia.motivo)}</p>`);
+  }).join("");
 }
 
 function bloqueEnVital(e, vinculados) {
@@ -200,7 +200,7 @@ function bloqueEnVital(e, vinculados) {
   if (!v.expedientes.length) return `<p class="pie">Nada a nombre de "${escapar(e.nombre)}" (${v.total} resultado(s) para "${escapar(v.consulta)}", ninguno con titular parecido). Prueba en el <a href="#vital?q=${encodeURIComponent(v.consulta)}">Buscador VITAL</a> por si tramita con otra razon social.</p>`;
   if (!grupos.length) return `<p class="pie">Todo lo que hay a su nombre ya esta vinculado.</p>`;
   const mostrar = verTodoVital ? grupos : grupos.slice(0, 10);
-  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "cache" : "consultado ahora"}), en ${v.expedientes.length} expediente(s) o grupo(s). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
+  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "consulta disponible" : "consultado ahora"}), en ${v.expedientes.length} expediente(s) o grupo(s). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
     <table><tbody>${mostrar.map((g, i) => `<tr>
       <td>${g.expediente ? `<code>${escapar(g.expediente)}</code>` : `<span class="sub" style="display:inline">sin expediente</span>`}<span class="sub">${escapar(g.titular)}</span></td>
       <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}

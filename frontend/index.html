@@ -56,15 +56,15 @@
       <span class="n">7</span>
       <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
     </a>
-    <div class="grupo">Asistente</div>
+    <div class="grupo" id="grupo-asistente">Asistente</div>
     <a href="#asistente" data-modulo="asistente" class="destacado">
       <span class="n">✦</span>
       <span><span class="t">Asistente</span><br><span class="d">Pregunta, escucha, dicta</span></span>
     </a>
-    <div class="grupo">Referencia</div>
+    <div class="grupo">Metodologia</div>
     <a href="#modelo" data-modulo="modelo">
       <span class="n">5</span>
-      <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
+      <span><span class="t">Criterios tecnicos</span><br><span class="d">Trazabilidad y metodo</span></span>
     </a>
   </nav>
 
@@ -86,9 +86,12 @@
       </div>
     </div>
     <div class="bloque">
-      <h2>Resultado con los vecinos reales de Mamonal <span class="nota" id="inicio-meta"></span></h2>
+      <h2>Resultado con el catalogo prospectado en Mamonal <span class="nota" id="inicio-meta"></span></h2>
       <div class="rejilla kpis" id="inicio-kpis"><p class="cargando">Optimizando con los prospectos…</p></div>
       <p class="pie" id="inicio-mezcla"></p>
+      <p class="pie evidencia">Resultado de prefactibilidad: combina fuentes publicas, documentos de expediente
+        y estimaciones sectoriales ponderadas por confianza. La decision de inversion requiere muestreo y
+        validacion en planta.</p>
     </div>
     <div class="bloque">
       <h2>El recorrido</h2>
@@ -151,32 +154,31 @@
             <span class="estado" id="paso1-estado"></span></h3>
           <div class="fuentes-lista" id="fuentes-lista"><p class="cargando">Leyendo configuracion…</p></div>
           <div class="barra-accion">
-            <div class="control" style="flex:0 0 auto">
-              <label>Modo de consulta</label>
-              <div class="opciones" id="modo-opciones">
-                <label class="activo"><input type="radio" name="modo" value="offline" checked> Sin red</label>
-                <label><input type="radio" name="modo" value="cache"> Cache primero</label>
-                <label><input type="radio" name="modo" value="vivo"> En vivo</label>
-              </div>
-            </div>
             <div class="control" style="flex:0 0 140px">
-              <label>Radio (km, max. 40)</label>
+              <label>Radio de busqueda (km)</label>
               <input type="number" id="radio-km" min="0.5" max="40" step="0.5" value="8">
               <span class="pie" id="radio-nota" style="display:block;margin-top:4px;color:var(--aviso)"></span>
             </div>
             <div class="que-pasara" id="que-pasara"></div>
-            <button id="btn-barrido">Ejecutar barrido</button>
+            <button id="btn-barrido">Actualizar catalogo</button>
           </div>
           <details class="ayuda">
-            <summary>Que hace cada modo y por que el defecto es sin red</summary>
+            <summary>Opciones de actualizacion</summary>
             <div class="cuerpo">
-              <p><b>Sin red</b> sirve lo que ya esta descargado en la cache local: datos reales de
-                una consulta anterior. Una demostracion no puede depender de que una API de un
-                tercero este disponible.</p>
-              <p><b>Cache primero</b> usa la cache si sigue fresca y sale a la red solo si caduco.</p>
-              <p><b>En vivo</b> consulta las fuentes reales y refresca la cache, respetando
-                robots.txt, con limite de tasa y User-Agent identificado. Si una fuente falla, se
-                degrada a lo que haya y lo dice.</p>
+              <div class="control" style="margin-bottom:12px">
+                <label>Origen de los datos</label>
+                <div class="opciones" id="modo-opciones">
+                  <label class="activo"><input type="radio" name="modo" value="offline" checked> Ultima consulta</label>
+                  <label><input type="radio" name="modo" value="cache"> Actualizar si hace falta</label>
+                  <label><input type="radio" name="modo" value="vivo"> Consultar ahora</label>
+                </div>
+              </div>
+              <p><b>Ultima consulta</b> usa la evidencia ya descargada y garantiza que la presentacion
+                funcione aunque una fuente externa no responda.</p>
+              <p><b>Actualizar si hace falta</b> conserva los datos vigentes y consulta solamente lo que
+                haya caducado.</p>
+              <p><b>Consultar ahora</b> vuelve a OpenStreetMap y VITAL y registra la fecha y el resultado
+                de cada fuente.</p>
             </div>
           </details>
         </div>
@@ -258,10 +260,10 @@
           <select id="vital-aut"><option value="">Cualquier autoridad</option></select>
           <select id="vital-tra"><option value="">Cualquier tramite</option></select>
           <select id="vital-mun"><option value="">Cualquier municipio</option></select>
-          <div class="opciones" id="vital-modo" style="margin-left:auto">
-            <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Cache primero</label>
-            <label><input type="radio" name="vital-modo" value="vivo"> En vivo</label>
-            <label><input type="radio" name="vital-modo" value="offline"> Sin red</label>
+          <div class="opciones" id="vital-modo" hidden>
+            <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Evidencia disponible</label>
+            <label><input type="radio" name="vital-modo" value="vivo"> Actualizar ahora</label>
+            <label><input type="radio" name="vital-modo" value="offline"> Ultima consulta</label>
           </div>
         </div>
         <p class="pie" id="vital-resumen">Los filtros de autoridad, tramite y municipio se rellenan con lo que
@@ -279,8 +281,8 @@
             <p>La busqueda es texto libre sobre titular, proyecto, expediente y radicado. Una empresa puede
               tramitar con otra razon social o a traves de una filial: si "solo vertimientos" no encuentra
               nada, quita el filtro y mira que otros tramites tiene.</p>
-            <p>Se consulta el mismo servicio que usa el buscador web, con limite de tasa, User-Agent
-              identificado y cache de dos semanas por consulta. En modo "Sin red" solo se sirve lo cacheado.</p>
+            <p>La aplicacion conserva durante dos semanas cada consulta para que el expediente pueda
+              revisarse aunque el portal externo no responda. La fecha visible indica la vigencia del dato.</p>
           </div>
         </details>
       </div>
@@ -626,9 +628,9 @@
   <section class="modulo" id="mod-modelo">
     <div class="cabecera">
       <div>
-        <h1>Modelo y supuestos</h1>
-        <p class="intro">Todo lo que la aplicacion da por supuesto y como calcula cada cosa. Aqui vive la
-          explicacion larga para que las pantallas de trabajo puedan ser cortas.</p>
+        <h1>Metodologia y criterios tecnicos</h1>
+        <p class="intro">Como se construye la evidencia, como se priorizan los prospectos y que
+          restricciones debe cumplir una solucion antes de considerarse viable.</p>
       </div>
     </div>
     <div class="bloque">

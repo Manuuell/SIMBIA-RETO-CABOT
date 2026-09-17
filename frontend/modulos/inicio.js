@@ -29,7 +29,8 @@ function pintarRecorrido() {
     prospectos: chip(`${b.resumen.viables} con simbiosis viable`, "azul"),
     empresas: chip(`${b.prospectos.filter((p) => p.ficha?.en_cartera).length} en cartera · ${documentos} documento${documentos === 1 ? "" : "s"}`, "neutra"),
   } : {};
-  $("inicio-recorrido").innerHTML = TRAMOS.map((t) => `
+  const tramos = TRAMOS.filter((t) => t.id !== "asistente" || estado.config?.extraccion_ia?.disponible);
+  $("inicio-recorrido").innerHTML = tramos.map((t) => `
     <a class="tramo" href="#${t.id}">
       <div class="n">${t.n}</div>
       <div class="t">${t.t}</div>
@@ -39,8 +40,7 @@ function pintarRecorrido() {
 }
 
 /* El resultado de portada sale del optimizador corriendo sobre el catalogo
-   real del barrido, no sobre el caso base de referencia: es lo que la
-   prospeccion ha conseguido de verdad. */
+   prospectado, no sobre el catalogo supuesto del caso base. */
 async function pintarResultado() {
   let r;
   try {
@@ -64,14 +64,14 @@ async function pintarResultado() {
       `meta ${fmt.pct(r.meta_reduccion, 0)} · ${fmt.num(o.ahorro_m3_dia)} m³/d de agua cruda evitada`, "destacado"),
     kpi("Agua de vecinos reutilizada", `${fmt.num(o.reuso_total_m3_dia)} m³/d`,
       `${empresas.length} empresa${empresas.length === 1 ? "" : "s"} en la mezcla`),
-    kpi("Ciclos de concentracion", `${b.ciclos} → ${o.ciclos}`, "menos purga por cada m³ evaporado"),
+    kpi("Ciclos de concentracion", `${fmt.num(b.ciclos, 1)} → ${fmt.num(o.ciclos, 1)}`, "menos purga por cada m³ evaporado"),
     kpi("Ahorro economico", `${fmt.usdk(ahorroUsd)}/año`,
-      `inversion ${fmt.usdk(o.capex_total_usd)}${payback ? ` · payback ${payback.toFixed(1)} años` : ""}`),
+      `inversion ${fmt.usdk(o.capex_total_usd)}${payback ? ` · recuperacion ${fmt.num(payback, 1)} años` : ""}`),
   ].join("");
   $("inicio-mezcla").innerHTML = empresas.length
-    ? `Mezcla: ${empresas.map((e) => `<b>${escapar(e)}</b>`).join(", ")}. Entran las empresas con confianza
-       ≥ ${r.umbral_confianza.toFixed(2)}; la confianza se traduce en disponibilidad, asi que un dato inferido
-       pesa menos que uno medido. Detalle en <a href="#prospectos">Prospectos</a>.`
+    ? `Mezcla propuesta: ${empresas.map((e) => `<b>${escapar(e)}</b>`).join(", ")}.
+       Los datos con menor confianza reciben una disponibilidad conservadora. Consulta la evidencia
+       de cada empresa en <a href="#prospectos">Prospectos</a>.`
     : "";
 }
 

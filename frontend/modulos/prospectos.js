@@ -23,7 +23,7 @@ function pintarKpis(d) {
   const r = d.resumen;
   const conPermiso = d.prospectos.filter(tienePermiso).length;
   $("prospectos-kpis").innerHTML = [
-    kpi("Empresas detectadas", r.detectados, `${r.descartados_sin_arquetipo} descartadas sin arquetipo`, "destacado"),
+    kpi("Empresas detectadas", r.detectados, `${r.descartados_sin_arquetipo} registros sin corriente identificable`, "destacado"),
     kpi("Con simbiosis viable", r.viables, "mantienen los ciclos de la linea base con algun tren"),
     kpi("Caudal prospectado", `${fmt.num(r.caudal_total_m3_h)} m³/h`, `${fmt.num(r.caudal_viable_m3_h)} m³/h en las viables`),
     kpi("Con permiso de vertimiento", conPermiso, "expediente localizado en VITAL"),

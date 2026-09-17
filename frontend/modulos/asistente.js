@@ -22,7 +22,7 @@ export function fijarEmpresaEnPantalla(clave) { contextoClave = clave || ""; }
 
 const SUGERENCIAS = [
   "¿A quien visito primero y por que?",
-  "Explica el resultado del caso base en dos frases",
+  "Resume el potencial de ahorro en dos frases",
   "¿Que documentos tenemos guardados y que dicen?",
   "¿Que empresas tienen expediente en VITAL?",
   "¿Que le falta a la cartera para llegar al 10 %?",

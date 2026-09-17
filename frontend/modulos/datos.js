@@ -37,12 +37,12 @@ function breve(texto) {
 }
 
 // Como se llama cada modo en pantalla (los valores internos no se muestran).
-const NOMBRE_MODO = { offline: "sin red", cache: "cache primero", vivo: "en vivo" };
+const NOMBRE_MODO = { offline: "ultima consulta", cache: "actualizacion selectiva", vivo: "consulta actual" };
 
 const QUE_PASARA = {
-  offline: (c) => `Se leera la <b>cache local</b>: ${c}. No se hara ninguna peticion externa.`,
-  cache: (c) => `Se usara la cache si sigue fresca (${c}) y se consultara la red solo para lo que haya caducado o no este descargado.`,
-  vivo: () => `Se consultara <b>ahora mismo</b> Overpass (OpenStreetMap) y el buscador de VITAL, respetando robots.txt y con limite de tasa. Puede tardar entre 10 y 60 segundos. La cache se actualizara con lo descargado.`,
+  offline: (c) => `Se usara la <b>ultima consulta disponible</b>: ${c}.`,
+  cache: (c) => `Se conservara la evidencia vigente (${c}) y se actualizara solamente lo necesario.`,
+  vivo: () => `Se consultaran <b>ahora mismo</b> OpenStreetMap y VITAL. Puede tardar entre 10 y 60 segundos.`,
 };
 
 /** Radio maximo descargado de OpenStreetMap alrededor de la planta, o 0. */
@@ -59,9 +59,9 @@ function radioDescargado() {
 
 function chipOrigen(origen, fecha) {
   switch (origen) {
-    case "cache": return chip(`cache${fecha ? " · " + fechaCorta(fecha) : ""}`, "azul");
+    case "cache": return chip(`consulta${fecha ? " · " + fechaCorta(fecha) : " disponible"}`, "azul");
     case "red": return chip("descargado ahora", "ok");
-    case "fixture": return chip("registros de ejemplo", "aviso");
+    case "fixture": return chip("datos ilustrativos", "aviso");
     case "sin dato": return chip("sin dato", "aviso");
     default: return chip("sin consultar", "neutra");
   }
@@ -185,7 +185,7 @@ async function ejecutarBarrido() {
       const nombre = nombreFuente(f.fuente);
       if (f.registros) {
         anotar(`<b>${escapar(nombre)}</b>: ${f.registros} registros`, f.origen === "red" ? "ok" : "azul",
-          (f.origen === "cache" ? `desde la cache${f.fecha_dato ? ", descargados el " + fechaCorta(f.fecha_dato) : ""}` : "descargados de la red ahora")
+          (f.origen === "cache" ? `consulta disponible${f.fecha_dato ? " del " + fechaCorta(f.fecha_dato) : ""}` : "consultados ahora")
           + (f.nota ? ` · ${escapar(f.nota)}` : ""));
       } else {
         const maxOsm = radioDescargado();
@@ -199,7 +199,7 @@ async function ejecutarBarrido() {
     if (pv.total) {
       anotar(`<b>VITAL</b>: ${pv.total} permisos de vertimiento en Cartagena`, pv.origen === "red" ? "ok" : "azul",
         `${pv.cruzados} coinciden por razon social con prospectos del barrido` +
-        (pv.origen === "cache" && pv.fecha_dato ? ` · cache del ${fechaCorta(pv.fecha_dato)}` : ""));
+        (pv.origen === "cache" && pv.fecha_dato ? ` · consulta del ${fechaCorta(pv.fecha_dato)}` : ""));
     } else {
       anotar("<b>VITAL</b>: sin permisos disponibles en este modo", "aviso");
     }
@@ -212,7 +212,7 @@ async function ejecutarBarrido() {
     anotar(`Error en el barrido: ${escapar(e.message)}`, "alerta");
     $("paso1-estado").innerHTML = chip("fallo", "alerta");
   } finally {
-    boton.disabled = false; boton.textContent = "Ejecutar barrido";
+    boton.disabled = false; boton.textContent = "Actualizar catalogo";
   }
 }
 
@@ -297,7 +297,7 @@ function pintarEstadoIA() {
   const ia = estado.config.extraccion_ia;
   $("paso3-estado").innerHTML = ia.disponible
     ? chip(`IA disponible · ${ia.modelo}`, "ok")
-    : chip("IA no configurada · se puede archivar", "neutra");
+    : chip("archivo de evidencia habilitado", "neutra");
 }
 
 function pintarDocumento() {
@@ -490,7 +490,7 @@ export default {
       anotar(`Cargando el ultimo barrido conocido…`, "neutra");
       try {
         const d = await cargarBarrido();
-        anotar(`${d.resumen.detectados} prospectos cargados desde el servidor`, "ok",
+        anotar(`${d.resumen.detectados} prospectos cargados en la aplicacion`, "ok",
           "para volver a consultar las fuentes, elige un modo y pulsa Ejecutar barrido");
       } catch (e) {
         anotar(`No se pudo cargar el barrido: ${escapar(e.message)}`, "alerta");

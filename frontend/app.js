@@ -51,6 +51,10 @@ async function arrancar() {
     ]);
     estado.config = config; estado.escenario = escenario; estado.oferentes = oferentes;
     estado.radio = config.radio_km;
+    const asistenteDisponible = Boolean(config.extraccion_ia?.disponible);
+    const enlaceAsistente = document.querySelector('[data-modulo="asistente"]');
+    if (enlaceAsistente) enlaceAsistente.hidden = !asistenteDisponible;
+    if ($("grupo-asistente")) $("grupo-asistente").hidden = !asistenteDisponible;
     if (sesion.autenticacion) {
       $("pie-sesion").innerHTML = `<b>${escapar(sesion.usuario || "")}</b>
         <button class="secundario pequeno" id="btn-salir">Salir</button>`;
@@ -61,7 +65,7 @@ async function arrancar() {
     }
   } catch (e) {
     document.querySelector("main").insertAdjacentHTML("afterbegin",
-      `<div class="error">No se pudo hablar con la API: ${escapar(e.message)}</div>`);
+      `<div class="error">No se pudo cargar la plataforma: ${escapar(e.message)}</div>`);
     return;
   }
   window.addEventListener("hashchange", enrutar);
