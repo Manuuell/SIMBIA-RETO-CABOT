@@ -143,13 +143,33 @@ function nombreFuente(codigo) {
   return estado.config.fuentes.find((f) => f.codigo === codigo)?.nombre || codigo;
 }
 
+const RADIO_MAX_KM = 40;
+
+/** Deja el radio dentro de [0,5; 40] y avisa si hubo que recortarlo. */
+function radioPedido() {
+  const campo = $("radio-km");
+  const pedido = parseFloat(campo.value) || 8;
+  const valido = Math.max(0.5, Math.min(RADIO_MAX_KM, pedido));
+  if (valido !== pedido) {
+    campo.value = valido;
+    $("radio-nota").textContent = pedido > RADIO_MAX_KM
+      ? `El maximo es ${RADIO_MAX_KM} km: mas alla la conduccion no compite con captar agua cruda y la consulta a OpenStreetMap se vuelve inviable.`
+      : `El minimo es 0,5 km.`;
+  } else {
+    $("radio-nota").textContent = "";
+  }
+  return valido;
+}
+
 async function ejecutarBarrido() {
   const boton = $("btn-barrido");
   const modo = modoElegido();
-  estado.radio = Math.max(0.5, Math.min(40, parseFloat($("radio-km").value) || 8));
+  const pedido = parseFloat($("radio-km").value) || 8;
+  estado.radio = radioPedido();
   boton.disabled = true; boton.textContent = "Consultando…";
   $("paso1-estado").innerHTML = chip("en curso", "azul");
-  anotar(`Barrido iniciado en modo <b>${modo}</b>, radio ${estado.radio} km`, "acento");
+  anotar(`Barrido iniciado en modo <b>${modo}</b>, radio ${estado.radio} km`, "acento",
+    pedido !== estado.radio ? `pediste ${pedido} km; el tope es ${RADIO_MAX_KM} km` : "");
   const t0 = performance.now();
   try {
     const d = await cargarBarrido({ refrescar: true, modo });
@@ -443,6 +463,7 @@ export default {
       l.classList.toggle("activo", l.querySelector("input").checked));
     $("radio-km").value = estado.radio;
     $("radio-km").addEventListener("input", pintarQuePasara);
+    $("radio-km").addEventListener("change", () => { radioPedido(); pintarQuePasara(); });
     $("btn-barrido").addEventListener("click", ejecutarBarrido);
     $("btn-bitacora-limpiar").addEventListener("click", limpiarBitacora);
     bus.on("bitacora", pintarBitacora);
