@@ -32,6 +32,9 @@ router = APIRouter(prefix="/api/scout")
 # --------------------------------------------------------------------------
 
 _cache: dict[float, list[Prospecto]] = {}
+# Resultados del optimizador sobre el catalogo real, por ajustes. Se vacia
+# con el barrido: el optimo solo cambia si cambian los prospectos.
+_optimos: dict[tuple[Any, ...], dict[str, Any]] = {}
 #: Contexto del ultimo barrido: el objeto Barrido, como se consultaron los
 #: permisos y con que modo se hizo. Lo que el dashboard necesita para contar
 #: al usuario de donde salio cada cosa.
@@ -82,11 +85,13 @@ def _barrido(
             },
         })
         _cache[clave] = almacen.aplicar_fichas(puntuar_todos(enriquecidos))
+        _optimos.clear()
     return _cache[clave]
 
 
 def _invalidar() -> None:
     _cache.clear()
+    _optimos.clear()
 
 
 def _ficha_json(f: almacen.Ficha) -> dict[str, Any]:
@@ -504,6 +509,12 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
     """
     ajustes = ajustes or AjustesPromocion()
     prospectos = _barrido(ajustes.radio_km)
+    memo = (
+        round(ajustes.radio_km, 2), ajustes.umbral_confianza,
+        ajustes.max_fraccion_reuso, tuple(sorted(ajustes.claves or ())),
+    )
+    if memo in _optimos:
+        return _optimos[memo]
 
     if ajustes.claves:
         elegidas = set(ajustes.claves)
@@ -532,7 +543,7 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
         esc, max_fraccion_reuso=ajustes.max_fraccion_reuso, oferentes=catalogo,
     )
     base = linea_base(esc)
-    return {
+    resultado = {
         "factible": sol.factible,
         "linea_base": serial.solucion_json(base),
         "optimo": serial.solucion_json(sol),
@@ -552,6 +563,8 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
         ],
         "umbral_confianza": ajustes.umbral_confianza,
     }
+    _optimos[memo] = resultado
+    return resultado
 
 
 # --------------------------------------------------------------------------

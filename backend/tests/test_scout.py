@@ -996,6 +996,9 @@ def test_el_optimizador_corre_con_el_catalogo_prospectado(cliente):
     assert d["factible"] is True
     assert d["catalogo"]
     assert d["optimo"]["ahorro_pct_planta"] > 0
+    # La portada lo vuelve a pedir al navegar: la respuesta memorizada debe
+    # conservar exactamente la misma forma que la primera.
+    assert cliente.post("/api/scout/optimizar", json={}).json() == d
 
 
 def test_un_umbral_inalcanzable_no_revienta_sino_que_lo_explica(cliente):
