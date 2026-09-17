@@ -77,9 +77,9 @@ read -rs -p 'OPENAI_API_KEY: ' K && echo && printf 'OPENAI_API_KEY=%s\n' "$K" | 
 sudo systemctl restart simbia
 ```
 
-Modelos por defecto: `gpt-4.1-mini` (texto y PDF) y `gpt-4o-mini-tts` con la voz
-`nova`; se cambian con `SIMBIA_IA_MODELO`, `SIMBIA_IA_MODELO_VOZ` y
-`SIMBIA_IA_VOZ`. Cada pregunta al asistente envia el contexto de la aplicacion
+Modelos por defecto: `gpt-5.4-mini` (texto y PDF, razonamiento `low`) y
+`gpt-4o-mini-tts` con la voz `nova`; se cambian con `SIMBIA_IA_MODELO`,
+`SIMBIA_IA_ESFUERZO`, `SIMBIA_IA_MODELO_VOZ` y `SIMBIA_IA_VOZ`. Cada pregunta al asistente envia el contexto de la aplicacion
 (unas decenas de KB); cada documento se resume una sola vez y el resumen queda
 junto al archivo (`*.resumen.json`).
 

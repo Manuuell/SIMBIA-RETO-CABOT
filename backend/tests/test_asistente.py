@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from simbia import asistente, ia
+from simbia.api import asistente as asistente_api
 from simbia.main import app
 from simbia.scout.fuentes import base
 
@@ -34,8 +35,27 @@ def test_openai_tiene_prioridad_y_voz(con_openai, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "tambien")
     p = ia.proveedor()
     assert p.nombre == "openai" and p.tiene_voz and p.modelo == ia.MODELO_OPENAI
+    assert p.esfuerzo == "low"
     monkeypatch.setenv("SIMBIA_IA_MODELO", "gpt-x")
-    assert ia.proveedor().modelo == "gpt-x"
+    assert ia.proveedor().modelo == "gpt-x" and ia.proveedor().esfuerzo == ""
+
+
+def test_openai_envia_esfuerzo_de_razonamiento(con_openai, monkeypatch):
+    capturado = {}
+
+    class Respuestas:
+        def create(self, **kw):
+            capturado.update(kw)
+            return type("R", (), {"output_text": "respuesta"})()
+
+    class Cliente:
+        def __init__(self, *a, **k): self.responses = Respuestas()
+
+    import openai
+    monkeypatch.setattr(openai, "OpenAI", Cliente)
+    assert ia.conversar("instrucciones", [{"rol": "usuario", "contenido": "hola"}]) == "respuesta"
+    assert capturado["model"] == "gpt-5.4-mini"
+    assert capturado["reasoning"] == {"effort": "low"}
 
 
 def test_la_voz_recorta_textos_largos(con_openai, monkeypatch):
@@ -90,6 +110,7 @@ def test_el_contexto_separa_cartera_y_resto_y_recoge_resumenes(tmp_path):
     assert c.documentos[0]["resumen"]["titulo"] == "Permiso" and c.empresa_en_pantalla == "Alfa S.A."
     texto = c.texto()
     assert "Alfa S.A." in texto and '"ahorro_pct": 0.38' in texto
+    assert "prefactibilidad_catalogo_prospectado" in texto and "resultado_caso_base" not in texto
 
 
 def test_sin_resumen_el_contexto_lo_dice(tmp_path):
@@ -116,6 +137,23 @@ def test_responder_lleva_contexto_e_historial_al_proveedor(con_openai, monkeypat
     assert [m["rol"] for m in capturado["mensajes"]] == ["usuario", "asistente", "usuario"]
     with pytest.raises(ValueError):
         asistente.responder("   ", [], c)
+
+
+def test_el_resultado_global_sale_del_catalogo_prospectado(monkeypatch):
+    resultado = {
+        "factible": True, "cumple_meta": True, "meta_reduccion": 0.1, "umbral_confianza": 0.55,
+        "linea_base": {"costo_total_usd_anio": 900_000, "ciclos": 3.2},
+        "optimo": {
+            "costo_total_usd_anio": 500_000, "capex_total_usd": 480_000, "ciclos": 6.4,
+            "ahorro_m3_dia": 1_115.0, "ahorro_pct_planta": 0.3845,
+            "aportes": [{"empresa": "Lamitech", "caudal_m3_h": 15.662}],
+        },
+    }
+    monkeypatch.setattr(asistente_api.api_scout, "optimizar_con_prospectos", lambda ajustes: resultado)
+    kpis = asistente_api._kpis_prospectados(8)
+    assert kpis["origen"] == "catalogo_prospectado"
+    assert kpis["ahorro_pct"] == 0.3845 and kpis["consumo_actual_m3_dia"] == 2900.0
+    assert kpis["empresas_en_mezcla"] == [{"empresa": "Lamitech", "aporte_m3_h": 15.662}]
 
 
 def test_el_resumen_se_genera_una_vez_y_se_cachea(con_openai, monkeypatch, tmp_path):

@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 
 from .. import asistente, ia
 from ..scout.geo import RADIO_BUSQUEDA_KM
-from . import routes as api_base
 from . import scout as api_scout
 
 router = APIRouter(prefix="/api/asistente")
@@ -35,6 +34,7 @@ def estado() -> dict[str, Any]:
     return {
         "disponible": ok, "motivo": motivo,
         "proveedor": p.nombre if p else None, "modelo": p.modelo if p else None,
+        "esfuerzo": p.esfuerzo if p else None,
         "voz": bool(p and p.tiene_voz), "modelo_voz": p.modelo_voz if p else None,
     }
 
@@ -68,14 +68,7 @@ class Pregunta(BaseModel):
 def preguntar(q: Pregunta) -> dict[str, Any]:
     """Responde con lo que la aplicacion sabe ahora mismo."""
     _exigir_ia()
-    barrido = api_scout.barrido(radio_km=q.radio_km)
-    try:
-        kpis = api_base.kpis()
-    except Exception:                                   # noqa: BLE001
-        kpis = {}
-    contexto = asistente.construir_contexto(
-        kpis, barrido, api_scout.EXPEDIENTES, modulo=q.modulo, clave=q.clave,
-    )
+    contexto = _contexto_de(q)
     try:
         respuesta = asistente.responder(q.mensaje, q.historial, contexto)
     except ValueError as exc:
@@ -93,10 +86,48 @@ def preguntar(q: Pregunta) -> dict[str, Any]:
     }
 
 
+def _kpis_prospectados(radio_km: float) -> dict[str, Any]:
+    """Resumen economico e hidrico del optimizador alimentado por el barrido."""
+    resultado = api_scout.optimizar_con_prospectos(api_scout.AjustesPromocion(radio_km=radio_km))
+    if not resultado.get("factible"):
+        return {
+            "origen": "catalogo_prospectado", "factible": False,
+            "motivo": resultado.get("motivo", "La prefactibilidad no encontro una solucion factible"),
+        }
+    base = resultado["linea_base"]
+    optimo = resultado["optimo"]
+    ahorro_anual = base["costo_total_usd_anio"] - optimo["costo_total_usd_anio"]
+    capex = optimo["capex_total_usd"]
+    ahorro_pct = optimo["ahorro_pct_planta"]
+    # Ambos valores vienen redondeados del serializador; redondear el cociente
+    # a m3/dia evita presentar una falsa precision (p. ej., 2.899,9).
+    consumo_planta = round(optimo["ahorro_m3_dia"] / ahorro_pct, 0) if ahorro_pct else None
+    return {
+        "origen": "catalogo_prospectado",
+        "alcance": "prefactibilidad; no es una medicion de operacion",
+        "factible": True,
+        "cumple_meta": resultado.get("cumple_meta"),
+        "meta_reduccion": resultado.get("meta_reduccion"),
+        "consumo_actual_m3_dia": consumo_planta,
+        "ahorro_m3_dia": optimo["ahorro_m3_dia"],
+        "ahorro_pct": ahorro_pct,
+        "ahorro_economico_usd_anio": round(ahorro_anual, 0),
+        "capex_usd": capex,
+        "payback_anios": round(capex / max(ahorro_anual, 1e-9), 2),
+        "ciclos_base": base["ciclos"],
+        "ciclos_optimo": optimo["ciclos"],
+        "empresas_en_mezcla": [
+            {"empresa": a["empresa"], "aporte_m3_h": a["caudal_m3_h"]}
+            for a in optimo.get("aportes", [])
+        ],
+        "umbral_confianza": resultado.get("umbral_confianza"),
+    }
+
+
 def _contexto_de(q: "Pregunta") -> asistente.Contexto:
     barrido = api_scout.barrido(radio_km=q.radio_km)
     try:
-        kpis = api_base.kpis()
+        kpis = _kpis_prospectados(q.radio_km)
     except Exception:                                   # noqa: BLE001
         kpis = {}
     return asistente.construir_contexto(

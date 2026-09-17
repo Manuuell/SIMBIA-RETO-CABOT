@@ -7,6 +7,7 @@ proveedor hay, y cambiarlo es cambiar una variable de entorno.
     OPENAI_API_KEY              activa OpenAI (tiene prioridad)
     ANTHROPIC_API_KEY           activa Anthropic si no hay OpenAI
     SIMBIA_IA_MODELO            modelo de texto (defecto segun proveedor)
+    SIMBIA_IA_ESFUERZO          esfuerzo de razonamiento OpenAI (defecto 'low')
     SIMBIA_IA_MODELO_VOZ        modelo de voz (solo OpenAI)
     SIMBIA_IA_VOZ               voz (solo OpenAI; defecto 'nova')
 
@@ -31,10 +32,12 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
-MODELO_OPENAI = "gpt-4.1-mini"
+MODELO_OPENAI = "gpt-5.4-mini"
 MODELO_ANTHROPIC = "claude-opus-5"
 MODELO_VOZ = "gpt-4o-mini-tts"
 VOZ = "nova"
+ESFUERZO_OPENAI = "low"
+ESFUERZOS_OPENAI = {"none", "low", "medium", "high", "xhigh"}
 MAX_PDF_MB = 30.0
 MAX_TEXTO_VOZ = 2_000
 
@@ -45,6 +48,7 @@ class Proveedor:
     modelo: str
     modelo_voz: str = ""
     voz: str = ""
+    esfuerzo: str = ""
 
     @property
     def tiene_voz(self) -> bool:
@@ -58,11 +62,18 @@ def proveedor() -> Proveedor | None:
             import openai  # noqa: F401
         except ImportError:
             return None
+        modelo = os.environ.get("SIMBIA_IA_MODELO", "").strip() or MODELO_OPENAI
+        esfuerzo = os.environ.get("SIMBIA_IA_ESFUERZO", "").strip().lower() or ESFUERZO_OPENAI
+        if esfuerzo not in ESFUERZOS_OPENAI:
+            esfuerzo = ESFUERZO_OPENAI
+        # Los modelos anteriores a GPT-5 no aceptan el parametro reasoning.
+        if not modelo.startswith("gpt-5"):
+            esfuerzo = ""
         return Proveedor(
-            "openai",
-            os.environ.get("SIMBIA_IA_MODELO", "").strip() or MODELO_OPENAI,
+            "openai", modelo,
             os.environ.get("SIMBIA_IA_MODELO_VOZ", "").strip() or MODELO_VOZ,
             os.environ.get("SIMBIA_IA_VOZ", "").strip() or VOZ,
+            esfuerzo,
         )
     if os.environ.get("ANTHROPIC_API_KEY", "").strip() or os.environ.get("ANTHROPIC_AUTH_TOKEN", "").strip():
         try:
@@ -87,6 +98,11 @@ def disponible() -> tuple[bool, str]:
 def modelo_activo() -> str:
     p = proveedor()
     return p.modelo if p else ""
+
+
+def _opciones_razonamiento(p: Proveedor) -> dict[str, Any]:
+    """Parametros admitidos por Responses solo cuando el modelo razona."""
+    return {"reasoning": {"effort": p.esfuerzo}} if p.nombre == "openai" and p.esfuerzo else {}
 
 
 # --------------------------------------------------------------------------
@@ -169,6 +185,7 @@ def conversar(
         r = OpenAI().responses.create(
             model=p.modelo, instructions=instrucciones, input=entrada,
             max_output_tokens=max_tokens,
+            **_opciones_razonamiento(p),
         )
         return (r.output_text or "").strip()
 
@@ -212,6 +229,7 @@ def conversar_stream(
         flujo = OpenAI().responses.create(
             model=p.modelo, instructions=instrucciones, input=entrada,
             max_output_tokens=max_tokens, stream=True,
+            **_opciones_razonamiento(p),
         )
         for evento in flujo:
             if getattr(evento, "type", "") == "response.output_text.delta":
