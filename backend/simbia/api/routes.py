@@ -239,11 +239,18 @@ def operacion(horas: int = 336) -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=1)
+def _optimo_base():
+    """El caso base es determinista (escenario y catalogo son constantes):
+    se resuelve una vez por proceso. En ARM cuesta casi cinco segundos."""
+    esc = Escenario()
+    return linea_base(esc), optimizar(esc)
+
+
 @router.get("/kpis")
 def kpis() -> dict[str, Any]:
     esc = Escenario()
-    base_sol = linea_base(esc)
-    sol = optimizar(esc)
+    base_sol, sol = _optimo_base()
     fugas = _modelos()["fugas"].metricas
     m3_fugas = fugas.m3_recuperables_anio if fugas else 0.0
     consumo_anio = esc.planta.consumo_total_m3_dia * 365.0

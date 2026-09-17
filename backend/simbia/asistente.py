@@ -30,7 +30,7 @@ from . import ia
 MAX_HISTORIAL = 12
 MAX_MENSAJE = 4_000
 MAX_TOKENS_RESPUESTA = 600
-MAX_PROSPECTOS_CONTEXTO = 40
+MAX_PROSPECTOS_CONTEXTO = 30
 
 INSTRUCCIONES = """\
 Eres el asistente de SIMBIA, una herramienta de simbiosis hidrica industrial para el reto \
@@ -118,6 +118,20 @@ def resumir_documento(archivo: Path, forzar: bool = False) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 # Contexto
 # --------------------------------------------------------------------------
+
+def _prospecto_compacto(p: dict[str, Any]) -> dict[str, Any]:
+    """Lo justo para comparar y priorizar: los de cartera van completos."""
+    c = p.get("calidad") or {}
+    return {
+        "empresa": p["nombre"], "sector": p["sector"], "corriente": p["corriente"],
+        "caudal_m3_h": p["caudal_m3_h"], "km": p["distancia_conduccion_km"],
+        "puntaje_simbiosis_0_a_100": p.get("puntaje"), "confianza": p["confianza"],
+        "metodo_calidad": p["metodo_calidad"], "limitante": p["limitante"],
+        "tds": c.get("tds"), "dqo": c.get("dqo"), "n_amoniacal": c.get("n_amoniacal"),
+        "tiene_expediente_vital": any(r["fuente"] == "vital" for r in p.get("referencias", [])),
+        "etapa": (p.get("ficha") or {}).get("estado") or p.get("estado"),
+    }
+
 
 def _prospecto_breve(p: dict[str, Any]) -> dict[str, Any]:
     c = p.get("calidad") or {}
@@ -208,13 +222,17 @@ def construir_contexto(
             })
 
     return Contexto(
-        kpis=kpis,
+        kpis={k: v for k, v in kpis.items() if k in (
+            "meta_reduccion", "consumo_actual_m3_dia", "ahorro_m3_dia", "ahorro_pct",
+            "ahorro_economico_usd_anio", "capex_usd", "payback_anios", "co2_evitado_t_anio",
+            "ciclos_base", "ciclos_optimo",
+        )},
         resumen_barrido={
             "empresas_detectadas": resumen.get("detectados"), "viables": resumen.get("viables"),
             "caudal_total_m3_h": resumen.get("caudal_total_m3_h"), "modo_fuentes": barrido.get("modo"),
             "radio_km": barrido.get("radio_km"),
         },
-        prospectos=[_prospecto_breve(p) for p in resto],
+        prospectos=[_prospecto_compacto(p) for p in resto],
         cartera=[_prospecto_breve(p) for p in en_cartera],
         documentos=documentos,
         modulo=modulo, empresa_en_pantalla=en_pantalla,
