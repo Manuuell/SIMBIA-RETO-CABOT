@@ -109,9 +109,21 @@ class Permiso:
     tramite: str
     radicado: str
     fecha: str
+    #: Identificadores del VITAL antiguo, para llegar a los documentos.
+    #: Vacios en caches anteriores a septiembre de 2026.
+    origen_sistema: str = ""
+    sol_id: str = ""
+    solicitante_id: str = ""
 
     @property
     def url(self) -> str:
+        """El detalle del tramite en el VITAL antiguo si se puede; si no, el buscador."""
+        if self.radicado and self.sol_id and self.solicitante_id:
+            return (
+                "https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx"
+                f"?NumSilpa={self.radicado}&Origen={self.origen_sistema or 'VITAL'}"
+                f"&TarSolId={self.sol_id}&Solicitante={self.solicitante_id}&TipoConsulta=Todos"
+            )
         return "https://vital-publico.minambiente.gov.co/buscador"
 
     def as_dict(self) -> dict[str, str]:
@@ -119,6 +131,8 @@ class Permiso:
             "titular": self.titular, "autoridad": self.autoridad,
             "expediente": self.expediente, "tramite": self.tramite,
             "radicado": self.radicado, "fecha": self.fecha[:10],
+            "origen_sistema": self.origen_sistema, "sol_id": self.sol_id,
+            "solicitante_id": self.solicitante_id,
         }
 
 
@@ -138,6 +152,9 @@ def _interpretar(filas: list[dict[str, Any]]) -> list[Permiso]:
             tramite=tramite,
             radicado=(f.get("sol_num_silpa") or "").strip(),
             fecha=(f.get("tar_fecha_creacion") or "").strip(),
+            origen_sistema=(f.get("origen") or "").strip(),
+            sol_id=str(f.get("tar_sol_id") or "").strip(),
+            solicitante_id=str(f.get("sol_id_solicitante") or "").strip(),
         ))
     return permisos
 
