@@ -21,6 +21,7 @@ let vista = "cartera";       // "cartera" | "todos"
 const detallesTramite = {};  // radicado -> detalle del VITAL antiguo
 const lecturas = {};         // ruta -> resultado de la lectura con IA
 const resumenes = {};        // ruta -> resumen del documento (para el asistente y para leer)
+const resumenesPedidos = new Set();
 const analisis = {};         // ruta -> analisis completo del documento
 let trabajos = {};           // clave -> trabajo del lote (progreso)
 let sondeo = null;
@@ -501,7 +502,8 @@ function pintarDossier() {
   caja.querySelectorAll(".btn-resumir").forEach((b) => b.addEventListener("click", () => resumirDocumento(b.dataset.ruta)));
   // Resumenes ya generados: se muestran sin llamar al modelo.
   (e.ficha.documentos || []).forEach(async (d) => {
-    if (resumenes[d.ruta]) return;
+    if (resumenes[d.ruta] || resumenesPedidos.has(d.ruta)) return;
+    resumenesPedidos.add(d.ruta);
     try { const r = await fetch(`/api/asistente/documento/resumen?ruta=${encodeURIComponent(d.ruta)}`); if (r.ok) { resumenes[d.ruta] = await r.json(); pintarDossier(); } }
     catch { /* sin resumen */ }
   });

@@ -89,6 +89,17 @@ def _invalidar() -> None:
     _cache.clear()
 
 
+def _ficha_json(f: almacen.Ficha) -> dict[str, Any]:
+    """La ficha con, por documento, si ya tiene analisis guardado."""
+    d = f.as_dict()
+    for doc in d["documentos"]:
+        try:
+            doc["analizado"] = analisis.ruta_analisis(_ruta_expediente(doc["ruta"])).is_file()
+        except HTTPException:
+            doc["analizado"] = False
+    return d
+
+
 def _prospecto_json(p: Prospecto) -> dict[str, Any]:
     x, y = proyectar(p.lat, p.lon)
     d = p.as_dict()
@@ -176,7 +187,7 @@ def barrido(
     for p in prospectos:
         d = _prospecto_json(p)
         ficha = fichas.get(d["clave"])
-        d["ficha"] = ficha.as_dict() if ficha else None
+        d["ficha"] = _ficha_json(ficha) if ficha else None
         salida.append(d)
 
     viables = [p for p in prospectos if (p.puntaje or 0) > 0]
@@ -344,12 +355,7 @@ def cartera(radio_km: float = RADIO_BUSQUEDA_KM) -> dict[str, Any]:
         f = fichas.get(d["clave"])
         if f is None or not f.en_cartera:
             continue
-        d["ficha"] = f.as_dict()
-        for doc in d["ficha"]["documentos"]:
-            try:
-                doc["analizado"] = analisis.ruta_analisis(_ruta_expediente(doc["ruta"])).is_file()
-            except HTTPException:
-                doc["analizado"] = False
+        d["ficha"] = _ficha_json(f)
         salida.append(d)
     orden = {e.value: i for i, e in enumerate(ORDEN_ESTADO)}
     salida.sort(key=lambda d: (-orden.get(d["ficha"]["estado"], -1), -(d["puntaje"] or 0)))
