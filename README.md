@@ -59,6 +59,7 @@ backend/simbia/
 │   ├── almacen.py         Embudo de contratación e instantáneas
 │   ├── vigilancia.py      Qué cambió desde la última revisión
 │   ├── vital.py           Buscador libre de trámites en VITAL (facetas, páginas, caché)
+│   ├── documentos.py      Documentos de un trámite desde el VITAL antiguo: ver, descargar, guardar
 │   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
 ├── api/                   API REST (FastAPI)
 └── main.py                Aplicación
@@ -76,7 +77,7 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 | # | Módulo | Pregunta que responde |
 |---|---|---|
 | 1 | **Datos externos** (`#datos`) | ¿De dónde sale el catálogo? Consultar fuentes, cruzar permisos de vertimiento y traer documentos del expediente, con una bitácora de lo que hizo el sistema. |
-| 2 | **Buscador VITAL** (`#vital`) | ¿Qué trámites tiene una empresa concreta ante la autoridad ambiental? Búsqueda libre con filtros, solicitud del expediente lista para enviar y vínculo al prospecto. |
+| 2 | **Buscador VITAL** (`#vital`) | ¿Qué trámites tiene una empresa concreta ante la autoridad ambiental? Búsqueda libre con filtros, los documentos del expediente para ver, descargar o guardar, la solicitud lista para enviar y el vínculo al prospecto. |
 | 3 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
 | 4 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
 | 5 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |

@@ -144,6 +144,22 @@ vínculo se guarda en la ficha comercial y entra al prospecto como referencia
 si lo hubiera encontrado el barrido. Es un vínculo declarado: prueba que la
 empresa tramita ante la autoridad, no dice qué vierte.
 
+**Y los documentos, sin salir de la herramienta.** El buscador nuevo dice que
+un trámite existe; los documentos —la solicitud, la resolución, la
+caracterización— viven en el VITAL antiguo (SILPA, ASP.NET con sesión y
+ViewState). La nota que decía que ese portal rechazaba clientes que no fueran
+navegador resultó falsa para estas páginas: `scout/documentos.py` reproduce el
+flujo del navegador (detalle → `ConsultarDetalleSolicitud` → `MostrarDocumentos`
+deja la carpeta en la sesión → `DescargarDocumentos.aspx` lista los archivos →
+postback por archivo) y la herramienta muestra, por cada trámite, el estado y
+las carpetas con sus archivos: **Ver** (en línea), **Descargar** y **Guardar en
+expediente** (queda en `archivo/expedientes/<radicado>/` y anotado en la ficha
+del prospecto). Con Mexichem se recuperó la solicitud de renovación del permiso
+de mayo de 2026: 1,3 MB con las resoluciones, la vigencia y los números de los
+informes de caracterización. Dos detalles del servidor: sirve un HTML *downlevel*
+(con `<font>` y `&#39;`) a quien no es navegador, y etiqueta los PDF como
+`application/base64`; el tipo se decide por los bytes.
+
 Lo que costó descubrir del API, para no repetirlo: `type_search` tiene que ser
 `Todos`; `filters` tiene que llevar siempre `{"CAMPO": -6}` o el cuerpo vuelve
 vacío; las facetas se filtran con listas (`"aut_nombre": [...]`); los ausentes

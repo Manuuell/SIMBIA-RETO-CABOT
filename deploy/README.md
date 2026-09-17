@@ -66,6 +66,13 @@ Para cambiar la contraseña, repetir lo mismo (solo cambia `SIMBIA_AUTH_HASH`).
 Cinco intentos fallidos desde una IP la bloquean quince minutos; la sesión
 dura doce horas.
 
+## Documentos guardados desde el buscador
+
+"Guardar en expediente" deja los archivos en
+`backend/simbia/scout/archivo/expedientes/<radicado>/` (fuera de git). Cuentan
+para el disco del VPS: una solicitud de licencia puede pesar decenas de MB.
+`documentos.MAX_BYTES` (60 MB) es el tope por archivo.
+
 ## Actualizar
 
 ```bash
