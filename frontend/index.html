@@ -35,22 +35,26 @@
       <span class="n">3</span>
       <span><span class="t">Prospectos</span><br><span class="d">Mapa, puntaje y detalle</span></span>
     </a>
-    <a href="#embudo" data-modulo="embudo">
+    <a href="#empresas" data-modulo="empresas">
       <span class="n">4</span>
+      <span><span class="t">Empresas</span><br><span class="d">Cartera: expedientes y dossier</span></span>
+    </a>
+    <a href="#embudo" data-modulo="embudo">
+      <span class="n">5</span>
       <span><span class="t">Embudo comercial</span><br><span class="d">Etapas, fichas y vigilancia</span></span>
     </a>
     <div class="grupo">Decision</div>
     <a href="#optimizador" data-modulo="optimizador">
-      <span class="n">5</span>
+      <span class="n">6</span>
       <span><span class="t">Optimizador</span><br><span class="d">Mezcla, tratamiento y ciclos</span></span>
     </a>
     <a href="#operacion" data-modulo="operacion">
-      <span class="n">6</span>
+      <span class="n">7</span>
       <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
     </a>
     <div class="grupo">Referencia</div>
     <a href="#modelo" data-modulo="modelo">
-      <span class="n">7</span>
+      <span class="n">8</span>
       <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
     </a>
   </nav>
@@ -339,7 +343,32 @@
     </div>
   </section>
 
-  <!-- ================================================================ 3 -->
+  <!-- ================================================================ 4 -->
+  <section class="modulo" id="mod-empresas">
+    <div class="cabecera">
+      <div>
+        <h1>Empresas en cartera</h1>
+        <p class="intro">Las empresas que eligieron seguir, con todo lo que se sabe de cada una: datos y caracterizacion,
+          ficha comercial, expedientes y tramites con sus documentos, y la lectura con IA de lo guardado para aplicar
+          al prospecto lo que declara.</p>
+      </div>
+      <div class="acciones-cab"><span class="chip neutra sin-punto" id="empresas-kpi"></span></div>
+    </div>
+    <div class="rejilla tercio-dos">
+      <div>
+        <div id="empresas-lista" class="empresas-lista"><p class="cargando">Cargando la cartera…</p></div>
+        <details class="ayuda">
+          <summary>Como entra una empresa en la cartera</summary>
+          <div class="cuerpo"><p>A mano, con "Seguir en cartera" en la ficha del prospecto. O sola, en cuanto hay trabajo
+            registrado sobre ella: mover de etapa, vincular un expediente desde el Buscador VITAL, guardar un documento o
+            declarar su calidad. "Quitar de la cartera" solo la esconde de aqui: la ficha y los documentos se conservan.</p></div>
+        </details>
+      </div>
+      <div id="empresa-dossier"></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 5 -->
   <section class="modulo" id="mod-embudo">
     <div class="cabecera">
       <div>

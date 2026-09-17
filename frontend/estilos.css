@@ -518,3 +518,21 @@ body.solo { display: block; }
 .filtros .casilla.activo { border-color: var(--acento); color: var(--texto); }
 .filtros .casilla input { accent-color: var(--acento); margin: 0; }
 .filtros .opciones label { padding: 5px 10px; font-size: 12px; }
+
+/* ==========================================================================
+   Empresas en cartera
+   ========================================================================== */
+
+.empresas-lista { display: grid; gap: 8px; }
+.empresa-item {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 9px; padding: 10px 12px;
+}
+.empresa-item:hover { border-color: var(--texto-tenue); }
+.empresa-item.activa { border-color: var(--acento); box-shadow: inset 3px 0 0 var(--acento); }
+.empresa-item .nombre { font-size: 13.5px; font-weight: 640; }
+.empresa-item .sub { font-size: 11.5px; color: var(--texto-tenue); }
+.empresa-item .chips { display: flex; gap: 5px; flex-wrap: wrap; margin: 5px 0; }
+.tramite { padding: 8px 0; border-bottom: 1px solid var(--borde-suave); font-size: 12.5px; }
+.tramite:last-child { border-bottom: none; }
+#empresa-dossier .bloque { margin-bottom: 14px; }

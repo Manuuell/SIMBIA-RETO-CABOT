@@ -136,6 +136,11 @@ function pintarPanel(clave) {
   panel.innerHTML = `
     <button class="secundario pequeno cerrar" id="btn-cerrar-panel">Cerrar</button>
     <h2>${escapar(p.nombre)}</h2>
+    <div class="acciones" style="margin:0 0 10px">
+      ${f.en_cartera
+        ? `<a class="chip ok sin-punto" href="#empresas">En cartera · ver dossier</a>`
+        : `<button class="pequeno" id="btn-cartera">Seguir en cartera</button>`}
+    </div>
     <p class="sub">${escapar(p.sector)} · ${escapar(p.corriente)}</p>
     <div class="rejilla kpis" style="grid-template-columns:repeat(3,1fr);gap:8px">
       ${kpi("Puntaje", `<span style="color:${colorPuntaje(p.puntaje)}">${p.puntaje == null ? "—" : p.puntaje.toFixed(1)}</span>`, pilaPuntaje(p))}
@@ -196,6 +201,12 @@ function pintarPanel(clave) {
 
   $("btn-cerrar-panel").addEventListener("click", cerrarPanel);
   $("btn-guardar-ficha").addEventListener("click", guardarFicha);
+  $("btn-cartera")?.addEventListener("click", async (ev) => {
+    ev.target.disabled = true;
+    await pedir("/api/scout/ficha", { clave: p.clave, nombre: p.nombre, en_cartera: true });
+    anotar(`<b>${escapar(p.nombre)}</b> entra en la cartera`, "ok");
+    await cargarBarrido({ refrescar: true });
+  });
 }
 
 async function guardarFicha() {
