@@ -131,7 +131,7 @@ def estado() -> dict[str, Any]:
         "descargas": {f.codigo: descargas_en_cache(f.codigo) for f in catalogo_fuentes()},
         "extraccion_ia": {
             "disponible": hay_ia, "motivo": motivo_ia,
-            "modelo": extraccion.MODELO,
+            "modelo": extraccion.modelo(),
         },
         "arquetipos": len(ciiu.ARQUETIPOS),
         "permisos_vertimiento": _resumen_permisos(),

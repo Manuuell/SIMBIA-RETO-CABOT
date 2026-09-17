@@ -38,17 +38,14 @@ extraida se muestra al usuario para su confirmacion antes de tocar nada.
 REQUISITOS
 ----------
 
-    pip install anthropic
-
-y credenciales en el entorno (`ANTHROPIC_API_KEY`, o un perfil de
-`ant auth login`). Sin ninguna de las dos cosas el modulo no rompe nada: se
-declara no disponible y el resto de la prospeccion sigue funcionando. Es una
-funcion opcional, no un requisito del sistema.
+Un proveedor de IA configurado en `simbia/ia.py`: `OPENAI_API_KEY` (con el
+paquete `openai`) o `ANTHROPIC_API_KEY` (con `anthropic`). Sin ninguno el
+modulo no rompe nada: se declara no disponible y el resto de la prospeccion
+sigue funcionando. Es una funcion opcional, no un requisito del sistema.
 """
 
 from __future__ import annotations
 
-import base64
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,10 +53,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .. import ia
 from ..domain.water_chem import Calidad
 
-MODELO = "claude-opus-5"
-MAX_MB = 30.0
+MAX_MB = ia.MAX_PDF_MB
+
+
+def modelo() -> str:
+    return ia.modelo_activo()
 
 
 # --------------------------------------------------------------------------
@@ -276,23 +277,7 @@ registralo en observaciones."""
 
 def disponible() -> tuple[bool, str]:
     """Comprueba si la extraccion puede ejecutarse, sin llamar a la API."""
-    try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        return False, (
-            "El paquete 'anthropic' no esta instalado. "
-            "Instalar con: pip install anthropic"
-        )
-    if not (
-        os.environ.get("ANTHROPIC_API_KEY")
-        or os.environ.get("ANTHROPIC_AUTH_TOKEN")
-        or (Path.home() / ".config" / "anthropic").is_dir()
-    ):
-        return False, (
-            "Sin credenciales de la API de Claude. Exportar ANTHROPIC_API_KEY "
-            "o iniciar sesion con 'ant auth login'."
-        )
-    return True, ""
+    return ia.disponible()
 
 
 def extraer_pdf(ruta: Path | str) -> ResultadoExtraccion:
@@ -316,57 +301,13 @@ def extraer_pdf(ruta: Path | str) -> ResultadoExtraccion:
             ),
         )
 
-    import anthropic
-
-    datos = base64.standard_b64encode(ruta.read_bytes()).decode("utf-8")
-    cliente = anthropic.Anthropic()
     try:
-        respuesta = cliente.messages.parse(
-            model=MODELO,
-            max_tokens=16000,
-            system=INSTRUCCIONES,
-            thinking={"type": "adaptive"},
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": datos,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": (
-                            "Extrae los datos de este permiso de vertimiento, "
-                            "incluida la tabla completa de caracterizacion "
-                            "analitica de la corriente."
-                        ),
-                    },
-                ],
-            }],
-            output_format=PermisoExtraido,
+        permiso = ia.estructurar_pdf(
+            ruta, INSTRUCCIONES,
+            "Extrae los datos de este permiso de vertimiento, incluida la tabla "
+            "completa de caracterizacion analitica de la corriente.",
+            PermisoExtraido,
         )
     except Exception as exc:                        # noqa: BLE001
-        return ResultadoExtraccion(
-            disponible=False, error=f"{type(exc).__name__}: {exc}"
-        )
-
-    if getattr(respuesta, "stop_reason", None) == "refusal":
-        return ResultadoExtraccion(
-            disponible=False,
-            error=(
-                "El modelo declino procesar el documento. Revisar que sea "
-                "efectivamente un permiso de vertimiento."
-            ),
-        )
-
-    permiso = getattr(respuesta, "parsed_output", None)
-    if permiso is None:
-        return ResultadoExtraccion(
-            disponible=False,
-            error="La respuesta no pudo validarse contra el esquema esperado.",
-        )
+        return ResultadoExtraccion(disponible=False, error=f"{type(exc).__name__}: {exc}")
     return traducir(permiso)
