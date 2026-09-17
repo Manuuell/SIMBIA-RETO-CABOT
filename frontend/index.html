@@ -333,11 +333,22 @@
     <div class="bloque">
       <div class="rejilla kpis" id="prospectos-kpis"><p class="cargando">Prospectando…</p></div>
     </div>
+    <div class="tarjeta prospectos-herramientas">
+      <label>Buscar empresa o sector<input id="prospectos-buscar" type="search" placeholder="Nombre, sector o corriente…"></label>
+      <label>Ordenar por<select id="prospectos-orden"><option value="puntaje">Mayor puntaje</option><option value="distancia">Menor distancia</option><option value="caudal">Mayor caudal</option><option value="confianza">Mayor confianza</option><option value="nombre">Nombre A–Z</option></select></label>
+      <div class="casillas" id="prospectos-filtros">
+        <label class="activo"><input type="checkbox" id="filtro-viables"> Solo viables</label>
+        <label><input type="checkbox" id="filtro-permiso"> Con expediente</label>
+        <label><input type="checkbox" id="filtro-confianza"> Confianza suficiente</label>
+      </div>
+      <button class="secundario pequeno" id="prospectos-limpiar">Ver todos</button>
+      <p class="pie">Los filtros se aplican al mapa y a ambas tablas. Los indicadores superiores resumen todo el barrido.</p>
+    </div>
     <div class="bloque">
       <div class="rejilla dos-tercios">
         <div class="tarjeta mapa-envoltorio" id="mapa"><p class="cargando">Dibujando…</p></div>
         <div class="tarjeta">
-          <h3>Distancia de conduccion <span class="nota">los 8 mas cercanos</span></h3>
+          <h3>Conducción estimada <span class="nota">hasta 8 cercanos del filtro</span></h3>
           <table id="tabla-trazado"><tbody></tbody></table>
           <details class="ayuda">
             <summary>Por que no vale la linea recta</summary>
@@ -351,12 +362,9 @@
     </div>
     <div class="bloque">
       <div class="tarjeta">
-        <h3>Ordenados por puntaje de simbiosis
+        <h3>Empresas del barrido
           <span class="chip neutra sin-punto" id="prospectos-filtro-txt"></span>
-          <div class="casillas" style="margin-left:auto" id="prospectos-filtros">
-            <label class="activo"><input type="checkbox" id="filtro-viables"> solo viables</label>
-            <label><input type="checkbox" id="filtro-permiso"> con permiso</label>
-          </div>
+
         </h3>
         <div class="tabla-envoltorio">
           <table id="tabla-prospectos">

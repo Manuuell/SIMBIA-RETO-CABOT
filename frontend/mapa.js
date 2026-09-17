@@ -1,19 +1,4 @@
-/* Mapa del parque industrial.
- *
- * SVG a mano, sin libreria de mapas. Motivos: el proyecto entero no tiene
- * dependencias npm, un mapa de teselas exige red (y esta pagina tiene que
- * funcionar sin ella), y a escala de un parque industrial no hace falta
- * cartografia de fondo — lo que importa es la posicion relativa a la planta
- * y la longitud del trazado, no el detalle del terreno.
- *
- * Tres canales visuales, cada uno con un significado y solo uno:
- *   posicion  ->  donde esta realmente (proyeccion equirectangular en km)
- *   tamano    ->  caudal disponible
- *   color     ->  puntaje de simbiosis
- *
- * La confianza NO se codifica con color aqui: el color ya esta ocupado. Se
- * codifica con el trazo del borde, discontinuo cuando el dato es inferido.
- */
+/* Mapa relativo sin conexión. Las líneas indican proximidad, no rutas levantadas. */
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -92,7 +77,8 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
 
   const ordenados = [...prospectos].sort((a, b) => b.caudal_m3_h - a.caudal_m3_h);
   ordenados.forEach((p) => {
-    const g = el("g", { class: "nodo" });
+    const g = el("g", { class: "nodo", tabindex: "0", role: "button",
+      "aria-label": `${p.nombre}. Puntaje ${p.puntaje ?? "sin evaluar"}. Ver detalle` });
     g.appendChild(el("title", {}, [
       p.nombre,
       `${p.sector}`,
@@ -109,23 +95,29 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
       // Borde discontinuo = caracterizacion inferida, no declarada.
       "stroke-dasharray": p.metodo_calidad === "inferido" ? "3 2.5" : "",
     }));
-    if (alSeleccionar) g.addEventListener("click", () => alSeleccionar(p.clave));
+    if (alSeleccionar) {
+      g.addEventListener("click", () => alSeleccionar(p.clave));
+      g.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alSeleccionar(p.clave); }
+      });
+    }
     svg.appendChild(g);
   });
 
-  // Etiquetas solo de los seis mejores: mas texto se solapa y no se lee.
-  [...prospectos]
-    .sort((a, b) => (b.puntaje || 0) - (a.puntaje || 0))
-    .slice(0, 6)
-    .forEach((p) => {
-      const corto = p.nombre.length > 26 ? p.nombre.slice(0, 25) + "…" : p.nombre;
-      svg.appendChild(el("text", {
-        class: "nodo-txt",
-        x: X(p.x_km),
-        y: Y(p.y_km) - radio(p.caudal_m3_h) - 4,
-        "text-anchor": "middle",
-      }, corto));
+  // Distribuir etiquetas en dos columnas evita colisiones en el corredor.
+  const mejores = [...prospectos].sort((a, b) => (b.puntaje || 0) - (a.puntaje || 0)).slice(0, 8);
+  [-1, 1].forEach((lado) => {
+    const grupo = mejores.filter((p) => (p.x_km < 0 ? -1 : 1) === lado).sort((a, b) => b.y_km - a.y_km);
+    let anterior = 20;
+    grupo.forEach((p, i) => {
+      const y = Math.max(anterior + 24, Math.min(H - 36 - (grupo.length - i - 1) * 24, Y(p.y_km)));
+      anterior = y;
+      const x = lado < 0 ? 150 : W - 150;
+      svg.appendChild(el("line", { x1: X(p.x_km), y1: Y(p.y_km), x2: x, y2: y - 4, stroke: "#566579", "stroke-width": 0.6 }));
+      svg.appendChild(el("text", { class: "nodo-txt", x, y: y - 7, "text-anchor": lado < 0 ? "end" : "start" },
+        p.nombre.length > 24 ? p.nombre.slice(0, 23) + "…" : p.nombre));
     });
+  });
 
   // -- planta --------------------------------------------------------------
   const gp = el("g");
@@ -141,14 +133,44 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
   }, planta.nombre));
   svg.appendChild(gp);
 
+  const cabecera = document.createElement("div");
+  cabecera.className = "mapa-controles";
+  cabecera.innerHTML = '<div><h3>Mapa de proximidad</h3><span class="pie">Norte ↑ · posiciones relativas a Cabot</span></div><div class="acciones"><button type="button" class="secundario pequeno" data-zoom="2" aria-label="Acercar mapa">+</button><button type="button" class="secundario pequeno" data-zoom="0.5" aria-label="Alejar mapa">−</button><button type="button" class="secundario pequeno" data-zoom="0">Restablecer</button></div>';
+  contenedor.appendChild(cabecera);
   contenedor.appendChild(svg);
+  svg.setAttribute("aria-label", "Mapa de proximidad de prospectos. Use los botones para ampliar y arrastre para explorar.");
+  let vista = { x: 0, y: 0, w: W, h: H }, arrastre = null;
+  const actualizar = () => svg.setAttribute("viewBox", `${vista.x} ${vista.y} ${vista.w} ${vista.h}`);
+  cabecera.querySelectorAll("button").forEach((boton) => boton.addEventListener("click", () => {
+    const factor = Number(boton.dataset.zoom);
+    if (!factor) vista = { x: 0, y: 0, w: W, h: H };
+    else {
+      const ancho = Math.max(W / 8, Math.min(W, vista.w / factor));
+      const alto = ancho * H / W;
+      vista = { x: vista.x + (vista.w - ancho) / 2, y: vista.y + (vista.h - alto) / 2, w: ancho, h: alto };
+    }
+    actualizar();
+  }));
+  svg.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".nodo")) return;
+    arrastre = { x: e.clientX, y: e.clientY, vista: { ...vista } };
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!arrastre) return;
+    const escala = Math.min(svg.clientWidth / vista.w, svg.clientHeight / vista.h);
+    vista.x = arrastre.vista.x - (e.clientX - arrastre.x) / escala;
+    vista.y = arrastre.vista.y - (e.clientY - arrastre.y) / escala;
+    actualizar();
+  });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach((evento) => svg.addEventListener(evento, () => { arrastre = null; }));
 
   const ley = document.createElement("div");
   ley.className = "leyenda";
   ley.innerHTML =
-    "<span><i style=\"width:10px;height:10px;border-radius:50%;background:#f2762e\"></i> area = caudal · color = puntaje</span>" +
+    "<span><i style=\"width:10px;height:10px;border-radius:50%;background:#f2762e\"></i> tamaño = caudal · color = puntaje</span>" +
     "<span><i style=\"width:10px;height:10px;border-radius:50%;border:1.5px dashed #8391a3;background:none\"></i> borde discontinuo = calidad inferida</span>" +
-    "<span><i style=\"background:#f2762e\"></i> trazado de conduccion</span>";
+    "<span><i style=\"background:#f2762e\"></i> vínculo directo, no trazado real</span>";
   contenedor.appendChild(ley);
 }
 

@@ -774,3 +774,19 @@ nav.modulos a.destacado.activo .n { background: var(--acento); }
 
 .empresas-lista { max-height: calc(100vh - 260px); overflow: auto; padding-right: 2px; }
 .pestanas button.activa, .pestanas button { white-space: nowrap; }
+
+/* Exploración de prospectos */
+.prospectos-herramientas { display:flex; flex-wrap:wrap; gap:14px; align-items:end; margin-bottom:20px; }
+.prospectos-herramientas > label { display:grid; gap:6px; font-size:12px; color:var(--texto-tenue); }
+.prospectos-herramientas > label:first-child { flex:1; min-width:220px; }
+.prospectos-herramientas .pie { flex-basis:100%; margin:0; }
+.mapa-controles { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.mapa-controles h3 { margin:0; }
+.mapa-envoltorio svg { max-height:460px; touch-action:pan-y; }
+.mapa-envoltorio .nodo-txt { font-size:10px; fill:var(--texto); paint-order:stroke; stroke:var(--panel); stroke-width:3px; }
+.nodo:focus { outline:none; }
+.nodo:focus circle, .nodo:hover circle { stroke:#fff; stroke-width:2.5; fill-opacity:.9; }
+#mod-prospectos tr[tabindex]:focus-visible { outline:2px solid var(--acento); outline-offset:-2px; }
+@media (max-width:700px) { .prospectos-herramientas > label { width:100%; } }
+
+.prospectos-herramientas input[type=search] { width:100%; border:1px solid var(--borde); border-radius:6px; background:var(--panel); color:var(--texto); padding:8px 10px; font:inherit; }
