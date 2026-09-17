@@ -122,11 +122,13 @@ def test_el_resumen_se_genera_una_vez_y_se_cachea(con_openai, monkeypatch, tmp_p
     llamadas = []
     def falso(ruta, instrucciones, peticion, esquema):
         llamadas.append(ruta)
-        return asistente.ResumenDocumento(titulo="T", resumen="R", puntos_clave=["a"], confianza=0.9)
+        return asistente.ResumenDocumento(titulo="T", resumen="R", puntos_clave=["a"], confianza=0.9,
+                                          parametros_agua=[asistente.ParametroAgua(nombre="DQO", valor=45.0, unidad="mg/L")], caudal_m3_h=None)
     monkeypatch.setattr(ia, "estructurar_pdf", falso)
     pdf = tmp_path / "x.pdf"; pdf.write_bytes(b"%PDF-")
     r1 = asistente.resumir_documento(pdf); r2 = asistente.resumir_documento(pdf)
     assert r1["titulo"] == "T" and r2 == r1 and len(llamadas) == 1
+    assert r1["parametros_agua"] == {"dqo": 45.0}
     asistente.resumir_documento(pdf, forzar=True)
     assert len(llamadas) == 2 and asistente.ruta_resumen(pdf).is_file()
 
