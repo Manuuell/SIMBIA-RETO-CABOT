@@ -181,3 +181,29 @@ def test_vincular_por_api_exige_un_prospecto_del_barrido(cliente, almacen_tempor
         assert any(ref["fuente"] == "vital" and ref["identificador"] == "VDA-00020-24" for ref in p["referencias"])
         assert cliente.post("/api/scout/vital/desvincular", json={"clave": clave, "identificador": "VDA-00020-24"}).status_code == 200
         assert cliente.post("/api/scout/vital/desvincular", json={"clave": clave, "identificador": "VDA-00020-24"}).status_code == 404
+
+
+def test_buscar_por_empresa_agrupa_por_expediente_y_filtra_por_titular(cache_temporal, monkeypatch):
+    filas = [
+        {**FILA_OTRA, "id_consulta_publica": 1, "nombre_completo": "PUERTO DE MAMONAL S.A. EN REORGANIZACION", "tra_nombre": "LICENCIA AMBIENTAL", "expediente": "LAM0666", "aut_nombre": "ANLA", "tar_fecha_creacion": "2024-10-31T00:00:00", "tar_sol_id": "5", "sol_id_solicitante": "6"},
+        {**FILA_OTRA, "id_consulta_publica": 2, "nombre_completo": "PUERTO DE MAMONAL S.A. EN REORGANIZACION", "tra_nombre": "LICENCIA AMBIENTAL", "expediente": "LAM0666", "aut_nombre": "ANLA", "tar_fecha_creacion": "2024-05-01T00:00:00", "tar_sol_id": "3", "sol_id_solicitante": "4"},
+        {**FILA_OTRA, "id_consulta_publica": 3, "nombre_completo": "PUERTO DE MAMONAL S.A.", "tra_nombre": "Auto Liquidación", "expediente": "", "sol_num_silpa": "7600080009646424001", "aut_nombre": "ANLA", "tar_fecha_creacion": "2024-01-09T00:00:00"},
+        {**FILA_OTRA, "id_consulta_publica": 4, "nombre_completo": "PUERTOS DEL CARIBE SOCIEDAD PORTUARIA S.A.", "tra_nombre": "LICENCIA AMBIENTAL", "expediente": "LAM2745", "aut_nombre": "ANLA"},
+        {**FILA_VITAL, "id_consulta_publica": 5, "nombre_completo": "PUERTO DE MAMONAL S.A.", "tar_fecha_creacion": "2025-02-02T00:00:00"},
+    ]
+    monkeypatch.setattr(vital, "_consultar_red", lambda b: vital.Resultado(
+        busqueda=b, registros=[vital.interpretar(f) for f in filas], total=len(filas), paginas=1, origen="red"))
+    r = vital.buscar_por_empresa("Puerto de Mamonal S.A.", modo=Modo.VIVO)
+    assert r["consulta"] == "puerto mamonal" and r["origen"] == "red"
+    claves = [g["expediente"] or g["radicado"] for g in r["expedientes"]]
+    assert "LAM2745" not in claves                       # otra empresa, fuera
+    assert claves[0] == "VDA-00020-24"                    # el vertimiento primero
+    lam = next(g for g in r["expedientes"] if g["expediente"] == "LAM0666")
+    assert lam["n"] == 2 and lam["es_licencia"] and not lam["es_vertimiento"] and lam["autoridad"] == "ANLA"
+    assert lam["desde"] == "2024-05-01" and lam["hasta"] == "2024-10-31"
+    assert lam["representativo"]["sol_id"] == "5"        # el mas reciente con ids
+    assert lam["tramites"] == [{"tramite": "LICENCIA AMBIENTAL", "n": 2}]
+    assert r["coincidentes"] == 4
+    # Sin red y sin cache: lo dice, no revienta.
+    r2 = vital.buscar_por_empresa("Nadie Conocido Ltda", modo=Modo.OFFLINE)
+    assert r2["origen"] == "sin dato" and r2["expedientes"] == []

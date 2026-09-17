@@ -24,6 +24,7 @@ const resumenes = {};        // ruta -> resumen del documento (para el asistente
 const resumenesPedidos = new Set();
 const analisis = {};         // ruta -> analisis completo del documento
 let trabajos = {};           // clave -> trabajo del lote (progreso)
+const enVital = {};          // clave -> lo que VITAL tiene de la empresa, por nombre
 let sondeo = null;
 
 const FICHA_VACIA = { estado: "detectado", expedientes: [], documentos: [], historial: [], en_cartera: false };
@@ -186,6 +187,42 @@ function bloqueDocumentos(e) {
       ${l ? bloqueLectura(e, d, l) : ""}
     </div>`;
   }).join("") + (ia.disponible ? "" : `<p class="pie">Leer con IA no esta configurado en este servidor: ${escapar(ia.motivo)}</p>`);
+}
+
+function bloqueEnVital(e, vinculados) {
+  const v = enVital[e.clave];
+  if (!v) return `<p class="cargando">Buscando "${escapar(e.nombre)}" en VITAL…</p>`;
+  if (v.error) return `<p class="pie" style="color:var(--aviso)">${escapar(v.error)}</p>`;
+  if (v.origen === "sin dato") return `<p class="pie">${escapar(v.incidencia)} <button class="secundario pequeno btn-vital-vivo">Consultar en vivo</button></p>`;
+  const ya = new Set(vinculados.map((t) => t.identificador));
+  const grupos = v.expedientes.filter((g) => !ya.has(g.expediente || g.radicado));
+  if (!v.expedientes.length) return `<p class="pie">Nada a nombre de "${escapar(e.nombre)}" (${v.total} resultado(s) para "${escapar(v.consulta)}", ninguno con titular parecido). Prueba en el <a href="#vital?q=${encodeURIComponent(v.consulta)}">Buscador VITAL</a> por si tramita con otra razon social.</p>`;
+  if (!grupos.length) return `<p class="pie">Todo lo que hay a su nombre ya esta vinculado.</p>`;
+  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) en ${v.expedientes.length} expediente(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "cache" : "consultado ahora"}). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
+    <table><tbody>${grupos.map((g, i) => `<tr>
+      <td><code>${escapar(g.expediente || g.radicado)}</code><span class="sub">${escapar(g.titular)}</span></td>
+      <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}
+        <span class="sub">${g.tramites.slice(0, 3).map((t) => `${escapar(t.tramite)} ×${t.n}`).join(" · ")}${g.tramites.length > 3 ? " · …" : ""}</span></td>
+      <td class="sub" style="white-space:nowrap">${escapar(g.autoridad)}<br>${escapar(g.desde)}${g.hasta !== g.desde ? " → " + escapar(g.hasta) : ""} · ${g.n}</td>
+      <td class="num"><button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="sin identificadores del VITAL antiguo"`}>Vincular</button></td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+async function cargarEnVital(e, modo) {
+  try {
+    enVital[e.clave] = await pedir(`/api/scout/vital/por-empresa?clave=${encodeURIComponent(e.clave)}&radio_km=${estado.radio}${modo ? "&modo=" + modo : ""}`);
+  } catch (err) { enVital[e.clave] = { error: err.message }; }
+  if (elegida === e.clave) pintarDossier();
+}
+
+async function vincularGrupo(e, g, btn) {
+  btn.disabled = true; btn.textContent = "Vinculando…";
+  try {
+    await pedir("/api/scout/vital/vincular", { clave: e.clave, registro: g.representativo, radio_km: estado.radio });
+    anotar(`${escapar(g.expediente || g.radicado)} (${escapar(g.autoridad)}) vinculado a <b>${escapar(e.nombre)}</b>`, "ok",
+      "ya se puede analizar el expediente");
+    await cargarBarrido({ refrescar: true });
+  } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Vincular"; }
 }
 
 function bloqueTrabajo(e) {
@@ -477,6 +514,13 @@ function pintarDossier() {
   caja.querySelector(".btn-ficha").addEventListener("click", () => abrirPanel(e.clave));
   caja.querySelector(".btn-seguir-dossier")?.addEventListener("click", (ev) => { ev.target.disabled = true; seguir(e.clave, e.nombre); });
   caja.querySelector(".btn-analizar")?.addEventListener("click", (ev) => analizarExpedientes([e.clave], ev.target));
+  caja.querySelector(".btn-vital-vivo")?.addEventListener("click", () => { delete enVital[e.clave]; pintarDossier(); cargarEnVital(e, "vivo"); });
+  caja.querySelectorAll(".btn-vincular-grupo").forEach((b) => b.addEventListener("click", () => {
+    const ya = new Set(tramites.map((t) => t.identificador));
+    const grupos = enVital[e.clave].expedientes.filter((g) => !ya.has(g.expediente || g.radicado));
+    vincularGrupo(e, grupos[Number(b.dataset.i)], b);
+  }));
+  if (!enVital[e.clave]) cargarEnVital(e);
   caja.querySelectorAll(".btn-revisar").forEach((b) => b.addEventListener("click", () => abrirRevision(e, b.dataset.ruta)));
   caja.querySelector(".btn-quitar")?.addEventListener("click", async () => {
     if (!confirm(`¿Quitar ${e.nombre} de la cartera? La ficha y sus documentos se conservan.`)) return;

@@ -292,3 +292,79 @@ def buscar(b: Busqueda, modo: Modo | None = None) -> Resultado:
 
 def ahora_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# --------------------------------------------------------------------------
+# Tramites de una empresa concreta, agrupados por expediente
+# --------------------------------------------------------------------------
+
+#: Tramites que dicen algo del agua que vierte una empresa. Una licencia
+#: ambiental (ANLA) incluye el permiso de vertimiento: en un puerto o una
+#: refineria no hay permiso aparte, hay licencia.
+TRAMITES_LICENCIA = ("licencia ambiental", "modificacion de licencia", "licencia ambiental.")
+#: Umbral de parecido entre el nombre del prospecto y el titular en VITAL.
+UMBRAL_TITULAR = 0.88
+
+
+def _es_licencia(tramite: str) -> bool:
+    t = tramite.lower()
+    return "licencia" in t
+
+
+def buscar_por_empresa(nombre: str, modo: Modo | None = None, paginas: int = 2) -> dict[str, Any]:
+    """Todo lo que VITAL tiene de una empresa, agrupado por expediente.
+
+    Busca por el nucleo de la razon social, se queda con los registros cuyo
+    titular se parece de verdad al nombre (umbral alto: sin coordenada no hay
+    otro desempate) y agrupa por expediente, que es la unidad que se vincula
+    y de la que se descargan documentos. De cada grupo se guarda el registro
+    mas reciente con identificadores del VITAL antiguo, que es el que sirve
+    para llegar a los documentos.
+    """
+    from .texto import normalizar, parecido
+    consulta = normalizar(nombre)
+    if not consulta:
+        return {"consulta": "", "total": 0, "expedientes": [], "origen": "sin dato", "incidencia": "Nombre vacio"}
+    registros: list[Registro] = []
+    origen, incidencia, total = "sin dato", "", 0
+    for pagina in range(1, paginas + 1):
+        r = buscar(Busqueda(consulta, pagina=pagina, por_pagina=100), modo)
+        origen, incidencia, total = r.origen, r.incidencia, r.total
+        if r.origen == "sin dato":
+            break
+        registros.extend(r.registros)
+        if pagina >= r.paginas:
+            break
+
+    grupos: dict[str, dict[str, Any]] = {}
+    for x in registros:
+        if parecido(nombre, x.titular) < UMBRAL_TITULAR:
+            continue
+        clave = x.expediente or x.radicado or x.id
+        g = grupos.setdefault(clave, {
+            "expediente": x.expediente, "radicado": x.radicado, "autoridad": x.autoridad.strip(),
+            "titular": x.titular, "tramites": {}, "n": 0, "desde": x.fecha, "hasta": x.fecha,
+            "es_vertimiento": False, "es_licencia": False, "representativo": None,
+        })
+        g["n"] += 1
+        g["tramites"][x.tramite_legible] = g["tramites"].get(x.tramite_legible, 0) + 1
+        g["desde"] = min(g["desde"], x.fecha) if x.fecha else g["desde"]
+        g["hasta"] = max(g["hasta"], x.fecha) if x.fecha else g["hasta"]
+        g["es_vertimiento"] = g["es_vertimiento"] or x.es_vertimiento
+        g["es_licencia"] = g["es_licencia"] or _es_licencia(x.tramite)
+        # El representativo: con ids del VITAL antiguo y lo mas reciente posible.
+        rep = g["representativo"]
+        if x.sol_id and x.solicitante_id and (rep is None or x.fecha > rep["fecha"] or not rep.get("sol_id")):
+            g["representativo"] = x.as_dict()
+        elif rep is None:
+            g["representativo"] = x.as_dict()
+    salida = sorted(
+        grupos.values(),
+        key=lambda g: (not g["es_vertimiento"], not g["es_licencia"], g["hasta"]),
+    )
+    for g in salida:
+        g["tramites"] = [{"tramite": k, "n": v} for k, v in sorted(g["tramites"].items(), key=lambda kv: -kv[1])]
+    return {
+        "consulta": consulta, "total": total, "coincidentes": sum(g["n"] for g in salida),
+        "expedientes": salida, "origen": origen, "incidencia": incidencia,
+    }

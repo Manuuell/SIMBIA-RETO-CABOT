@@ -756,6 +756,19 @@ def expediente_analizar_uno(a: AnalizarUno) -> dict[str, Any]:
         raise HTTPException(502, f"No se pudo analizar: {type(exc).__name__}: {exc}")
 
 
+@router.get("/vital/por-empresa")
+def vital_por_empresa(clave: str, radio_km: float = RADIO_BUSQUEDA_KM, modo: str | None = None) -> dict[str, Any]:
+    """Lo que VITAL tiene de un prospecto, buscado por su nombre y agrupado por expediente."""
+    p = next(
+        (x for x in _barrido(radio_km) if almacen.clave_estable(x.nombre, x.lat, x.lon) == clave),
+        None,
+    )
+    if p is None:
+        raise HTTPException(422, "El prospecto no esta en el barrido actual")
+    m = _resolver_modo(modo) if modo else Modo.CACHE
+    return {"empresa": p.nombre, **vital.buscar_por_empresa(p.nombre, m)}
+
+
 class VinculoExpediente(BaseModel):
     clave: str
     registro: dict[str, Any]
