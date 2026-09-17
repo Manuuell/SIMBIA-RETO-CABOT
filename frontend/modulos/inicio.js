@@ -1,6 +1,6 @@
-/* Modulo 0: resultado del caso base y recorrido por la aplicacion. */
+/* Modulo 0: resultado con los vecinos reales y recorrido por la aplicacion. */
 
-import { $, bus, chip, escapar, estado, fmt, kpi, pedir } from "../comun.js";
+import { $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, pedir } from "../comun.js";
 
 const TRAMOS = [
   { id: "datos", n: "Paso 1", t: "Datos externos",
@@ -10,26 +10,25 @@ const TRAMOS = [
   { id: "prospectos", n: "Paso 3", t: "Prospectos",
     d: "Cada empresa con su agua estimada, su confianza y un puntaje que dice a quien visitar primero." },
   { id: "empresas", n: "Paso 4", t: "Empresas",
-    d: "La cartera: las elegidas con su dossier completo, expedientes, documentos y lectura con IA." },
+    d: "La cartera: las elegidas con su dossier, expedientes, documentos leidos con IA y revision humana." },
   { id: "asistente", n: "Asistente", t: "Pregunta y escucha",
     d: "Se le escribe o se le dicta; responde con los datos de la aplicacion y lo explica hablando." },
-  { id: "modelo", n: "Referencia", t: "Modelo y supuestos",
-    d: "Que da por supuesto la aplicacion y como calcula cada cosa." },
 ];
 
+function conExpediente(b) {
+  return b.prospectos.filter((p) => (p.referencias || []).some((r) => r.fuente === "vital")).length;
+}
+
 function pintarRecorrido() {
-  const b = estado.barrido, cfg = estado.config;
-  const estadoDe = {
-    datos: b ? chip(`${b.resumen.detectados} prospectos · modo ${b.modo}`, "ok")
-             : chip(`modo ${cfg.modo}`, "neutra"),
-    vital: b ? chip(`${b.prospectos.filter((p) => (p.referencias || []).some((r) => r.fuente === "vital")).length} con expediente`, "neutra") : "",
-    prospectos: b ? chip(`${b.resumen.viables} con simbiosis viable`, "azul") : "",
-    empresas: b ? chip(`${b.prospectos.filter((p) => p.ficha?.en_cartera).length} en cartera`, "neutra") : "",
-    embudo: estado.pipeline ? chip(`${fmt.num(estado.pipeline.caudal_asegurado_m3_h)} m³/h asegurados`, "neutra") : "",
-    optimizador: "",
-    operacion: "",
-    modelo: chip(`${cfg.arquetipos} arquetipos`, "neutra"),
-  };
+  const b = estado.barrido;
+  const osm = (b?.fuentes || []).find((f) => f.fuente === "osm");
+  const documentos = b ? b.prospectos.reduce((s, p) => s + (p.ficha?.documentos || []).length, 0) : 0;
+  const estadoDe = b ? {
+    datos: chip(`${b.resumen.detectados} empresas${osm?.fecha_dato ? " · " + fechaCorta(osm.fecha_dato) : ""}`, "ok"),
+    vital: chip(`${conExpediente(b)} con expediente`, "neutra"),
+    prospectos: chip(`${b.resumen.viables} con simbiosis viable`, "azul"),
+    empresas: chip(`${b.prospectos.filter((p) => p.ficha?.en_cartera).length} en cartera · ${documentos} documento${documentos === 1 ? "" : "s"}`, "neutra"),
+  } : {};
   $("inicio-recorrido").innerHTML = TRAMOS.map((t) => `
     <a class="tramo" href="#${t.id}">
       <div class="n">${t.n}</div>
@@ -39,20 +38,41 @@ function pintarRecorrido() {
     </a>`).join("");
 }
 
-async function pintarKpis() {
-  const k = await pedir("/api/kpis");
-  const cumple = k.ahorro_pct >= k.meta_reduccion;
-  $("inicio-meta").innerHTML = chip(cumple ? "meta cumplida" : "meta no alcanzada", cumple ? "ok" : "alerta");
+/* El resultado de portada sale del optimizador corriendo sobre el catalogo
+   real del barrido, no sobre el caso base de referencia: es lo que la
+   prospeccion ha conseguido de verdad. */
+async function pintarResultado() {
+  let r;
+  try {
+    r = await pedir("/api/scout/optimizar", {});
+  } catch (e) {
+    $("inicio-kpis").innerHTML = `<p class="cargando">No se pudo optimizar: ${escapar(e.message)}</p>`;
+    return;
+  }
+  if (!r.factible) {
+    $("inicio-meta").innerHTML = chip("sin solucion", "alerta");
+    $("inicio-kpis").innerHTML = `<p class="cargando">${escapar(r.motivo || "")}</p>`;
+    return;
+  }
+  const o = r.optimo, b = r.linea_base;
+  const ahorroUsd = b.costo_total_usd_anio - o.costo_total_usd_anio;
+  const payback = ahorroUsd > 0 ? o.capex_total_usd / ahorroUsd : null;
+  const empresas = [...new Set((o.aportes || []).map((a) => a.empresa))];
+  $("inicio-meta").innerHTML = chip(r.cumple_meta ? "meta cumplida" : "meta no alcanzada", r.cumple_meta ? "ok" : "alerta");
   $("inicio-kpis").innerHTML = [
-    kpi("Reduccion del consumo", fmt.pct(k.ahorro_pct),
-      `meta ${fmt.pct(k.meta_reduccion, 0)} · ${fmt.num(k.ahorro_m3_dia)} m³/d de agua cruda evitada`, "destacado"),
-    kpi("Ahorro economico", `${fmt.usdk(k.ahorro_economico_usd_anio)}/año`,
-      `inversion ${fmt.usdk(k.capex_usd)} · payback ${k.payback_anios.toFixed(2)} años`),
-    kpi("Ciclos de concentracion", `${k.ciclos_base} → ${k.ciclos_optimo}`,
-      "menos purga por cada m³ evaporado"),
-    kpi("CO₂ evitado", `${fmt.num(k.co2_evitado_t_anio, 0)} t/año`,
-      `+ ${fmt.num(k.m3_recuperables_fugas_anio)} m³/año recuperables por deteccion de fugas`),
+    kpi("Reduccion del consumo", fmt.pct(o.ahorro_pct_planta),
+      `meta ${fmt.pct(r.meta_reduccion, 0)} · ${fmt.num(o.ahorro_m3_dia)} m³/d de agua cruda evitada`, "destacado"),
+    kpi("Agua de vecinos reutilizada", `${fmt.num(o.reuso_total_m3_dia)} m³/d`,
+      `${empresas.length} empresa${empresas.length === 1 ? "" : "s"} en la mezcla`),
+    kpi("Ciclos de concentracion", `${b.ciclos} → ${o.ciclos}`, "menos purga por cada m³ evaporado"),
+    kpi("Ahorro economico", `${fmt.usdk(ahorroUsd)}/año`,
+      `inversion ${fmt.usdk(o.capex_total_usd)}${payback ? ` · payback ${payback.toFixed(1)} años` : ""}`),
   ].join("");
+  $("inicio-mezcla").innerHTML = empresas.length
+    ? `Mezcla: ${empresas.map((e) => `<b>${escapar(e)}</b>`).join(", ")}. Entran las empresas con confianza
+       ≥ ${r.umbral_confianza.toFixed(2)}; la confianza se traduce en disponibilidad, asi que un dato inferido
+       pesa menos que uno medido. Detalle en <a href="#prospectos">Prospectos</a>.`
+    : "";
 }
 
 export default {
@@ -60,7 +80,7 @@ export default {
   async montar() {
     pintarRecorrido();
     bus.on("barrido", pintarRecorrido);
-    bus.on("pipeline", pintarRecorrido);
-    await pintarKpis();
+    if (!estado.barrido) cargarBarrido().catch(() => {});
+    await pintarResultado();
   },
 };

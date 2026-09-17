@@ -70,8 +70,6 @@
 
   <div class="lateral-pie">
     <span class="sesion" id="pie-sesion"></span>
-    <span id="pie-modo"></span>
-    <span id="pie-version"></span>
   </div>
 </aside>
 
@@ -82,45 +80,51 @@
     <div class="cabecera">
       <div>
         <h1>Reto Cabot: reducir al menos un 10 % el consumo de agua</h1>
-        <p class="intro">Reutilizando aguas de rechazo de empresas vecinas en los sistemas de
-          enfriamiento. SIMBIA encuentra a los vecinos, estima su agua y decide que mezclar,
-          con que tratamiento y a que ciclos operar la torre.</p>
+        <p class="intro">SIMBIA encuentra a los vecinos industriales de la planta, reconstruye con
+          fuentes publicas el agua de rechazo que producen y decide que mezclar, con que tratamiento
+          y a que ciclos operar las torres de enfriamiento.</p>
       </div>
     </div>
     <div class="bloque">
-      <h2>Resultado del caso base <span class="nota" id="inicio-meta"></span></h2>
-      <div class="rejilla kpis" id="inicio-kpis"><p class="cargando">Optimizando…</p></div>
+      <h2>Resultado con los vecinos reales de Mamonal <span class="nota" id="inicio-meta"></span></h2>
+      <div class="rejilla kpis" id="inicio-kpis"><p class="cargando">Optimizando con los prospectos…</p></div>
+      <p class="pie" id="inicio-mezcla"></p>
     </div>
     <div class="bloque">
       <h2>El recorrido</h2>
       <div class="recorrido" id="inicio-recorrido"></div>
     </div>
     <div class="bloque">
-      <div class="rejilla dos">
+      <h2>Como funciona</h2>
+      <div class="rejilla tres">
         <div class="tarjeta">
-          <h3>La idea que hace falta entender</h3>
+          <h3>1 · Encontrar</h3>
           <div class="prosa">
-            <p><span class="formula">M = E · N / (N − 1)</span></p>
-            <p>En una torre abierta, la <b>evaporacion (E)</b> la fija la carga termica y no se
-              puede reducir. Lo unico recortable es la <b>purga</b>, y eso depende de los
-              <b>ciclos de concentracion (N)</b>. Y los ciclos los limita la <b>calidad</b> del
-              agua de aporte.</p>
-            <p>Por eso meter agua de rechazo sin optimizar puede <b>aumentar</b> la captacion:
-              baja los ciclos alcanzables. Mezcla, tratamiento, acido y ciclos se resuelven a la vez.</p>
+            <p>Las empresas alrededor de la planta salen de <b>OpenStreetMap</b> y se cruzan con los
+              tramites de vertimiento de <b>VITAL</b>, la ventanilla del Ministerio de Ambiente. Un
+              expediente prueba que la empresa vierte y abre la puerta a sus documentos.</p>
           </div>
         </div>
         <div class="tarjeta">
-          <h3>Sobre los datos</h3>
+          <h3>2 · Caracterizar</h3>
           <div class="prosa">
-            <p><b>No hay datos reales de la planta.</b> El caso base usa rangos tipicos de
-              industria, declarados uno a uno en <code>config.py</code>.</p>
-            <p><b>Los vecinos si son reales.</b> El modulo de prospeccion los toma de
-              OpenStreetMap y cruza permisos de vertimiento reales de VITAL. Cada dato lleva un
-              sello que dice de donde salio: <span class="sello medido">medido</span>
+            <p>Cada corriente lleva un sello que dice de donde salio el dato:
+              <span class="sello medido">medido</span>
               <span class="sello declarado">declarado</span>
               <span class="sello inferido">inferido</span>
-              <span class="sello supuesto">supuesto</span>.</p>
-            <p>Detalle completo en <a href="#modelo">Modelo y supuestos</a>.</p>
+              <span class="sello supuesto">supuesto</span>.
+              Se parte de la referencia del sector, se sustituye por lo que dice el expediente y,
+              con analitica de laboratorio, pasa a medido. La confianza sube con cada paso.</p>
+          </div>
+        </div>
+        <div class="tarjeta">
+          <h3>3 · Decidir</h3>
+          <div class="prosa">
+            <p><span class="formula">M = E · N / (N − 1)</span></p>
+            <p>La <b>evaporacion (E)</b> la fija la carga termica; lo unico recortable es la purga, y
+              depende de los <b>ciclos (N)</b>, que a su vez limita la calidad del aporte. Por eso
+              mezcla, tratamiento y ciclos se resuelven a la vez: agua de rechazo sin optimizar
+              puede <b>subir</b> la captacion.</p>
           </div>
         </div>
       </div>
@@ -216,10 +220,9 @@
                 funciona. Existe porque el portal antiguo de VITAL no se deja consultar desde un
                 programa: los expedientes se descargan a mano y entran por aqui.</p>
               <p><b>Leer con IA</b> extrae caudal autorizado y la tabla de caracterizacion a una
-                estructura fija con Claude. Requiere el paquete <code>anthropic</code> y una clave.
-                Lo extraido entra como <span class="sello declarado">declarado</span>, nunca como
-                medido: es lo que la empresa reporto, no una muestra nuestra. El PDF se trata como
-                dato, no como instruccion.</p>
+                estructura fija. Lo extraido entra como <span class="sello declarado">declarado</span>,
+                nunca como medido: es lo que la empresa reporto, no una muestra nuestra. El PDF se
+                trata como dato, no como instruccion.</p>
             </div>
           </details>
         </div>
@@ -683,12 +686,6 @@
     </div>
     <div class="bloque">
       <div class="tarjeta">
-        <h3>Catalogo supuesto del caso base <span class="nota">seis vecinos representativos, no reales</span></h3>
-        <div class="tabla-envoltorio" id="tabla-oferentes"></div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
         <h3>Como resuelve el optimizador</h3>
         <div class="prosa">
           <ul>
@@ -710,6 +707,6 @@
 <aside class="panel-lateral" id="panel-revision"></aside>
 
 
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>
