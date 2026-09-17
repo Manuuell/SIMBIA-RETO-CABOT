@@ -17,6 +17,7 @@ const consulta = {
 };
 let resultado = null;
 let abierto = null;       // id del registro con el detalle desplegado
+const detalles = {};      // radicado -> detalle del VITAL antiguo (o {cargando: true})
 
 // ---------------------------------------------------------------------------
 // Busqueda
@@ -159,7 +160,103 @@ function detalle(x) {
         <p class="pie">Es un vinculo <b>declarado</b>: prueba que la empresa tramita ante la autoridad, no dice que vierte. La analitica sigue saliendo del expediente.</p>
       </div>
     </div>
+    <div class="documentos" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--borde-suave)">
+      <h4 style="margin:0 0 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">Documentos del tramite
+        <span style="text-transform:none;letter-spacing:0;font-weight:400"> · lo que hay en el expediente, sin salir de aqui</span></h4>
+      ${bloqueDocumentos(x)}
+    </div>
   </td></tr>`;
+}
+
+function puedeVerDocumentos(x) {
+  return Boolean(x.radicado && x.sol_id && x.solicitante_id && x.origen);
+}
+
+function paramsTramite(x) {
+  return new URLSearchParams({ radicado: x.radicado, origen: x.origen, sol_id: x.sol_id, solicitante_id: x.solicitante_id });
+}
+
+function bloqueDocumentos(x) {
+  if (!puedeVerDocumentos(x)) return `<p class="pie">Este registro no trae los identificadores del VITAL antiguo; no se puede llegar a sus documentos.</p>`;
+  const d = detalles[x.radicado];
+  if (!d) return `<div class="acciones" style="margin-top:0"><button class="pequeno btn-ver-docs">Ver documentos</button>
+    <span class="pie" style="margin:0">Consulta el VITAL antiguo: unos segundos por carpeta.</span></div>`;
+  if (d.cargando) return `<p class="cargando">Abriendo el expediente en el VITAL antiguo…</p>`;
+  if (d.origen_dato === "sin dato") return `<div class="aviso-caja">${escapar(d.incidencia)}</div>
+    <div class="acciones"><button class="secundario pequeno btn-ver-docs" data-modo="vivo">Reintentar en vivo</button></div>`;
+
+  const estado = (d.estado || []).map((e) => chip(e.paso, e.hecho ? "ok" : "neutra")).join(" ");
+  const prospectos = [...(estado_prospectos())];
+  const carpetas = d.carpetas.length ? d.carpetas.map((c) => `
+    <div style="margin-top:8px">
+      <div style="font-size:12px;color:var(--texto-2)"><b>${escapar(c.titulo)}</b>${c.etiqueta ? ` · <span class="sub" style="display:inline">${escapar(c.etiqueta)}</span>` : ""}${c.fecha ? ` · ${escapar(c.fecha)}` : ""}</div>
+      ${c.incidencia ? `<p class="pie" style="color:var(--aviso)">${escapar(c.incidencia)}</p>` : ""}
+      ${c.archivos.length ? `<table><tbody>${c.archivos.map((a) => `<tr>
+        <td>${iconoArchivo(a.extension)} ${escapar(nombreLegible(a.nombre))}<span class="sub">${escapar(a.nombre)}</span></td>
+        <td class="num" style="white-space:nowrap">
+          <a class="chip azul sin-punto" target="_blank" rel="noopener" href="/api/scout/vital/documento?${paramsTramite(x)}&grupo=${c.grupo}&entrada=${c.entrada}&indice=${a.indice}">Ver</a>
+          <a class="chip neutra sin-punto" href="/api/scout/vital/documento?${paramsTramite(x)}&grupo=${c.grupo}&entrada=${c.entrada}&indice=${a.indice}&descargar=true">Descargar</a>
+          <button class="secundario pequeno btn-archivar-doc" data-grupo="${c.grupo}" data-entrada="${c.entrada}" data-indice="${a.indice}">Guardar en expediente</button>
+        </td></tr>`).join("")}</tbody></table>` : (c.incidencia ? "" : `<p class="pie">Carpeta vacia.</p>`)}
+    </div>`).join("") : `<p class="pie">El tramite no tiene documentos publicados.</p>`;
+
+  return `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">${estado}
+      <span class="pie" style="margin:0 0 0 auto">${d.origen_dato === "cache" ? `cache${d.fecha_dato ? " · " + fechaCorta(d.fecha_dato) : ""}` : "consultado ahora"} ·
+        <a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></span></div>
+    ${d.proyecto || d.ubicacion ? `<p class="pie" style="margin:0 0 6px">${escapar([d.proyecto, d.ubicacion].filter(Boolean).join(" · "))}</p>` : ""}
+    ${carpetas}
+    <p class="pie">"Ver" abre el documento en una pestana nueva (los PDF se muestran en el navegador). "Guardar en expediente" lo deja en el servidor, junto al resto de la evidencia del prospecto, para leerlo con IA en Datos externos.</p>
+    <div class="archivado-msg"></div>`;
+}
+
+function estado_prospectos() { return estado.barrido?.prospectos || []; }
+
+function iconoArchivo(ext) {
+  return ({ ".pdf": "📄", ".rtf": "📝", ".doc": "📝", ".docx": "📝", ".xls": "📊", ".xlsx": "📊", ".jpg": "🖼", ".jpeg": "🖼", ".png": "🖼", ".zip": "🗜" })[ext] || "📎";
+}
+
+/** '-699880203_32_Solicitud Renovacion PVL_20260512090534.pdf' -> 'Solicitud Renovacion PVL'. */
+function nombreLegible(nombre) {
+  let n = nombre.replace(/\.[a-z0-9]+$/i, "");
+  n = n.replace(/^-?\d+_\d+_/, "").replace(/_\d{14}$/, "").replace(/_+/g, " ").trim();
+  return n || nombre;
+}
+
+async function cargarDetalle(x, modo) {
+  detalles[x.radicado] = { cargando: true };
+  pintarResultado();
+  try {
+    const q = paramsTramite(x); if (modo) q.set("modo", modo);
+    const d = await pedir(`/api/scout/vital/detalle?${q}`);
+    detalles[x.radicado] = d;
+    if (d.origen_dato === "sin dato") anotar(`VITAL antiguo: sin detalle para ${escapar(x.radicado)}`, "aviso", escapar(d.incidencia));
+    else anotar(`Expediente de <b>${escapar(d.solicitante)}</b>: ${d.total_archivos} documento(s) en ${d.carpetas.length} carpeta(s)`,
+      d.origen_dato === "red" ? "ok" : "azul", `radicado ${escapar(x.radicado)}${d.expediente ? " · expediente " + escapar(d.expediente) : ""}`);
+  } catch (e) {
+    detalles[x.radicado] = { origen_dato: "sin dato", incidencia: e.message };
+  }
+  pintarResultado();
+}
+
+async function archivarDocumento(x, btn) {
+  const sel = $("vital-resultados").querySelector(".sel-prospecto");
+  btn.disabled = true; btn.textContent = "Guardando…";
+  try {
+    const r = await pedir("/api/scout/vital/documento/archivar", {
+      radicado: x.radicado, origen: x.origen, sol_id: x.sol_id, solicitante_id: x.solicitante_id,
+      grupo: btn.dataset.grupo, entrada: Number(btn.dataset.entrada), indice: Number(btn.dataset.indice),
+      clave: sel?.value || "", radio_km: estado.radio,
+    });
+    btn.textContent = "Guardado";
+    const msg = $("vital-resultados").querySelector(".archivado-msg");
+    msg.innerHTML = `<div class="ok-caja" style="margin-top:8px"><b>Guardado.</b> ${escapar(r.nombre)} (${(r.bytes / 1e6).toFixed(2)} MB) en <code>${escapar(r.guardado)}</code>${r.ficha ? ` y anotado en la ficha de <b>${escapar(r.ficha.nombre)}</b>` : " (sin prospecto elegido: no se anoto en ninguna ficha)"}.</div>`;
+    anotar(`Documento guardado: <b>${escapar(r.nombre)}</b>${r.ficha ? " en la ficha de " + escapar(r.ficha.nombre) : ""}`, "ok");
+    if (r.ficha) await cargarBarrido({ refrescar: true });
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Guardar en expediente";
+    alert(e.message);
+  }
 }
 
 function montarAccionesDetalle() {
@@ -179,6 +276,8 @@ function montarAccionesDetalle() {
   caja.querySelector(".btn-copiar-solicitud")?.addEventListener("click", async (ev) => {
     ev.target.textContent = (await copiar(caja.querySelector(".txt-solicitud").value)) ? "Copiada" : "No se pudo copiar";
   });
+  caja.querySelectorAll(".btn-ver-docs").forEach((b) => b.addEventListener("click", () => cargarDetalle(x, b.dataset.modo)));
+  caja.querySelectorAll(".btn-archivar-doc").forEach((b) => b.addEventListener("click", () => archivarDocumento(x, b)));
   const sel = caja.querySelector(".sel-prospecto"), btn = caja.querySelector(".btn-vincular");
   sel?.addEventListener("change", () => { btn.disabled = !sel.value; });
   btn?.addEventListener("click", async () => {

@@ -167,6 +167,11 @@ function pintarPanel(clave) {
       <h4>Procedencia</h4>
       <ul class="refs">${refs}</ul>
     </div>
+    ${(f.documentos || []).length ? `<div class="seccion">
+      <h4>Documentos del expediente guardados</h4>
+      <ul class="refs">${f.documentos.map((d) => `<li>📄 ${escapar(d.nombre)} <span class="sub" style="display:inline">· ${(d.bytes / 1e6).toFixed(2)} MB · radicado ${escapar(d.radicado)} · ${fechaCorta(d.guardado)}</span></li>`).join("")}</ul>
+      <p class="pie">Estan en el servidor, en <code>archivo/expedientes/</code>. Para leerlos con IA: Datos externos → paso 3.</p>
+    </div>` : ""}
 
     <div class="seccion">
       <h4>Ficha comercial</h4>
