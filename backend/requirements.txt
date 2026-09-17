@@ -10,8 +10,8 @@ scikit-learn==1.9.0
 scipy==1.18.1
 uvicorn==0.52.4
 
-# Opcional: extraccion de permisos de vertimiento en PDF con Claude.
-# Sin este paquete el resto de la prospeccion funciona igual; la funcion se
-# declara no disponible en el dashboard y no rompe nada.
-# Descomentar y fijar la version publicada actual: pip install anthropic
-# anthropic
+# IA por API (extraccion de permisos en PDF, asistente y voz). Con OPENAI_API_KEY
+# en el entorno se activa; sin clave, esas funciones se declaran no disponibles
+# y el resto de la aplicacion funciona igual. Anthropic es alternativa opcional
+# (pip install anthropic + ANTHROPIC_API_KEY).
+openai==3.14.1
