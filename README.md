@@ -79,10 +79,11 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 | 1 | **Datos externos** (`#datos`) | ¿De dónde sale el catálogo? Consultar fuentes, cruzar permisos de vertimiento y traer documentos del expediente, con una bitácora de lo que hizo el sistema. |
 | 2 | **Buscador VITAL** (`#vital`) | ¿Qué trámites tiene una empresa concreta ante la autoridad ambiental? Búsqueda libre con filtros, los documentos del expediente para ver, descargar o guardar, la solicitud lista para enviar y el vínculo al prospecto. |
 | 3 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
-| 4 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
-| 5 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
-| 6 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
-| 7 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+| 4 | **Empresas** (`#empresas`) | La cartera: las empresas elegidas con su dossier completo — ficha, caracterización, expedientes y trámites con sus documentos, lectura con IA y aplicación de lo declarado al prospecto. |
+| 5 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
+| 6 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
+| 7 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
+| 8 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
 
 La prospección alimenta al optimizador: las empresas que encuentra el barrido
 entran al mismo optimizador, con la misma química y las mismas restricciones. Lo

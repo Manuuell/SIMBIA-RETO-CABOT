@@ -160,6 +160,16 @@ informes de caracterización. Dos detalles del servidor: sirve un HTML *downleve
 (con `<font>` y `&#39;`) a quien no es navegador, y etiqueta los PDF como
 `application/base64`; el tipo se decide por los bytes.
 
+**La cartera.** Las empresas que el equipo decide seguir —a mano, o solas en
+cuanto hay trabajo sobre ellas— tienen su dossier en el módulo *Empresas*:
+ficha e historial, caracterización, expedientes y trámites con sus documentos,
+documentos guardados y procedencia. Desde ahí un documento guardado se lee con
+IA y, tras revisar los valores, se **aplica al prospecto**: lo leído pisa al
+arquetipo parámetro por parámetro, el caudal autorizado sustituye al estimado
+por superficie y el prospecto pasa a `declarado` (nunca a `medido`: es lo que
+la empresa reportó, no una muestra nuestra). Queda en la ficha con su fuente y
+se aplica antes de puntuar, como todo lo que cambia la confianza.
+
 Lo que costó descubrir del API, para no repetirlo: `type_search` tiene que ser
 `Todos`; `filters` tiene que llevar siempre `{"CAMPO": -6}` o el cuerpo vuelve
 vacío; las facetas se filtran con listas (`"aut_nombre": [...]`); los ausentes
