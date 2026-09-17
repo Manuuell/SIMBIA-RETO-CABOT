@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth
+from .api.asistente import router as router_asistente
 from .api.routes import router
 from .api.scout import router as router_scout
 
@@ -31,6 +32,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(router_scout)
+app.include_router(router_asistente)
 # Acceso con usuario y contrasena. Activo solo si SIMBIA_AUTH_HASH esta
 # definida; ver simbia/auth.py.
 auth.instalar(app, WEB)
