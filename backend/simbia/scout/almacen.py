@@ -119,6 +119,8 @@ class Ficha:
     #: expediente, radicado, autoridad, tramite, titular y fecha. Entran al
     #: prospecto como referencias 'vital', igual que las del cruce automatico.
     expedientes: list[dict[str, str]] = field(default_factory=list)
+    #: Documentos del expediente guardados en disco (nombre, ruta, radicado).
+    documentos: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def avance(self) -> float:
@@ -145,6 +147,7 @@ class Ficha:
             "avance": round(self.avance, 3),
             "nombre": self.nombre,
             "expedientes": self.expedientes,
+            "documentos": self.documentos,
         }
 
 
@@ -183,6 +186,7 @@ def cargar_fichas() -> dict[str, Ficha]:
             lat=d.get("lat"),
             lon=d.get("lon"),
             expedientes=d.get("expedientes", []),
+            documentos=d.get("documentos", []),
         )
     return fichas
 
@@ -204,6 +208,7 @@ def guardar_fichas(fichas: dict[str, Ficha]) -> None:
                     "lat": f.lat,
                     "lon": f.lon,
                     "expedientes": f.expedientes,
+                    "documentos": f.documentos,
                 }
                 for k, f in fichas.items()
             },
@@ -399,6 +404,26 @@ def vincular_expediente(
             "empresa": ficha.nombre,
             "nota": f"expediente {_identificador(limpio)} vinculado desde el buscador de VITAL",
         })
+    ficha.actualizado = ahora
+    fichas[clave] = ficha
+    guardar_fichas(fichas)
+    return ficha
+
+
+def anotar_documento(
+    clave: str, documento: dict[str, Any], nombre: str = "",
+    lat: float | None = None, lon: float | None = None,
+) -> Ficha:
+    """Registra en la ficha un documento del expediente guardado en disco."""
+    fichas = cargar_fichas()
+    ficha = fichas.get(clave) or Ficha(clave=clave)
+    if nombre:
+        ficha.nombre = nombre
+    if lat is not None and lon is not None:
+        ficha.lat, ficha.lon = lat, lon
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ficha.documentos = [d for d in ficha.documentos if d.get("ruta") != documento.get("ruta")]
+    ficha.documentos.append({**documento, "guardado": ahora})
     ficha.actualizado = ahora
     fichas[clave] = ficha
     guardar_fichas(fichas)

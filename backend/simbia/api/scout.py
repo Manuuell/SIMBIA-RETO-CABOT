@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
+from urllib.parse import quote
 from pydantic import BaseModel, Field
 
 from ..config import Escenario
 from ..optim.blend import linea_base, optimizar
-from ..scout import almacen, ciiu, extraccion, permisos, vigilancia, vital
+from ..scout import almacen, ciiu, documentos, extraccion, permisos, vigilancia, vital
 from ..scout.fuentes import Modo, catalogo as catalogo_fuentes, modo_actual
 from ..scout.fuentes.base import descargas_en_cache
 from ..scout.geo import PLANTA, RADIO_BUSQUEDA_KM, Sitio, proyectar
@@ -459,6 +461,106 @@ def vital_buscar(
         pagina=max(1, pagina), por_pagina=max(5, min(por_pagina, 100)),
     )
     return vital.buscar(b, _resolver_modo(modo)).as_dict()
+
+
+def _tramite(radicado: str, origen: str, sol_id: str, solicitante_id: str) -> documentos.Tramite:
+    """Los cuatro identificadores vienen del buscador; se validan como tales."""
+    for nombre, valor in (("radicado", radicado), ("origen", origen), ("sol_id", sol_id), ("solicitante_id", solicitante_id)):
+        if not valor or len(valor) > 40 or not all(c.isalnum() or c in "-_." for c in valor):
+            raise HTTPException(422, f"Identificador invalido: {nombre}")
+    return documentos.Tramite(radicado=radicado, origen=origen, sol_id=sol_id, solicitante_id=solicitante_id)
+
+
+@router.get("/vital/detalle")
+def vital_detalle(
+    radicado: str, origen: str, sol_id: str, solicitante_id: str, modo: str | None = None,
+) -> dict[str, Any]:
+    """Informacion, estado y documentos de un tramite, desde el VITAL antiguo."""
+    t = _tramite(radicado, origen, sol_id, solicitante_id)
+    m = _resolver_modo(modo) if modo else Modo.CACHE
+    return documentos.detalle(t, m).as_dict()
+
+
+@router.get("/vital/documento")
+def vital_documento(
+    radicado: str, origen: str, sol_id: str, solicitante_id: str,
+    grupo: str, entrada: int = 0, indice: int = 0, descargar: bool = False,
+):
+    """Los bytes de un documento, en linea (para verlo) o como descarga."""
+    t = _tramite(radicado, origen, sol_id, solicitante_id)
+    try:
+        d = documentos.descargar(t, grupo, entrada, indice)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:                                # noqa: BLE001
+        raise HTTPException(502, f"El VITAL antiguo no respondio: {type(exc).__name__}: {exc}")
+    nombre = documentos.nombre_seguro(d.nombre)
+    disposicion = "attachment" if descargar or d.tipo == "application/octet-stream" else "inline"
+    return Response(
+        content=d.contenido, media_type=d.tipo,
+        headers={
+            "Content-Disposition": f"{disposicion}; filename*=UTF-8''{quote(nombre)}",
+            "Cache-Control": "private, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+class ArchivarDocumento(BaseModel):
+    radicado: str
+    origen: str
+    sol_id: str
+    solicitante_id: str
+    grupo: str
+    entrada: int = 0
+    indice: int = 0
+    #: Prospecto al que pertenece (clave estable), si se sabe.
+    clave: str = ""
+    radio_km: float = RADIO_BUSQUEDA_KM
+
+
+@router.post("/vital/documento/archivar")
+def vital_archivar(a: ArchivarDocumento) -> dict[str, Any]:
+    """Descarga el documento y lo guarda en el expediente local del tramite.
+
+    Es lo mismo que /ingestar, sin pasar por el navegador: el documento queda
+    junto al resto de la evidencia y, si se indica el prospecto, anotado en
+    su ficha. Desde ahi puede leerse con IA en Datos externos.
+    """
+    t = _tramite(a.radicado, a.origen, a.sol_id, a.solicitante_id)
+    try:
+        d = documentos.descargar(t, a.grupo, a.entrada, a.indice)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:                                # noqa: BLE001
+        raise HTTPException(502, f"El VITAL antiguo no respondio: {type(exc).__name__}: {exc}")
+    carpeta = (
+        Path(__file__).resolve().parents[1] / "scout" / "archivo" / "expedientes"
+        / documentos.nombre_seguro(a.radicado)
+    )
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ruta = carpeta / documentos.nombre_seguro(d.nombre)
+    ruta.write_bytes(d.contenido)
+    relativa = str(ruta.relative_to(carpeta.parents[1]))
+
+    ficha = None
+    if a.clave:
+        p = next(
+            (x for x in _barrido(a.radio_km)
+             if almacen.clave_estable(x.nombre, x.lat, x.lon) == a.clave),
+            None,
+        )
+        if p is not None:
+            ficha = almacen.anotar_documento(
+                a.clave, {"nombre": d.nombre, "ruta": relativa, "radicado": a.radicado,
+                          "bytes": len(d.contenido), "tipo": d.tipo},
+                nombre=p.nombre, lat=p.lat, lon=p.lon,
+            ).as_dict()
+            _invalidar()
+    return {
+        "guardado": relativa, "nombre": d.nombre, "bytes": len(d.contenido),
+        "tipo": d.tipo, "es_pdf": d.tipo == "application/pdf", "ficha": ficha,
+    }
 
 
 class VinculoExpediente(BaseModel):
