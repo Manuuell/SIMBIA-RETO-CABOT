@@ -121,6 +121,21 @@ class Ficha:
     expedientes: list[dict[str, str]] = field(default_factory=list)
     #: Documentos del expediente guardados en disco (nombre, ruta, radicado).
     documentos: list[dict[str, Any]] = field(default_factory=list)
+    #: En la cartera: las empresas que el equipo decidio seguir. Se marca a
+    #: mano o sola, en cuanto hay trabajo registrado sobre la empresa.
+    en_cartera: bool = False
+    #: Lo que un documento del expediente declara sobre el agua. Pisa al
+    #: arquetipo parametro por parametro y el prospecto pasa a DECLARADO.
+    calidad_declarada: dict[str, float] = field(default_factory=dict)
+    caudal_declarado_m3_h: float | None = None
+    fuente_declarada: str = ""
+
+    @property
+    def tiene_trabajo(self) -> bool:
+        return bool(
+            self.estado is not Estado.DETECTADO or self.expedientes or self.documentos
+            or self.calidad_declarada or self.responsable or self.contacto
+        )
 
     @property
     def avance(self) -> float:
@@ -148,6 +163,10 @@ class Ficha:
             "nombre": self.nombre,
             "expedientes": self.expedientes,
             "documentos": self.documentos,
+            "en_cartera": self.en_cartera,
+            "calidad_declarada": self.calidad_declarada,
+            "caudal_declarado_m3_h": self.caudal_declarado_m3_h,
+            "fuente_declarada": self.fuente_declarada,
         }
 
 
@@ -187,7 +206,15 @@ def cargar_fichas() -> dict[str, Ficha]:
             lon=d.get("lon"),
             expedientes=d.get("expedientes", []),
             documentos=d.get("documentos", []),
+            en_cartera=bool(d.get("en_cartera", False)),
+            calidad_declarada=d.get("calidad_declarada", {}) or {},
+            caudal_declarado_m3_h=d.get("caudal_declarado_m3_h"),
+            fuente_declarada=d.get("fuente_declarada", ""),
         )
+        # Fichas anteriores al campo: si ya habia trabajo sobre la empresa, es
+        # que alguien la eligio. Se deduce una vez y se guarda con la ficha.
+        if "en_cartera" not in d and fichas[clave].tiene_trabajo:
+            fichas[clave].en_cartera = True
     return fichas
 
 
@@ -209,6 +236,10 @@ def guardar_fichas(fichas: dict[str, Ficha]) -> None:
                     "lon": f.lon,
                     "expedientes": f.expedientes,
                     "documentos": f.documentos,
+                    "en_cartera": f.en_cartera,
+                    "calidad_declarada": f.calidad_declarada,
+                    "caudal_declarado_m3_h": f.caudal_declarado_m3_h,
+                    "fuente_declarada": f.fuente_declarada,
                 }
                 for k, f in fichas.items()
             },
@@ -228,6 +259,7 @@ def actualizar_ficha(
     nombre: str = "",
     lat: float | None = None,
     lon: float | None = None,
+    en_cartera: bool | None = None,
 ) -> Ficha:
     """Modifica una ficha y deja rastro del cambio de etapa en el historial."""
     fichas = cargar_fichas()
@@ -237,6 +269,10 @@ def actualizar_ficha(
         ficha.nombre = nombre
     if lat is not None and lon is not None:
         ficha.lat, ficha.lon = lat, lon
+    if en_cartera is not None:
+        ficha.en_cartera = en_cartera
+    elif estado is not None and estado is not Estado.DETECTADO:
+        ficha.en_cartera = True   # mover de etapa es elegirla
 
     if estado is not None and estado is not ficha.estado:
         ficha.historial.append({
@@ -367,7 +403,7 @@ def aplicar_fichas(prospectos: list[Prospecto]) -> list[Prospecto]:
 
 CAMPOS_EXPEDIENTE = (
     "id", "expediente", "radicado", "autoridad", "tramite", "tramite_legible",
-    "titular", "fecha",
+    "titular", "fecha", "origen", "sol_id", "solicitante_id",
 )
 
 
@@ -396,7 +432,15 @@ def vincular_expediente(
     if lat is not None and lon is not None:
         ficha.lat, ficha.lon = lat, lon
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    if not any(_identificador(e) == _identificador(limpio) for e in ficha.expedientes):
+    ficha.en_cartera = True
+    existente = next((e for e in ficha.expedientes if _identificador(e) == _identificador(limpio)), None)
+    if existente is not None:
+        # Ya estaba: se completan los campos que faltaban (p. ej. los ids del
+        # VITAL antiguo en vinculos anteriores a que se guardaran).
+        for k, v in limpio.items():
+            if v and not existente.get(k):
+                existente[k] = v
+    else:
         limpio["vinculado"] = ahora
         ficha.expedientes.append(limpio)
         ficha.historial.append({
@@ -422,8 +466,56 @@ def anotar_documento(
     if lat is not None and lon is not None:
         ficha.lat, ficha.lon = lat, lon
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ficha.en_cartera = True
     ficha.documentos = [d for d in ficha.documentos if d.get("ruta") != documento.get("ruta")]
     ficha.documentos.append({**documento, "guardado": ahora})
+    ficha.actualizado = ahora
+    fichas[clave] = ficha
+    guardar_fichas(fichas)
+    return ficha
+
+
+PARAMETROS_DECLARABLES = frozenset({
+    "ph", "t_c", "tds", "dureza_ca", "alcalinidad", "cloruros", "sulfatos",
+    "silice", "sst", "dqo", "n_amoniacal", "fosfatos", "hierro",
+})
+
+
+def declarar_calidad(
+    clave: str, calidad: dict[str, float], caudal_m3_h: float | None,
+    fuente: str, nombre: str = "", lat: float | None = None, lon: float | None = None,
+) -> Ficha:
+    """Guarda en la ficha lo que un documento del expediente declara del agua.
+
+    Es la puerta por la que un prospecto pasa de inferido a DECLARADO sin
+    tocar codigo: lo leido del permiso pisa al arquetipo parametro por
+    parametro y el caudal autorizado sustituye al estimado por superficie.
+    Solo entran parametros que el modelo conoce y valores numericos.
+    """
+    validos = {
+        k: float(v) for k, v in (calidad or {}).items()
+        if k in PARAMETROS_DECLARABLES and isinstance(v, (int, float)) and v >= 0
+    }
+    if not validos and caudal_m3_h is None:
+        raise ValueError("No hay ningun parametro ni caudal que declarar")
+    fichas = cargar_fichas()
+    ficha = fichas.get(clave) or Ficha(clave=clave)
+    if nombre:
+        ficha.nombre = nombre
+    if lat is not None and lon is not None:
+        ficha.lat, ficha.lon = lat, lon
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ficha.calidad_declarada = {**ficha.calidad_declarada, **validos}
+    if caudal_m3_h is not None and caudal_m3_h > 0:
+        ficha.caudal_declarado_m3_h = float(caudal_m3_h)
+    ficha.fuente_declarada = fuente
+    ficha.en_cartera = True
+    ficha.historial.append({
+        "fecha": ahora, "de": ficha.estado.value, "a": ficha.estado.value,
+        "empresa": ficha.nombre,
+        "nota": f"calidad declarada desde '{fuente}': {', '.join(sorted(validos)) or 'sin parametros'}"
+                + (f", caudal {caudal_m3_h:g} m3/h" if caudal_m3_h else ""),
+    })
     ficha.actualizado = ahora
     fichas[clave] = ficha
     guardar_fichas(fichas)
@@ -445,19 +537,21 @@ def desvincular_expediente(clave: str, identificador: str) -> Ficha:
 
 
 def aplicar_expedientes(prospectos: list[Prospecto]) -> list[Prospecto]:
-    """Anade a cada prospecto las referencias de los expedientes vinculados.
+    """Anade a cada prospecto lo que su ficha declara: expedientes y calidad.
 
-    Va ANTES de puntuar: una referencia 'vital' sube la confianza y la
-    confianza es un factor del puntaje. No duplica lo que el cruce por razon
-    social ya encontro.
+    Va ANTES de puntuar: una referencia 'vital' sube la confianza, una
+    calidad declarada cambia el metodo y ambas son factores del puntaje. No
+    duplica lo que el cruce por razon social ya encontro.
     """
     fichas, _ = vincular_fichas(prospectos)
     salida: list[Prospecto] = []
     for p in prospectos:
         ficha = fichas.get(clave_estable(p.nombre, p.lat, p.lon))
-        if ficha is None or not ficha.expedientes:
+        if ficha is None or not (ficha.expedientes or ficha.calidad_declarada or ficha.caudal_declarado_m3_h):
             salida.append(p)
             continue
+        if ficha.calidad_declarada or ficha.caudal_declarado_m3_h:
+            p = _aplicar_declarado(p, ficha)
         ya = {r.identificador for r in p.referencias if r.fuente == "vital"}
         nuevas = tuple(
             Referencia(
@@ -475,6 +569,29 @@ def aplicar_expedientes(prospectos: list[Prospecto]) -> list[Prospecto]:
         )
         salida.append(replace(p, referencias=p.referencias + nuevas) if nuevas else p)
     return salida
+
+
+def _aplicar_declarado(p: Prospecto, ficha: Ficha) -> Prospecto:
+    """Calidad y caudal declarados en un documento del expediente."""
+    from .perfil import Metodo
+    cambios: dict[str, Any] = {}
+    if ficha.calidad_declarada:
+        validos = {k: v for k, v in ficha.calidad_declarada.items() if hasattr(p.calidad, k)}
+        if validos:
+            cambios["calidad"] = replace(p.calidad, **validos)
+            cambios["campos_medidos"] = p.campos_medidos | frozenset(validos)
+            if p.metodo_calidad in (Metodo.INFERIDO, Metodo.SUPUESTO):
+                cambios["metodo_calidad"] = Metodo.DECLARADO
+    if ficha.caudal_declarado_m3_h:
+        cambios["caudal_m3_h"] = ficha.caudal_declarado_m3_h
+        if p.metodo_caudal in (Metodo.INFERIDO, Metodo.SUPUESTO):
+            cambios["metodo_caudal"] = Metodo.DECLARADO
+    if cambios:
+        cambios["referencias"] = p.referencias + (Referencia(
+            fuente="expediente", identificador=ficha.fuente_declarada or "documento",
+            descripcion="Calidad y/o caudal declarados en un documento del expediente, leido con IA y confirmado a mano",
+        ),)
+    return replace(p, **cambios) if cambios else p
 
 
 # --------------------------------------------------------------------------
