@@ -43,12 +43,15 @@
       <span class="n">5</span>
       <span><span class="t">Embudo comercial</span><br><span class="d">Etapas, fichas y vigilancia</span></span>
     </a>
-    <div class="grupo">Decision</div>
-    <a href="#optimizador" data-modulo="optimizador">
+    <!-- Grupo Decision oculto del menu por ahora (16 sep 2026). Los modulos
+         siguen existiendo y responden en #optimizador y #operacion; para
+         volver a mostrarlos basta con quitar los `hidden`. -->
+    <div class="grupo" hidden>Decision</div>
+    <a href="#optimizador" data-modulo="optimizador" hidden>
       <span class="n">6</span>
       <span><span class="t">Optimizador</span><br><span class="d">Mezcla, tratamiento y ciclos</span></span>
     </a>
-    <a href="#operacion" data-modulo="operacion">
+    <a href="#operacion" data-modulo="operacion" hidden>
       <span class="n">7</span>
       <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
     </a>
@@ -59,7 +62,7 @@
     </a>
     <div class="grupo">Referencia</div>
     <a href="#modelo" data-modulo="modelo">
-      <span class="n">8</span>
+      <span class="n">6</span>
       <span><span class="t">Modelo y supuestos</span><br><span class="d">Como se calcula todo</span></span>
     </a>
   </nav>
