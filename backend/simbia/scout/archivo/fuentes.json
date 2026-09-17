@@ -2,7 +2,7 @@
   "_nota": "Configuracion de fuentes externas. Rellenar y marcar verificado=true para habilitar la consulta en vivo. Mientras verificado sea false, la fuente sirve datos de ejemplo y lo declara en el dashboard.",
   "datos_gov": {
     "conjunto": "",
-    "descripcion": "Permisos de vertimiento de la autoridad ambiental competente. Buscar en datos.gov.co; para Cartagena y el norte de Bolivar la autoridad es CARDIQUE, y EPA Cartagena en el perimetro urbano. El identificador es el codigo de cuatro-cuatro caracteres que aparece en la URL del conjunto.",
+    "descripcion": "Permisos de vertimiento de la autoridad ambiental competente, si los publica en datos.gov.co. Para Cartagena NO aplica (comprobado el 16 sep 2026: CARDIQUE y EPA Cartagena no publican; los permisos salen de VITAL). Conjuntos conocidos de otras jurisdicciones: Corpoboyaca scsy-jdyy, Corantioquia nqy2-wcw4. El identificador es el codigo de cuatro-cuatro caracteres de la URL del conjunto.",
     "verificado": false,
     "campo_nombre": "razon_social",
     "campo_lat": "latitud",

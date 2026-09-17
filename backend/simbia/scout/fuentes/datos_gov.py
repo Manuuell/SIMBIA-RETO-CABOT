@@ -91,17 +91,17 @@ class FuenteDatosGov(Fuente):
         self.verificada = bool(
             self.config.conjunto and self.config.verificado
         )
+        # La primera frase es la que ve el usuario en la tarjeta; el resto
+        # va en el tooltip. Lo importante: no es que falte configurar algo,
+        # es que para Cartagena no hay nada que configurar.
         self.nota_configuracion = (
-            "Conector listo pero sin conjunto de datos configurado. "
-            "Rellenar 'datos_gov.conjunto' en archivo/fuentes.json con el "
-            "identificador del conjunto de permisos de vertimiento de la "
-            "autoridad ambiental y marcar verificado=true. Comprobado en "
-            "septiembre de 2026: CARDIQUE, la autoridad de Cartagena y el "
-            "norte de Bolivar, no publica permisos de vertimiento en "
-            "datos.gov.co (solo una estacion de calidad del aire). Si los "
-            "publican Corpoboyaca y Corantioquia, asi que el conector sirve "
-            "tal cual para otras jurisdicciones. Para Cartagena la via es "
-            "EPA Cartagena o CARDIQUE por derecho de peticion."
+            "No aplica en Cartagena: ni CARDIQUE ni EPA Cartagena publican "
+            "permisos de vertimiento en datos.gov.co (comprobado el 16 de "
+            "septiembre de 2026 contra el catalogo del portal: 44 conjuntos con "
+            "'vertimiento', solo Corpoboyaca y Corantioquia son permisos). "
+            "Los permisos de Cartagena salen de VITAL. El conector queda listo "
+            "para otras jurisdicciones: rellenar 'datos_gov.conjunto' en "
+            "archivo/fuentes.json y marcar verificado=true."
         )
 
     def _clave(self, lat: float, lon: float, radio_km: float) -> str:

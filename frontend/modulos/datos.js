@@ -68,7 +68,7 @@ function tarjetaFuente({ codigo, nombre, licencia, verificada, nota, aporta, res
   const r = resultado || {};
   return `<div class="fuente" data-fuente="${codigo}">
     <div class="nombre">${escapar(nombre)}
-      ${verificada ? "" : chip("sin configurar", "aviso")}</div>
+      ${verificada ? "" : (nota || "").startsWith("No aplica") ? chip("no aplica aqui", "neutra") : chip("sin configurar", "aviso")}</div>
     <div class="aporta">${escapar(aporta)}</div>
     <div class="resultado">
       <b>${r.registros ?? "—"}</b> ${codigo === "vital" ? "permisos" : "registros"}
@@ -76,7 +76,7 @@ function tarjetaFuente({ codigo, nombre, licencia, verificada, nota, aporta, res
       ${r.nota ? `<span class="aporta">${escapar(r.nota)}</span>` : ""}
     </div>
     ${r.incidencia && r.origen !== "cache" ? `<div class="incidencia" title="${escapar(r.incidencia)}">${escapar(breve(r.incidencia))}</div>` : ""}
-    ${!r.incidencia && !verificada && nota ? `<div class="incidencia" title="${escapar(nota)}">${escapar(breve(nota))}</div>` : ""}
+    ${!r.incidencia && !verificada && nota ? `<div class="incidencia" title="${escapar(nota)}" style="${nota.startsWith("No aplica") ? "color:var(--texto-tenue)" : ""}">${escapar(breve(nota))}</div>` : ""}
     <div class="aporta" style="color:var(--texto-tenue)">${escapar(licencia)}</div>
   </div>`;
 }
