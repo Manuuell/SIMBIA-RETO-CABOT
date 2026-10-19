@@ -73,8 +73,11 @@ function mostrarClave(usuario, clave, titulo) {
     <small>Cópiala ahora y envíala por un canal seguro. SIMBIA no puede volver a mostrarla.</small></div>
     <button class="secundario pequeno" id="admin-copiar-clave">Copiar contraseña</button>`;
   $("admin-copiar-clave").addEventListener("click", async (ev) => {
+    // En Safari currentTarget vuelve a null cuando el listener asincrono cede
+    // el control. Conservamos el nodo antes del await.
+    const boton = ev.currentTarget;
     const ok = await copiar(clave);
-    ev.currentTarget.textContent = ok ? "Copiada" : "No se pudo copiar";
+    boton.textContent = ok ? "Copiada" : "No se pudo copiar";
   });
   aviso.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -86,6 +89,9 @@ async function cargar() {
 
 async function crear(ev) {
   ev.preventDefault();
+  // `currentTarget` solo esta garantizado durante la fase sincrona del
+  // listener. Safari lo limpia mientras esperamos la respuesta del servidor.
+  const formulario = ev.currentTarget;
   const boton = $("admin-crear");
   const usuario = $("admin-correo").value.trim().toLowerCase();
   const nombre = $("admin-nombre").value.trim();
@@ -95,7 +101,7 @@ async function crear(ev) {
   mostrarError();
   try {
     await pedir("/api/admin/usuarios", { usuario, nombre, clave });
-    ev.currentTarget.reset();
+    formulario.reset();
     mostrarClave(usuario, clave, "Cuenta creada");
     await cargar();
   } catch (error) {
