@@ -1,0 +1,3 @@
+three.js r169 (npm three@0.169.0, MIT). Copia local para que el simulador 3D
+funcione sin conexion. Solo el nucleo y los addons que se usan.
+Integridad del paquete (sha1): 4a62114988ad9728d73526d1f1de6760c56b4adc
