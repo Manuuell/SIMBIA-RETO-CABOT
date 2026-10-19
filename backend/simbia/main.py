@@ -15,6 +15,7 @@ from . import __version__, auth
 from .api.asistente import router as router_asistente
 from .api.routes import router
 from .api.scout import router as router_scout
+from .api.simulador import router as router_simulador
 
 WEB = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -33,6 +34,7 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(router_scout)
 app.include_router(router_asistente)
+app.include_router(router_simulador)
 # Acceso con usuario y contrasena. Activo solo si SIMBIA_AUTH_HASH esta
 # definida; ver simbia/auth.py.
 auth.instalar(app, WEB)

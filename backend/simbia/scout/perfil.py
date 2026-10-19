@@ -135,6 +135,9 @@ class Prospecto:
     #: Rellenado por scoring.py. Fuera del constructor normal.
     puntaje: float | None = None
     detalle_puntaje: dict[str, float] = field(default_factory=dict)
+    #: Tren de tratamiento del plan que sustenta el puntaje (scoring.py). Es
+    #: el punto de partida cuando el prospecto entra al simulador.
+    tren_sugerido: str = ""
 
     # ------------------------------------------------------------------
     # Confianza
@@ -211,4 +214,5 @@ class Prospecto:
             "detalle_puntaje": {
                 k: round(v, 1) for k, v in self.detalle_puntaje.items()
             },
+            "tren_sugerido": self.tren_sugerido,
         }

@@ -198,6 +198,7 @@ def puntuar(
         prospecto,
         puntaje=round(sum(detalle.values()) * factor, 1),
         detalle_puntaje=detalle,
+        tren_sugerido=ev.tren,
         notas=(
             f"{prospecto.notas} | Plan: {ev.tren} ({ev.tren_nombre}) "
             f"cubriendo el {ev.fraccion:.0%} del aporte, "
