@@ -19,20 +19,37 @@ muestra la atribucion.
 from __future__ import annotations
 
 import math
+import time
 from typing import Any
 
 from ..geo import RADIO_TIERRA_KM
-from .base import (
-    TIMEOUT_S, USER_AGENT, Fuente, RegistroCrudo,
-)
+from .base import USER_AGENT, Fuente, RegistroCrudo, permitido_por_robots
 
 ENDPOINT = "https://overpass-api.de/api/interpreter"
+#: Orden de intentos ante fallos del servidor (nunca ante una consulta mal
+#: hecha). Medido el 19 oct 2026: cuando la instancia principal esta llena
+#: rechaza al instante con 502 y acepta unos segundos despues, y una vez
+#: aceptada tarda unos 45 s haga la consulta lo que haga (es cola, no calculo).
+#: Por eso se le da una segunda vuelta antes de pasar a los espejos, que
+#: sirven los mismos datos de OpenStreetMap.
+INTENTOS = (
+    ENDPOINT,
+    ENDPOINT,
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+)
+#: Tiempo total de una consulta en vivo, en segundos. Con la de VITAL que va
+#: detras (hasta 25 s) queda por debajo de los 120 s del proxy del despliegue:
+#: si se agota, la fuente sirve su ultima descarga (base.Fuente._respaldo) en
+#: vez de dejar la peticion colgada.
+PRESUPUESTO_S = 85.0
+PAUSA_S = 3.0
 
 #: Etiquetas OSM que identifican un establecimiento industrial. La consulta
 #: es deliberadamente amplia: es mas barato descartar un falso positivo en el
 #: filtrado que no enterarse de que existe un vecino.
 CONSULTA = """
-[out:json][timeout:60];
+[out:json][timeout:90];
 (
   way["landuse"="industrial"](around:{radio_m},{lat},{lon});
   way["man_made"="works"](around:{radio_m},{lat},{lon});
@@ -111,14 +128,33 @@ class FuenteOSM(Fuente):
         consulta = CONSULTA.format(
             radio_m=int(radio_km * 1000), lat=lat, lon=lon,
         )
-        respuesta = httpx.post(
-            ENDPOINT,
-            data={"data": consulta},
-            headers={"User-Agent": USER_AGENT},
-            timeout=TIMEOUT_S,
-        )
-        respuesta.raise_for_status()
-        return self._interpretar(respuesta.json(), lat)
+        ultimo: Exception | None = None
+        inicio = time.monotonic()
+        for url in INTENTOS:
+            restante = PRESUPUESTO_S - (time.monotonic() - inicio)
+            if restante < 10:
+                break
+            if url != ENDPOINT and not permitido_por_robots(url):
+                continue
+            try:
+                respuesta = httpx.post(
+                    url,
+                    data={"data": consulta},
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=restante,
+                )
+                respuesta.raise_for_status()
+                return self._interpretar(respuesta.json(), lat)
+            except httpx.HTTPStatusError as exc:
+                # Una consulta rechazada (4xx salvo 429) fallaria igual en
+                # cualquier servidor: no tiene sentido insistir.
+                if exc.response.status_code < 500 and exc.response.status_code != 429:
+                    raise
+                ultimo = exc
+                time.sleep(PAUSA_S)
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                ultimo = exc
+        raise ultimo or RuntimeError("ningun servidor de Overpass respondio a tiempo")
 
     def _interpretar(
         self, cuerpo: dict[str, Any], lat_ref: float,

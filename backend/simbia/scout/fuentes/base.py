@@ -180,16 +180,15 @@ def escribir_cache(
     )
 
 
-def descargas_en_cache(fuente: str) -> list[dict[str, Any]]:
-    """Que consultas de esta fuente hay guardadas: centro, radio y fecha.
+def _descargas(fuente: str):
+    """Cada descarga guardada de una fuente: (envoltorio, consulta).
 
-    Es lo que el dashboard necesita para decir, antes de lanzar nada, "sin
-    red solo puedo servir hasta 8 km".
+    La consulta es el centro y el radio. Las descargas anteriores a ese campo
+    lo llevan en la clave, que las fuentes construyen como "...:lat,lon,radio".
     """
     carpeta = CACHE / fuente
     if not carpeta.is_dir():
-        return []
-    salida: list[dict[str, Any]] = []
+        return
     for ruta in sorted(carpeta.glob("*.json")):
         try:
             env = json.loads(ruta.read_text(encoding="utf-8"))
@@ -204,12 +203,27 @@ def descargas_en_cache(fuente: str) -> list[dict[str, Any]]:
                 c = {"lat": lat_c, "lon": lon_c, "radio_km": r_c}
             except (ValueError, IndexError):
                 continue
-        salida.append({
+        yield env, c
+
+
+def descargas_en_cache(fuente: str) -> list[dict[str, Any]]:
+    """Que consultas de esta fuente hay guardadas: centro, radio y fecha.
+
+    Es lo que el dashboard necesita para decir, antes de lanzar nada, "sin
+    red solo puedo servir hasta 8 km".
+    """
+    return [
+        {
             "lat": c["lat"], "lon": c["lon"], "radio_km": c["radio_km"],
             "guardado": str(env.get("guardado", "")),
             "registros": len(env.get("datos") or []),
-        })
-    return salida
+        }
+        for env, c in _descargas(fuente)
+    ]
+
+
+def _mismo_centro(c: dict[str, float], lat: float, lon: float) -> bool:
+    return abs(c["lat"] - lat) <= 1e-4 and abs(c["lon"] - lon) <= 1e-4
 
 
 def leer_cache_que_cubra(
@@ -223,39 +237,55 @@ def leer_cache_que_cubra(
     sentido decir "sin dato" teniendo el dato. Se elige la descarga valida
     mas ajustada (la de menor radio que aun cubra la peticion).
     """
-    carpeta = CACHE / fuente
-    if not carpeta.is_dir():
-        return None, "", 0.0
     mejor: tuple[float, Any, str] | None = None
-    for ruta in carpeta.glob("*.json"):
-        try:
-            env = json.loads(ruta.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+    for env, c in _descargas(fuente):
+        if ttl_horas > 0 and (time.time() - env.get("guardado_ts", 0)) / 3600.0 > ttl_horas:
             continue
-        if ttl_horas > 0:
-            edad_h = (time.time() - env.get("guardado_ts", 0)) / 3600.0
-            if edad_h > ttl_horas:
-                continue
-        c = env.get("consulta") or {}
-        if not c:
-            # Descargas anteriores a este campo: se lee la clave, que las
-            # fuentes construyen como "...:lat,lon,radio".
-            try:
-                lat_c, lon_c, r_c = (
-                    float(x) for x in str(env.get("clave", "")).rsplit(":", 1)[-1].split(",")
-                )
-                c = {"lat": lat_c, "lon": lon_c, "radio_km": r_c}
-            except (ValueError, IndexError):
-                continue
-        if abs(c["lat"] - lat) > 1e-4 or abs(c["lon"] - lon) > 1e-4:
-            continue
-        if c["radio_km"] + 1e-9 < radio_km:
+        if not _mismo_centro(c, lat, lon) or c["radio_km"] + 1e-9 < radio_km:
             continue
         if mejor is None or c["radio_km"] < mejor[0]:
             mejor = (c["radio_km"], env.get("datos"), str(env.get("guardado", "")))
     if mejor is None:
         return None, "", 0.0
     return mejor[1], mejor[2], mejor[0]
+
+
+def leer_mejor_cache(
+    fuente: str, lat: float, lon: float, radio_km: float,
+) -> tuple[Any | None, str, float]:
+    """La mejor descarga que haya del mismo centro, sin mirar su edad.
+
+    Es el respaldo cuando una consulta en vivo falla: la que cubra el radio
+    pedido (la mas ajustada) y, si ninguna lo cubre, la mas amplia que haya.
+    Devuelve (datos, fecha, radio de la descarga).
+    """
+    datos, fecha, radio = leer_cache_que_cubra(fuente, lat, lon, radio_km, 0.0)
+    if datos is not None:
+        return datos, fecha, radio
+    mejor: tuple[float, Any, str] | None = None
+    for env, c in _descargas(fuente):
+        if _mismo_centro(c, lat, lon) and (mejor is None or c["radio_km"] > mejor[0]):
+            mejor = (c["radio_km"], env.get("datos"), str(env.get("guardado", "")))
+    if mejor is None:
+        return None, "", 0.0
+    return mejor[1], mejor[2], mejor[0]
+
+
+def describir_error(exc: Exception) -> str:
+    """Un fallo de red contado para quien usa la aplicacion, sin la traza."""
+    codigo = getattr(getattr(exc, "response", None), "status_code", None)
+    nombre = type(exc).__name__
+    if codigo == 429:
+        return "el servicio esta limitando las consultas en este momento (429)"
+    if codigo and 500 <= codigo < 600:
+        return f"el servidor no respondio: esta caido o saturado ({codigo})"
+    if codigo:
+        return f"el servidor rechazo la consulta ({codigo})"
+    if "Timeout" in nombre:
+        return "la consulta tardo demasiado y se cancelo"
+    if "Connect" in nombre or "Network" in nombre:
+        return "no hay conexion con el servidor"
+    return f"fallo inesperado ({nombre})"
 
 
 # --------------------------------------------------------------------------
@@ -404,9 +434,12 @@ class Fuente(ABC):
             esperar_turno(self.codigo, self.intervalo_s)
             registros = self._consultar_red(lat, lon, radio_km)
         except Exception as exc:                       # noqa: BLE001
-            # Una fuente caida no puede tumbar la prospeccion entera: se
-            # degrada a fixture y se dice claramente que paso.
-            return self._sin_dato(ahora, f"{type(exc).__name__}: {exc}")
+            # Una fuente caida no puede tumbar la prospeccion entera, y menos
+            # borrar lo que ya se sabia: se sirve la ultima descarga buena y
+            # se dice claramente que paso. Solo sin descarga previa se queda
+            # en "sin dato".
+            motivo = describir_error(exc)
+            return self._respaldo(lat, lon, radio_km, ahora, motivo) or self._sin_dato(ahora, motivo)
 
         escribir_cache(
             self.codigo, clave,
@@ -421,6 +454,26 @@ class Fuente(ABC):
             consulta={"lat": lat, "lon": lon, "radio_km": radio_km},
         )
         return ResultadoFuente(self.codigo, registros, "red", ahora)
+
+    def _respaldo(
+        self, lat: float, lon: float, radio_km: float, ahora: str, motivo: str,
+    ) -> ResultadoFuente | None:
+        """La ultima descarga buena, cuando la consulta en vivo ha fallado."""
+        crudo, fecha, radio_c = leer_mejor_cache(self.codigo, lat, lon, radio_km)
+        if crudo is None:
+            return None
+        dentro = [r for r in crudo if _haversine_km(lat, lon, r["lat"], r["lon"]) <= radio_km]
+        cobertura = (
+            f", que solo cubren {radio_c:g} de los {radio_km:g} km pedidos" if radio_c < radio_km else ""
+        )
+        return ResultadoFuente(
+            self.codigo, [RegistroCrudo(**r) for r in dentro], "cache", ahora,
+            incidencia=(
+                f"No se pudo actualizar: {motivo}. Se mantienen los datos descargados el "
+                f"{fecha[:10] or 'dia anterior'}{cobertura}."
+            ),
+            fecha_dato=fecha,
+        )
 
     def _sin_dato(self, ahora: str, incidencia: str = "") -> ResultadoFuente:
         """Que devolver cuando no hay dato real que servir.

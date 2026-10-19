@@ -1042,3 +1042,91 @@ def test_no_se_acepta_como_pdf_algo_que_no_lo_es(cliente):
     })
     # 503 si la IA no esta configurada, 422 si lo esta y detecta el formato.
     assert r.status_code in (422, 503)
+
+
+# -- fuentes caidas: respaldo y espejos ---------------------------------------
+
+def _red_falsa(monkeypatch, respuestas):
+    """httpx2.post que devuelve, en orden, los codigos indicados."""
+    import httpx2
+    from simbia.scout.fuentes import base, osm
+    llamadas = []
+
+    def post(url, **kw):
+        llamadas.append(url)
+        codigo = respuestas[min(len(llamadas), len(respuestas)) - 1]
+        cuerpo = {"elements": [{"type": "node", "id": 7, "lat": geo.PLANTA.lat + 0.01,
+                                "lon": geo.PLANTA.lon, "tags": {"name": "Espejo S.A."}}]}
+        return httpx2.Response(codigo, json=cuerpo if codigo == 200 else {},
+                               request=httpx2.Request("POST", url))
+
+    monkeypatch.setattr(httpx2, "post", post)
+    monkeypatch.setattr(base, "esperar_turno", lambda *a: None)
+    monkeypatch.setattr(base, "permitido_por_robots", lambda url: True)
+    monkeypatch.setattr(osm, "permitido_por_robots", lambda url: True)
+    return llamadas
+
+
+def test_si_la_consulta_en_vivo_falla_se_mantiene_la_ultima_descarga(tmp_path, monkeypatch):
+    """Un 502 de Overpass dejaba la prospeccion en cero: ahora sirve lo de antes."""
+    from simbia.scout.fuentes import base, osm
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    monkeypatch.setattr(osm, "PAUSA_S", 0.0)
+    _red_falsa(monkeypatch, [502])
+    fuente = FuenteOSM()
+    lat, lon = geo.PLANTA.lat, geo.PLANTA.lon
+    previo = {"fuente": "osm", "identificador": "a", "nombre": "Previa S.A.",
+              "lat": lat + 0.01, "lon": lon, "atributos": {}, "url": ""}
+    base.escribir_cache("osm", fuente._clave(lat, lon, 8.0), [previo],
+                        consulta={"lat": lat, "lon": lon, "radio_km": 8.0})
+    r = fuente.consultar(lat, lon, 10.0, modo=Modo.VIVO)
+    assert r.origen == "cache"
+    assert [x.nombre for x in r.registros] == ["Previa S.A."]
+    assert not r.ok, "no poder actualizar es una incidencia y se dice"
+    assert "502" in r.incidencia and "8 de los 10 km" in r.incidencia
+    assert "HTTPStatusError" not in r.incidencia
+
+
+def test_sin_descarga_previa_una_caida_es_sin_dato_explicado(tmp_path, monkeypatch):
+    from simbia.scout.fuentes import base
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    monkeypatch.delenv("SIMBIA_SCOUT_EJEMPLOS", raising=False)
+    from simbia.scout.fuentes import osm
+    monkeypatch.setattr(osm, "PAUSA_S", 0.0)
+    _red_falsa(monkeypatch, [503])
+    r = FuenteOSM().consultar(geo.PLANTA.lat, geo.PLANTA.lon, 8.0, modo=Modo.VIVO)
+    assert r.origen == "sin dato" and not r.registros
+    assert "saturado" in r.incidencia
+
+
+def test_overpass_reintenta_y_luego_prueba_los_espejos(monkeypatch):
+    """Un 502 instantaneo del principal se reintenta; si sigue, va al espejo."""
+    from simbia.scout.fuentes import osm
+    monkeypatch.setattr(osm, "PAUSA_S", 0.0)
+    llamadas = _red_falsa(monkeypatch, [502, 502, 200])
+    registros = osm.FuenteOSM()._consultar_red(geo.PLANTA.lat, geo.PLANTA.lon, 8.0)
+    assert [r.nombre for r in registros] == ["Espejo S.A."]
+    assert llamadas == list(osm.INTENTOS[:3])
+    assert llamadas[0] == llamadas[1] == osm.ENDPOINT and llamadas[2] != osm.ENDPOINT
+
+
+def test_overpass_respeta_su_presupuesto_de_tiempo(monkeypatch):
+    """Sin tiempo para otro intento se rinde, y la fuente sirve su respaldo."""
+    import httpx2
+    from simbia.scout.fuentes import osm
+    monkeypatch.setattr(osm, "PAUSA_S", 0.0)
+    monkeypatch.setattr(osm, "PRESUPUESTO_S", 5.0)
+    llamadas = _red_falsa(monkeypatch, [502])
+    with pytest.raises(RuntimeError):
+        osm.FuenteOSM()._consultar_red(geo.PLANTA.lat, geo.PLANTA.lon, 8.0)
+    assert llamadas == []
+
+
+def test_una_consulta_rechazada_no_se_repite_en_los_espejos(monkeypatch):
+    import httpx2
+    from simbia.scout.fuentes import osm
+    monkeypatch.setattr(osm, "PAUSA_S", 0.0)
+    llamadas = _red_falsa(monkeypatch, [400])
+    with pytest.raises(httpx2.HTTPStatusError):
+        osm.FuenteOSM()._consultar_red(geo.PLANTA.lat, geo.PLANTA.lon, 8.0)
+    assert len(llamadas) == 1
