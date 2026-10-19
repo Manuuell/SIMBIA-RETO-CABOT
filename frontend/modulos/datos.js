@@ -42,7 +42,7 @@ const NOMBRE_MODO = { offline: "ultima consulta", cache: "actualizacion selectiv
 const QUE_PASARA = {
   offline: (c) => `Se usara la <b>ultima consulta disponible</b>: ${c}.`,
   cache: (c) => `Se conservara la evidencia vigente (${c}) y se actualizara solamente lo necesario.`,
-  vivo: () => `Se consultaran <b>ahora mismo</b> OpenStreetMap y VITAL. Puede tardar entre 10 y 60 segundos.`,
+  vivo: () => `Se consultaran <b>ahora mismo</b> OpenStreetMap y VITAL. Suele tardar menos de un minuto; si OpenStreetMap esta saturado, hasta dos. Si no responde, se conservan los datos actuales.`,
 };
 
 /** Radio maximo descargado de OpenStreetMap alrededor de la planta, o 0. */

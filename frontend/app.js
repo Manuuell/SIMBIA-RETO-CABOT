@@ -9,21 +9,22 @@
 import { $, estado, pedir, escapar } from "./comun.js";
 import asistente from "./modulos/asistente.js";
 import inicio from "./modulos/inicio.js";
-import datos from "./modulos/datos.js";
-import vital from "./modulos/vital.js";
-import prospectos from "./modulos/prospectos.js";
-import empresas from "./modulos/empresas.js";
+import prospeccion from "./modulos/prospeccion.js";
 import embudo from "./modulos/embudo.js";
 import optimizador from "./modulos/optimizador.js";
 import operacion from "./modulos/operacion.js";
 import modelo from "./modulos/modelo.js";
+import simulador from "./modulos/simulador.js";
 
-const MODULOS = { inicio, datos, vital, prospectos, empresas, embudo, optimizador, operacion, asistente, modelo };
+const MODULOS = { inicio, prospeccion, embudo, optimizador, operacion, simulador, asistente, modelo };
+// Las cuatro pantallas de prospeccion son ahora una sola. Sus enlaces siguen
+// valiendo: llevan a Vecinos, y Vecinos abre lo que cada uno pedia.
+const ALIAS = { datos: "prospeccion", vital: "prospeccion", prospectos: "prospeccion", empresas: "prospeccion" };
 const montados = new Set();
 let actual = null;
 
 async function mostrar(id) {
-  const mod = MODULOS[id] || MODULOS.inicio;
+  const mod = MODULOS[ALIAS[id] || id] || MODULOS.inicio;
   id = mod.id;
   document.querySelectorAll(".modulo").forEach((s) => s.classList.toggle("activo", s.id === `mod-${id}`));
   document.querySelectorAll("#nav-modulos a").forEach((a) =>
@@ -51,16 +52,13 @@ async function arrancar() {
     ]);
     estado.config = config; estado.escenario = escenario; estado.oferentes = oferentes;
     estado.radio = config.radio_km;
-    const asistenteDisponible = Boolean(config.extraccion_ia?.disponible);
-    const enlaceAsistente = document.querySelector('[data-modulo="asistente"]');
-    if (enlaceAsistente) enlaceAsistente.hidden = !asistenteDisponible;
-    if ($("grupo-asistente")) $("grupo-asistente").hidden = !asistenteDisponible;
+    // El asistente siempre esta en el menu; sin clave, su pantalla lo explica.
     if (sesion.autenticacion) {
       $("pie-sesion").innerHTML = `<b>${escapar(sesion.usuario || "")}</b>
         <button class="secundario pequeno" id="btn-salir">Salir</button>`;
       $("btn-salir").addEventListener("click", async () => {
         await fetch("/api/salir", { method: "POST" });
-        location.replace("/acceso");
+        location.replace("/");
       });
     }
   } catch (e) {

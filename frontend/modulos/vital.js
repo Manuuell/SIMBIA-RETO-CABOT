@@ -1,4 +1,4 @@
-/* Modulo: buscador de tramites de VITAL.
+/* Buscador de tramites de VITAL, en un panel lateral de la pagina Vecinos.
  *
  * Busqueda libre con filtros por faceta y paginas, y dos acciones por
  * resultado que cierran el circulo: redactar la solicitud del expediente y
@@ -31,6 +31,10 @@ function leerFormulario() {
   consulta.solo_vertimientos = $("vital-solo-vert").checked;
   consulta.modo = document.querySelector("#vital-modo input:checked").value;
 }
+
+/** Busqueda lanzada desde fuera (un enlace #vital?q=...): sin filtro de
+ *  vertimientos, porque quien llega asi busca una empresa concreta. */
+export function buscarTexto(texto) { lanzarBusqueda(texto, false); }
 
 function lanzarBusqueda(texto, soloVertimientos = false) {
   $("vital-q").value = texto;
@@ -389,7 +393,7 @@ export default {
   async montar() {
     $("vital-chip-origen").innerHTML = chip("Fuente oficial · MinAmbiente", "neutra");
     $("vital-form").addEventListener("submit", (ev) => { ev.preventDefault(); buscar(1); });
-    $("mod-vital").addEventListener("click", (ev) => {
+    $("cajon-vital").addEventListener("click", (ev) => {
       const acceso = ev.target.closest("[data-vital-buscar]");
       if (acceso) {
         lanzarBusqueda(acceso.dataset.vitalBuscar, false);
@@ -408,8 +412,5 @@ export default {
     }));
     bus.on("barrido", pintarLaterales);
     if (estado.barrido) pintarLaterales(); else await cargarBarrido();
-    // Si se llega con ?q= en el hash (#vital?q=Yara), se busca directamente.
-    const q = new URLSearchParams(location.hash.split("?")[1] || "").get("q");
-    if (q) { $("vital-q").value = q; buscar(1); }
   },
 };

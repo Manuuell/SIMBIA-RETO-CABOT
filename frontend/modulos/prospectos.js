@@ -1,122 +1,27 @@
-/* Modulo 2: prospectos. Mapa, tabla y panel lateral con el detalle. */
+/* Ficha de un prospecto en panel lateral: plan tecnico, caracterizacion,
+ * procedencia y ficha comercial editable. La lista y el mapa viven en la
+ * pagina Vecinos (prospeccion.js); este modulo solo abre y guarda la ficha.
+ */
 
 import {
-  $, anotar, barraConfianza, bus, cargarBarrido, chip, escapar, estado, fechaCorta,
-  fmt, kpi, pedir, prospectoPorClave, sello, tienePermiso,
+  $, anotar, barraConfianza, bus, cargarBarrido, escapar, estado, fechaCorta,
+  fmt, kpi, pedir, prospectoPorClave, sello,
 } from "../comun.js";
-import { colorPuntaje, dibujarMapa } from "../mapa.js";
+import { colorPuntaje } from "../mapa.js";
 
 const ETAPAS = ["detectado", "calificado", "contactado", "nda", "caracterizado", "piloto", "contratado", "descartado"];
-const TONOS = { desplazamiento: "#f2762e", ciclos: "#f5b323", distancia: "#4a9de0", tratamiento: "#2ec27e", incentivo: "#8b97a8" };
-const NOMBRE_PESO = {
+export const TONOS = { desplazamiento: "#f2762e", ciclos: "#f5b323", distancia: "#2f7fc1", tratamiento: "#1e9e63", incentivo: "#67747e" };
+export const NOMBRE_PESO = {
   desplazamiento: "agua cruda que desplaza", ciclos: "ciclos a los que deja operar",
   distancia: "distancia de conduccion", tratamiento: "costo del tratamiento", incentivo: "incentivo del vecino",
 };
 
 let seleccionada = null;
 
-// ---------------------------------------------------------------------------
-// Vista principal
-// ---------------------------------------------------------------------------
-
-function pintarKpis(d) {
-  const r = d.resumen;
-  const conPermiso = d.prospectos.filter(tienePermiso).length;
-  $("prospectos-kpis").innerHTML = [
-    kpi("Empresas detectadas", r.detectados, `${r.descartados_sin_arquetipo} registros adicionales excluidos: corriente no identificada`, "destacado"),
-    kpi("Con simbiosis viable", r.viables, "mantienen los ciclos de la linea base con algun tren"),
-    kpi("Caudal prospectado", `${fmt.num(r.caudal_total_m3_h)} m³/h`, `${fmt.num(r.caudal_viable_m3_h)} m³/h en las viables`),
-    kpi("Con expediente en VITAL", conPermiso, "trámite de vertimiento localizado; verificar vigencia"),
-    kpi("Con confianza suficiente", r.promovibles, `≥ ${estado.config.umbral_promocion} para entrar en la mezcla · media ${r.confianza_media.toFixed(2)}`),
-  ].join("");
-  const f = d.fuentes.find((x) => x.fuente === "osm");
-  $("prospectos-origen").innerHTML =
-    `OpenStreetMap + VITAL${f?.fecha_dato ? " · datos del " + fechaCorta(f.fecha_dato) : ""} · radio ${d.radio_km} km · cambiar →`;
-}
-
-function pilaPuntaje(p) {
+export function pilaPuntaje(p) {
   const d = p.detalle_puntaje || {};
   return `<div class="pila">${Object.entries(TONOS).map(([k, c]) =>
     `<i style="width:${d[k] || 0}%;background:${c}" title="${NOMBRE_PESO[k]}: ${(d[k] || 0).toFixed(1)}"></i>`).join("")}</div>`;
-}
-
-function filtrados(d) {
-  const soloViables = $("filtro-viables").checked, conPermiso = $("filtro-permiso").checked;
-  const normalizar = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const texto = normalizar($("prospectos-buscar").value.trim());
-  const confianza = $("filtro-confianza").checked;
-  const orden = $("prospectos-orden").value;
-  return d.prospectos.filter((p) =>
-    (!soloViables || (p.puntaje || 0) > 0) && (!conPermiso || tienePermiso(p)) &&
-    (!confianza || p.confianza >= estado.config.umbral_promocion) &&
-    normalizar(`${p.nombre} ${p.sector} ${p.corriente}`).includes(texto))
-    .sort((a, b) => {
-      if (orden === "nombre") return a.nombre.localeCompare(b.nombre, "es");
-      if (orden === "distancia") return a.distancia_conduccion_km - b.distancia_conduccion_km;
-      const campo = { puntaje: "puntaje", caudal: "caudal_m3_h", confianza: "confianza" }[orden];
-      return (b[campo] || 0) - (a[campo] || 0) || a.nombre.localeCompare(b.nombre, "es");
-    });
-}
-
-function pintarTabla(d) {
-  const lista = filtrados(d);
-  $("prospectos-filtro-txt").textContent = `${lista.length} de ${d.prospectos.length}`;
-  $("tabla-prospectos").querySelector("tbody").innerHTML = lista.length ? lista.map((p) => `
-    <tr tabindex="0" class="clicable${seleccionada === p.clave ? " seleccionada" : ""}" data-clave="${p.clave}">
-      <td><b>${escapar(p.nombre)}</b><span class="sub">${escapar(p.corriente)}</span></td>
-      <td>${escapar(p.sector)}</td>
-      <td class="num" title="linea recta ${p.distancia_linea_km} km">${p.distancia_conduccion_km.toFixed(1)}</td>
-      <td class="num">${fmt.num(p.caudal_m3_h, 1)}</td>
-      <td>${sello(p.metodo_calidad)}${tienePermiso(p) ? ` <span class="chip azul sin-punto" title="permiso de vertimiento en VITAL">exp.</span>` : ""}</td>
-      <td>${barraConfianza(p)}</td>
-      <td class="num" style="color:${colorPuntaje(p.puntaje)};font-weight:640">
-        ${p.puntaje == null ? "—" : p.puntaje.toFixed(1)}${pilaPuntaje(p)}</td>
-      <td><span class="sub" style="text-transform:capitalize">${escapar((p.ficha && p.ficha.estado) || p.estado)}</span></td>
-    </tr>`).join("")
-    : `<tr><td colspan="8" class="cargando" style="padding:12px 8px">Ningun prospecto cumple el filtro.</td></tr>`;
-  $("tabla-prospectos").querySelectorAll("tr.clicable").forEach((tr) =>
-    { tr.addEventListener("click", () => abrirPanel(tr.dataset.clave));
-      tr.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirPanel(tr.dataset.clave); }
-      }); });
-}
-
-function pintarTrazado(d) {
-  const filas = filtrados(d)
-    .sort((a, b) => a.distancia_conduccion_km - b.distancia_conduccion_km).slice(0, 8)
-    .map((p) => {
-      const sobre = p.distancia_linea_km > 0 ? p.distancia_conduccion_km / p.distancia_linea_km : 1;
-      return `<tr tabindex="0" class="clicable" data-clave="${p.clave}">
-        <td>${escapar(p.nombre.slice(0, 26))}</td>
-        <td class="num">${p.distancia_linea_km.toFixed(2)}</td>
-        <td class="num">${p.distancia_conduccion_km.toFixed(2)}</td>
-        <td class="num" style="color:var(--aviso)">×${sobre.toFixed(2)}</td></tr>`;
-    }).join("");
-  $("tabla-trazado").innerHTML = `<thead><tr><th>Empresa</th><th class="num">Recta km</th>
-    <th class="num">Estimado km</th><th class="num">Factor</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Sin empresas para estos filtros.</td></tr>'}</tbody>`;
-  $("tabla-trazado").querySelectorAll("tr.clicable").forEach((tr) =>
-    { tr.addEventListener("click", () => abrirPanel(tr.dataset.clave));
-      tr.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirPanel(tr.dataset.clave); }
-      }); });
-}
-
-function pintarAyudaPuntaje() {
-  const pesos = estado.config.pesos_puntaje;
-  $("ayuda-puntaje").innerHTML = `<p>De 0 a 100. Suma cinco componentes y multiplica por la confianza del dato:</p>
-    <p>${Object.entries(pesos).map(([k, v]) =>
-      `<b style="color:${TONOS[k]}">${v} %</b> ${NOMBRE_PESO[k]}`).join(" · ")}</p>
-    <p>Para cada prospecto se busca el mejor par (tren de tratamiento, fraccion de mezcla) evaluando la
-      mezcla real con el modelo quimico completo. Un puntaje de 0 significa que ninguna mezcla mantiene
-      los ciclos de la linea base. Un prospecto poco fiable no se descarta, se posterga.</p>`;
-}
-
-function pintarTodo(d) {
-  pintarKpis(d);
-  pintarTabla(d);
-  pintarTrazado(d);
-  dibujarMapa($("mapa"), { planta: d.planta, prospectos: filtrados(d), alSeleccionar: abrirPanel });
-  if (seleccionada && $("panel-prospecto").classList.contains("abierto")) pintarPanel(seleccionada);
 }
 
 // ---------------------------------------------------------------------------
@@ -128,8 +33,6 @@ export function abrirPanel(clave) {
   pintarPanel(clave);
   $("panel-prospecto").classList.add("abierto");
   $("velo").classList.add("abierto");
-  document.querySelectorAll("#tabla-prospectos tr").forEach((tr) =>
-    tr.classList.toggle("seleccionada", tr.dataset.clave === clave));
 }
 
 function cerrarPanel() {
@@ -155,8 +58,9 @@ function pintarPanel(clave) {
     <button class="secundario pequeno cerrar" id="btn-cerrar-panel">Cerrar</button>
     <h2>${escapar(p.nombre)}</h2>
     <div class="acciones" style="margin:0 0 10px">
+      <button class="secundario pequeno" id="btn-ver-dossier">Ver dossier completo</button>
       ${f.en_cartera
-        ? `<a class="chip ok sin-punto" href="#empresas">En cartera · ver dossier</a>`
+        ? `<span class="chip ok sin-punto">En cartera</span>`
         : `<button class="pequeno" id="btn-cartera">Seguir en cartera</button>`}
     </div>
     <p class="sub">${escapar(p.sector)} · ${escapar(p.corriente)}</p>
@@ -193,7 +97,7 @@ function pintarPanel(clave) {
     ${(f.documentos || []).length ? `<div class="seccion">
       <h4>Documentos del expediente guardados</h4>
       <ul class="refs">${f.documentos.map((d) => `<li>📄 ${escapar(d.nombre)} <span class="sub" style="display:inline">· ${(d.bytes / 1e6).toFixed(2)} MB · radicado ${escapar(d.radicado)} · ${fechaCorta(d.guardado)}</span></li>`).join("")}</ul>
-      <p class="pie">Se leen con IA y se revisan desde <a href="#empresas">Empresas</a>, en el dossier de la empresa.</p>
+      <p class="pie">Se leen con IA y se revisan en el dossier de la empresa.</p>
     </div>` : ""}
 
     <div class="seccion">
@@ -218,6 +122,7 @@ function pintarPanel(clave) {
     </div>`;
 
   $("btn-cerrar-panel").addEventListener("click", cerrarPanel);
+  $("btn-ver-dossier").addEventListener("click", () => { cerrarPanel(); bus.emit("vecinos:dossier", p.clave); });
   $("btn-guardar-ficha").addEventListener("click", guardarFicha);
   $("btn-cartera")?.addEventListener("click", async (ev) => {
     ev.target.disabled = true;
@@ -247,35 +152,11 @@ async function guardarFicha() {
 
 // ---------------------------------------------------------------------------
 
-export default {
-  id: "prospectos",
-  async montar() {
-    pintarAyudaPuntaje();
-    $("velo").addEventListener("click", cerrarPanel);
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarPanel(); });
-    ["filtro-viables", "filtro-permiso", "filtro-confianza"].forEach((id) => {
-      const inp = $(id);
-      inp.checked = id === "filtro-viables";
-      inp.addEventListener("change", () => {
-        inp.closest("label").classList.toggle("activo", inp.checked);
-        if (estado.barrido) pintarTodo(estado.barrido);
-      });
-    });
-    ["prospectos-buscar", "prospectos-orden"].forEach((id) => {
-      $(id).addEventListener(id === "prospectos-buscar" ? "input" : "change", () => {
-        if (estado.barrido) pintarTodo(estado.barrido);
-      });
-    });
-    $("prospectos-limpiar").addEventListener("click", () => {
-      $("prospectos-buscar").value = "";
-      $("prospectos-orden").value = "puntaje";
-      document.querySelectorAll("#prospectos-filtros input").forEach((input) => {
-        input.checked = false; input.closest("label").classList.remove("activo");
-      });
-      if (estado.barrido) pintarTodo(estado.barrido);
-    });
-    bus.on("barrido", pintarTodo);
-    if (estado.barrido) pintarTodo(estado.barrido);
-    else await cargarBarrido();
-  },
-};
+/** Cierre del panel y repintado cuando cambia el barrido. Una vez. */
+export function montarPanel() {
+  $("velo").addEventListener("click", cerrarPanel);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarPanel(); });
+  bus.on("barrido", () => {
+    if (seleccionada && $("panel-prospecto").classList.contains("abierto")) pintarPanel(seleccionada);
+  });
+}
