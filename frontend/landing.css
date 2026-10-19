@@ -69,23 +69,21 @@ p { margin: 0; }
 
 /* -- cabecera flotante -------------------------------------------------------- */
 .cab {
-  position: fixed; top: 14px; left: 14px; right: 14px; z-index: 50;
-  max-width: var(--ancho); margin-inline: auto;
+  position: fixed; top: 0; left: 50%; z-index: 50;
+  width: min(calc(100% - 32px), 1520px); height: 104px;
+  transform: translateX(-50%);
   display: flex; align-items: center; gap: 8px;
-  background: transparent; border-radius: 0; padding: 14px 8px 14px 20px;
-  box-shadow: none;
-  transition: background-color .38s var(--suave), border-radius .38s var(--suave),
-    padding .38s var(--suave), box-shadow .38s var(--suave);
+  background: transparent; border-radius: 999px; padding: 0 40px;
+  box-shadow: 0 0 0 1px transparent;
+  transition: width .45s var(--suave), height .45s var(--suave), top .45s var(--suave),
+    padding .45s var(--suave), background-color .3s ease, box-shadow .3s ease;
 }
 .cab.flotante {
-  background: rgba(255, 255, 255, .97); border-radius: 999px; padding: 8px 8px 8px 20px;
-  box-shadow: 0 1px 0 rgba(15, 27, 36, .06), var(--sombra);
-  animation: cab-aparece .5s var(--suave) both;
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-}
-@keyframes cab-aparece {
-  from { opacity: .35; transform: translateY(-18px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  top: 12px; width: min(calc(100% - 96px), 1180px); height: 66px;
+  padding: 0 14px 0 26px;
+  background: linear-gradient(180deg, #fff, #fbfbfb 70%, #f2f2f2);
+  box-shadow: 0 0 0 1px rgba(15, 27, 36, .08),
+    0 10px 18px -10px rgba(8, 20, 28, .18), 0 22px 44px -24px rgba(8, 20, 28, .34);
 }
 .cab-marca {
   display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
@@ -105,6 +103,12 @@ p { margin: 0; }
 .cab-entrar { padding: 12px 20px; margin-left: auto; }
 @media (max-width: 860px) {
   .cab-nav { display: none; }
+  .cab { width: 100%; height: 84px; padding: 0 clamp(16px, 5vw, 24px); }
+  .cab.flotante { top: 10px; width: calc(100% - 24px); height: 60px; padding: 0 10px 0 18px; }
+}
+@media (max-width: 560px) {
+  .cab { height: 76px; }
+  .cab.flotante { height: 56px; }
 }
 
 /* -- hero ---------------------------------------------------------------------- */
@@ -436,7 +440,6 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .boton, .filas li, .cab { transition: none; }
-  .cab.flotante { animation: none; }
 }
 
 /* Sin WebGL: la escena se reduce a las cifras, sin hueco vacio. */

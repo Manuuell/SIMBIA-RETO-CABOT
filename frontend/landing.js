@@ -37,18 +37,11 @@ async function ajustarEntrada() {
 function montarCabeceraFlotante() {
   const cabecera = document.getElementById("cab");
   if (!cabecera) return;
-  let pendiente = false;
   const actualizar = () => {
-    cabecera.classList.toggle("flotante", window.scrollY > 36);
-    pendiente = false;
-  };
-  const alDesplazar = () => {
-    if (pendiente) return;
-    pendiente = true;
-    requestAnimationFrame(actualizar);
+    cabecera.classList.toggle("flotante", window.scrollY > 24);
   };
   actualizar();
-  window.addEventListener("scroll", alDesplazar, { passive: true });
+  window.addEventListener("scroll", actualizar, { passive: true });
 }
 
 /* -- Simular: la ventana del gemelo reproduciendo una simulacion real ---------
