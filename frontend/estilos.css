@@ -98,7 +98,7 @@ nav.modulos .grupo {
   color: var(--texto-tenue); padding: 10px 10px 4px; font-weight: 600;
 }
 
-.lateral-pie { margin-top: auto; padding: 0 8px; font-size: 11px; color: var(--texto-tenue); display: grid; gap: 6px; }
+.lateral-pie { position: relative; margin-top: auto; padding: 0 4px; font-size: 11px; color: var(--texto-tenue); }
 
 /* ==========================================================================
    Contenido
@@ -576,8 +576,46 @@ body.acceso-pagina { display: grid; grid-template-columns: minmax(0, 1.05fr) min
   .acc-volver { order: 2; align-self: center; margin-top: 4px; }
   .acc-caja { padding: 18px 0 14px; }
 }
-.lateral-pie .sesion { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.lateral-pie .sesion b { color: var(--texto-2); font-weight: 600; word-break: break-all; }
+.lateral-pie .sesion { display: block; }
+.cuenta-disparador {
+  width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr) 22px; gap: 9px; align-items: center;
+  padding: 8px; color: var(--texto); background: var(--panel); border: 1px solid var(--borde); border-radius: 13px;
+  box-shadow: none; text-align: left;
+}
+.cuenta-disparador:hover, .cuenta-disparador[aria-expanded="true"] { background: var(--panel-alto); border-color: #cbd4d9; }
+.cuenta-disparador-id { display: grid; min-width: 0; }
+.cuenta-disparador-id b, .cuenta-disparador-id small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta-disparador-id b { color: var(--texto); font-size: 11.5px; }
+.cuenta-disparador-id small { color: var(--texto-tenue); font-size: 9.5px; }
+.cuenta-avatar {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  color: var(--tinta); background: #ffe5d3; font-family: var(--f-titulo); font-weight: 800; font-size: 13px;
+}
+.cuenta-hamburguesa { display: grid; gap: 3px; justify-content: center; }
+.cuenta-hamburguesa i { display: block; width: 15px; height: 1.5px; border-radius: 2px; background: var(--texto-2); }
+.cuenta-menu {
+  display: none; position: absolute; left: 4px; right: 4px; bottom: calc(100% + 9px); z-index: 80;
+  padding: 7px; background: var(--panel); border: 1px solid var(--borde); border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(15,27,36,.18);
+}
+.cuenta-menu.abierto { display: grid; animation: cuenta-aparece .12s ease-out; }
+@keyframes cuenta-aparece { from { opacity: 0; transform: translateY(5px); } }
+.cuenta-menu-cab { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; align-items: center; padding: 8px 8px 10px; border-bottom: 1px solid var(--borde-suave); }
+.cuenta-menu-cab > span:last-child { display: grid; min-width: 0; }
+.cuenta-menu-cab b, .cuenta-menu-cab small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta-menu-cab b { color: var(--texto); font-size: 12px; }
+.cuenta-menu-cab small { color: var(--texto-tenue); font-size: 9.5px; }
+.cuenta-menu a, .cuenta-menu button {
+  display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 8px; align-items: center; width: 100%;
+  padding: 9px 8px; color: var(--texto); background: transparent; border: 0; border-radius: 9px;
+  text-align: left; text-decoration: none; box-shadow: none;
+}
+.cuenta-menu a:hover, .cuenta-menu button:hover, .cuenta-menu a.activo { background: var(--panel-alto); }
+.cuenta-menu a > span:first-child, .cuenta-menu button > span:first-child { font-size: 18px; text-align: center; color: var(--texto-2); }
+.cuenta-menu a > span:last-child, .cuenta-menu button > span:last-child { display: grid; }
+.cuenta-menu b { font-size: 11.5px; color: var(--texto); }
+.cuenta-menu small { font-size: 9.5px; color: var(--texto-tenue); }
+.cuenta-menu #btn-salir { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--borde-suave); border-radius: 0 0 9px 9px; }
 
 /* ==========================================================================
    Buscador VITAL
@@ -1375,4 +1413,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
   .admin-listado-cab { align-items: start; flex-direction: column; }
   .admin-listado-cab p { text-align: left; }
   .admin-clave-campo { grid-template-columns: 1fr; }
+}
+
+/* -- cuenta ---------------------------------------------------------------- */
+.cuenta-ficha {
+  display: grid; grid-template-columns: 76px minmax(220px, 1fr) minmax(240px, .8fr);
+  gap: 22px; align-items: center; max-width: 820px; padding: 26px;
+}
+.cuenta-avatar-grande {
+  display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%;
+  background: #ffe5d3; color: var(--tinta); font-family: var(--f-titulo); font-size: 30px; font-weight: 800;
+}
+.cuenta-datos h2 { margin: 3px 0 1px; font-size: 22px; }
+.cuenta-datos p { margin: 0 0 10px; color: var(--texto-tenue); }
+.cuenta-seguridad { padding-left: 22px; border-left: 1px solid var(--borde); }
+.cuenta-seguridad p { margin: 5px 0 12px; color: var(--texto-tenue); font-size: 12px; }
+@media (max-width: 720px) {
+  .cuenta-ficha { grid-template-columns: 60px minmax(0, 1fr); padding: 20px; }
+  .cuenta-avatar-grande { width: 60px; height: 60px; font-size: 24px; }
+  .cuenta-seguridad { grid-column: 1 / -1; padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--borde); }
 }

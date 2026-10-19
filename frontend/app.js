@@ -16,8 +16,9 @@ import operacion from "./modulos/operacion.js";
 import modelo from "./modulos/modelo.js";
 import simulador from "./modulos/simulador.js";
 import administracion from "./modulos/administracion.js";
+import cuenta from "./modulos/cuenta.js";
 
-const MODULOS = { inicio, prospeccion, embudo, optimizador, operacion, simulador, asistente, modelo, administracion };
+const MODULOS = { inicio, prospeccion, embudo, optimizador, operacion, simulador, asistente, modelo, administracion, cuenta };
 // Las cuatro pantallas de prospeccion son ahora una sola. Sus enlaces siguen
 // valiendo: llevan a Vecinos, y Vecinos abre lo que cada uno pedia.
 const ALIAS = { datos: "prospeccion", vital: "prospeccion", prospectos: "prospeccion", empresas: "prospeccion" };
@@ -25,11 +26,16 @@ const montados = new Set();
 let actual = null;
 
 async function mostrar(id) {
+  if (id === "administracion" && !estado.sesion?.administrador) id = "cuenta";
   const mod = MODULOS[ALIAS[id] || id] || MODULOS.inicio;
   id = mod.id;
   document.querySelectorAll(".modulo").forEach((s) => s.classList.toggle("activo", s.id === `mod-${id}`));
   document.querySelectorAll("#nav-modulos a").forEach((a) =>
     a.classList.toggle("activo", a.dataset.modulo === id));
+  document.querySelectorAll("[data-cuenta-modulo]").forEach((a) =>
+    a.classList.toggle("activo", a.dataset.cuentaModulo === id));
+  $("menu-cuenta")?.classList.remove("abierto");
+  $("btn-cuenta")?.setAttribute("aria-expanded", "false");
   window.scrollTo({ top: 0 });
   actual = id;
   try {
@@ -56,16 +62,43 @@ async function arrancar() {
     estado.radio = config.radio_km;
     // El asistente siempre esta en el menu; sin clave, su pantalla lo explica.
     if (sesion.autenticacion) {
-      const enlaceAdmin = document.querySelector('[data-modulo="administracion"]');
-      if (enlaceAdmin) enlaceAdmin.hidden = !sesion.administrador;
-      if ($("grupo-administracion")) $("grupo-administracion").hidden = !sesion.administrador;
-      $("pie-sesion").innerHTML = `<span class="sesion-identidad"><b>${escapar(sesion.nombre || sesion.usuario || "")}</b>
-        ${sesion.nombre ? `<small>${escapar(sesion.usuario || "")}</small>` : ""}</span>
-        ${sesion.administrador ? '<a class="secundario pequeno" href="#administracion">Administrar</a>' : ""}
-        <button class="secundario pequeno" id="btn-salir">Salir</button>`;
+      const nombre = sesion.nombre || sesion.usuario?.split("@")[0] || "Cuenta";
+      $("pie-sesion").innerHTML = `
+        <div class="cuenta-menu" id="menu-cuenta">
+          <div class="cuenta-menu-cab">
+            <span class="cuenta-avatar">${escapar(nombre[0].toUpperCase())}</span>
+            <span><b>${escapar(nombre)}</b><small>${escapar(sesion.usuario || "")}</small></span>
+          </div>
+          <a href="#cuenta" data-cuenta-modulo="cuenta"><span>○</span><span><b>Mi cuenta</b><small>Identidad y sesión</small></span></a>
+          ${sesion.administrador ? '<a href="#administracion" data-cuenta-modulo="administracion"><span>◇</span><span><b>Administración</b><small>Usuarios y accesos</small></span></a>' : ""}
+          <button type="button" id="btn-salir"><span>↪</span><span><b>Cerrar sesión</b><small>Volver a la portada</small></span></button>
+        </div>
+        <button type="button" class="cuenta-disparador" id="btn-cuenta" aria-haspopup="menu" aria-expanded="false">
+          <span class="cuenta-avatar">${escapar(nombre[0].toUpperCase())}</span>
+          <span class="cuenta-disparador-id"><b>${escapar(nombre)}</b><small>${escapar(sesion.usuario || "")}</small></span>
+          <span class="cuenta-hamburguesa" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>`;
+      $("btn-cuenta").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const abierto = $("menu-cuenta").classList.toggle("abierto");
+        ev.currentTarget.setAttribute("aria-expanded", String(abierto));
+      });
       $("btn-salir").addEventListener("click", async () => {
         await fetch("/api/salir", { method: "POST" });
         location.replace("/");
+      });
+      document.addEventListener("click", (ev) => {
+        if (!ev.target.closest(".lateral-pie")) {
+          $("menu-cuenta")?.classList.remove("abierto");
+          $("btn-cuenta")?.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") {
+          $("menu-cuenta")?.classList.remove("abierto");
+          $("btn-cuenta")?.setAttribute("aria-expanded", "false");
+          $("btn-cuenta")?.focus();
+        }
       });
     }
   } catch (e) {
