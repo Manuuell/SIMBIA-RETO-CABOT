@@ -66,6 +66,23 @@ Para cambiar la contraseña, repetir lo mismo (solo cambia `SIMBIA_AUTH_HASH`).
 Cinco intentos fallidos desde una IP la bloquean quince minutos; la sesión
 dura doce horas.
 
+### Más usuarios
+
+Los usuarios adicionales van en `SIMBIA_AUTH_USUARIOS`, como entradas
+`usuario:hash` separadas por coma. `python -m simbia.auth hash usuario`
+imprime la entrada ya formada:
+
+```bash
+cd /var/www/simbia/backend
+ENTRADA=$(../.venv/bin/python -m simbia.auth hash otro@dominio)   # pide la contraseña dos veces
+printf 'SIMBIA_AUTH_USUARIOS=%s\n' "$ENTRADA" | sudo tee -a /etc/simbia.env > /dev/null
+sudo systemctl restart simbia
+```
+
+Para un tercero, se edita esa misma línea y se añade `,usuario:hash`. Para dar
+de baja a alguien basta con quitar su entrada y reiniciar: su cookie deja de
+valer aunque no haya caducado. Todos los usuarios tienen los mismos permisos.
+
 ## IA por API: extraccion, asistente y voz
 
 Con `OPENAI_API_KEY` en `/etc/simbia.env` se activan la lectura de permisos en

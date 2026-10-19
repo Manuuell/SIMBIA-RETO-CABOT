@@ -10,14 +10,17 @@ from simbia.main import app
 
 USUARIO = "prueba@ejemplo.co"
 CLAVE = "una-contrasena-larga-1"
+SEGUNDO = "segundo@ejemplo.co"
+CLAVE_SEGUNDO = "otra-contrasena-larga-2"
 SECRETO = "s" * 48
 
 
 @pytest.fixture
 def protegida(monkeypatch):
-    """Aplicacion con la autenticacion activa."""
+    """Aplicacion con la autenticacion activa: un principal y uno mas."""
     monkeypatch.setenv("SIMBIA_AUTH_USUARIO", USUARIO)
     monkeypatch.setenv("SIMBIA_AUTH_HASH", auth.hashear(CLAVE))
+    monkeypatch.setenv("SIMBIA_AUTH_USUARIOS", f"{SEGUNDO}:{auth.hashear(CLAVE_SEGUNDO)}")
     monkeypatch.setenv("SIMBIA_AUTH_SECRETO", SECRETO)
     auth.reiniciar_intentos()
     return TestClient(app)
@@ -25,7 +28,7 @@ def protegida(monkeypatch):
 
 @pytest.fixture
 def abierta(monkeypatch):
-    for v in ("SIMBIA_AUTH_USUARIO", "SIMBIA_AUTH_HASH", "SIMBIA_AUTH_SECRETO"):
+    for v in ("SIMBIA_AUTH_USUARIO", "SIMBIA_AUTH_HASH", "SIMBIA_AUTH_USUARIOS", "SIMBIA_AUTH_SECRETO"):
         monkeypatch.delenv(v, raising=False)
     return TestClient(app)
 
@@ -44,19 +47,21 @@ def test_el_hash_no_contiene_la_contrasena_y_verifica():
 # -- sesion -----------------------------------------------------------------
 
 def test_el_token_se_valida_y_no_se_deja_manipular():
-    cfg = auth.Config(USUARIO, "x", SECRETO)
-    token = auth.emitir_token(cfg)
+    cfg = auth.Config({USUARIO: "x"}, SECRETO)
+    token = auth.emitir_token(cfg, USUARIO)
     assert auth.usuario_del_token(cfg, token) == USUARIO
     assert auth.usuario_del_token(cfg, token[:-4] + "AAAA") is None
     assert auth.usuario_del_token(cfg, None) is None
     assert auth.usuario_del_token(cfg, "no-es-base64!") is None
     # Otro secreto invalida todas las sesiones.
-    assert auth.usuario_del_token(auth.Config(USUARIO, "x", "t" * 48), token) is None
+    assert auth.usuario_del_token(auth.Config({USUARIO: "x"}, "t" * 48), token) is None
+    # Un usuario dado de baja deja de entrar aunque su token siga firmado.
+    assert auth.usuario_del_token(auth.Config({SEGUNDO: "x"}, SECRETO), token) is None
 
 
 def test_el_token_caduca():
-    cfg = auth.Config(USUARIO, "x", SECRETO)
-    token = auth.emitir_token(cfg, ahora=1_000_000.0)
+    cfg = auth.Config({USUARIO: "x"}, SECRETO)
+    token = auth.emitir_token(cfg, USUARIO, ahora=1_000_000.0)
     assert auth.usuario_del_token(cfg, token, ahora=1_000_000.0 + auth.DURACION_S - 1)
     assert auth.usuario_del_token(cfg, token, ahora=1_000_000.0 + auth.DURACION_S + 1) is None
 
@@ -90,6 +95,33 @@ def test_entrar_salir(protegida):
     assert protegida.get("/acceso", follow_redirects=False).status_code == 303
     protegida.post("/api/salir")
     assert protegida.get("/api/escenario").status_code == 401
+
+
+def test_el_segundo_usuario_entra_con_su_propia_contrasena(protegida):
+    r = protegida.post("/api/acceso", json={"usuario": SEGUNDO, "clave": CLAVE_SEGUNDO})
+    assert r.status_code == 200 and r.json()["usuario"] == SEGUNDO
+    assert protegida.get("/api/sesion").json()["usuario"] == SEGUNDO
+    protegida.post("/api/salir")
+    # Las contrasenas no se cruzan entre usuarios.
+    assert protegida.post("/api/acceso", json={"usuario": SEGUNDO, "clave": CLAVE}).status_code == 401
+    assert protegida.post("/api/acceso", json={"usuario": USUARIO, "clave": CLAVE_SEGUNDO}).status_code == 401
+
+
+def test_usuarios_del_entorno(monkeypatch):
+    for v in ("SIMBIA_AUTH_USUARIO", "SIMBIA_AUTH_HASH", "SIMBIA_AUTH_USUARIOS"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("SIMBIA_AUTH_SECRETO", SECRETO)
+    assert auth.config() is None
+    # Solo SIMBIA_AUTH_USUARIOS, sin principal, tambien activa la autenticacion.
+    monkeypatch.setenv("SIMBIA_AUTH_USUARIOS", " Uno@X.co:scrypt$a$b ; dos@x.co:scrypt$c$d ")
+    assert dict(auth.config().usuarios) == {"uno@x.co": "scrypt$a$b", "dos@x.co": "scrypt$c$d"}
+    monkeypatch.setenv("SIMBIA_AUTH_USUARIOS", "sin-hash@x.co")
+    with pytest.raises(RuntimeError):
+        auth.config()
+    monkeypatch.setenv("SIMBIA_AUTH_USUARIOS", "")
+    monkeypatch.setenv("SIMBIA_AUTH_HASH", "scrypt$a$b")
+    with pytest.raises(RuntimeError):
+        auth.config()  # hash sin usuario principal
 
 
 def test_credenciales_incorrectas(protegida):
