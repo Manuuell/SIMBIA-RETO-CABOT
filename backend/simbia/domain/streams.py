@@ -331,6 +331,36 @@ class Opcion:
         return f"{self.oferente.codigo}:{self.tren.codigo}"
 
 
+def desglose_costo(
+    of: Oferente,
+    tren: Tren,
+    crf: float,
+    horas_anio: float,
+    capex_conduccion_usd_m3h_km: float,
+    energia_bombeo_kwh_m3_km: float,
+    costo_energia_usd_kwh: float,
+) -> dict[str, float]:
+    """Costo de un m3 de PRODUCTO de este par (oferente, tren), por partidas.
+
+    Incluye la inversion anualizada, asi que la suma es comparable con el
+    costo del agua cruda. Se comparte entre el optimizador y el simulador.
+    """
+    rec = tren.recuperacion
+    return {
+        "compra": of.precio_usd_m3 / rec,
+        "opex_tratamiento": tren.opex_usd_m3_producto,
+        "capex_tratamiento": tren.capex_usd_m3h_producto * crf / horas_anio,
+        "capex_conduccion": (
+            capex_conduccion_usd_m3h_km * of.distancia_km / rec
+            * crf / horas_anio
+        ),
+        "opex_bombeo": (
+            energia_bombeo_kwh_m3_km * of.distancia_km
+            * costo_energia_usd_kwh / rec
+        ),
+    }
+
+
 def generar_opciones(
     oferentes: Sequence[Oferente],
     trenes: Sequence[Tren],
@@ -357,25 +387,10 @@ def generar_opciones(
             if rec <= 0:
                 continue
             caudal_max = of.caudal_disponible_m3_h * of.disponibilidad * rec
-
-            compra = of.precio_usd_m3 / rec
-            opex_trat = tren.opex_usd_m3_producto
-            capex_trat = tren.capex_usd_m3h_producto * crf / horas_anio
-            capex_cond = (
-                capex_conduccion_usd_m3h_km * of.distancia_km / rec
-                * crf / horas_anio
+            desglose = desglose_costo(
+                of, tren, crf, horas_anio, capex_conduccion_usd_m3h_km,
+                energia_bombeo_kwh_m3_km, costo_energia_usd_kwh,
             )
-            opex_bombeo = (
-                energia_bombeo_kwh_m3_km * of.distancia_km
-                * costo_energia_usd_kwh / rec
-            )
-            desglose = {
-                "compra": compra,
-                "opex_tratamiento": opex_trat,
-                "capex_tratamiento": capex_trat,
-                "capex_conduccion": capex_cond,
-                "opex_bombeo": opex_bombeo,
-            }
             opciones.append(
                 Opcion(
                     oferente=of, tren=tren, calidad_producto=producto,

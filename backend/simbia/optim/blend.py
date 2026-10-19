@@ -58,6 +58,11 @@ SO4_APORTADO_POR_KG_H2SO4 = 980.0
 ATENUACION = {"dqo": 0.75, "n_amoniacal": 0.60}
 
 
+def agua_cruda(esc: Escenario) -> Calidad:
+    """El agua de reposicion actual del escenario, o la tipo si no se da."""
+    return esc.agua_cruda if esc.agua_cruda is not None else AGUA_CRUDA
+
+
 @dataclass
 class Solucion:
     factible: bool
@@ -109,6 +114,7 @@ def _resolver_para_ciclos(
     """
     k = len(opciones)
     nvar = 1 + k + 1                       # cruda, opciones, acido
+    cruda = agua_cruda(esc)
 
     # --- Objetivo: costo horario ---------------------------------------
     c = np.zeros(nvar)
@@ -121,7 +127,7 @@ def _resolver_para_ciclos(
     coef: dict[str, np.ndarray] = {}
     for p in PARAMETROS_CONSERVATIVOS:
         v = np.zeros(nvar)
-        v[0] = getattr(AGUA_CRUDA, p)
+        v[0] = getattr(cruda, p)
         for i, op in enumerate(opciones):
             v[1 + i] = getattr(op.calidad_producto, p)
         if p == "alcalinidad":
@@ -133,7 +139,7 @@ def _resolver_para_ciclos(
         coef[p] = v
 
     temp_coef = np.zeros(nvar)
-    temp_coef[0] = AGUA_CRUDA.t_c
+    temp_coef[0] = cruda.t_c
     for i, op in enumerate(opciones):
         temp_coef[1 + i] = op.calidad_producto.t_c
 
@@ -160,7 +166,7 @@ def _resolver_para_ciclos(
     fila = np.zeros(nvar)
     def _ls_coef(q: Calidad) -> float:
         return q.cloruros / 35.45 + q.sulfatos / 48.03 - ls * q.alcalinidad / 50.0
-    fila[0] = _ls_coef(AGUA_CRUDA)
+    fila[0] = _ls_coef(cruda)
     for i, op in enumerate(opciones):
         fila[1 + i] = _ls_coef(op.calidad_producto)
     fila[-1] = (SO4_APORTADO_POR_KG_H2SO4 / 48.03
@@ -172,7 +178,7 @@ def _resolver_para_ciclos(
 
     # --- Punto de partida: solo agua cruda -------------------------------
     try:
-        m = cooling.balance(esc.torre, n, AGUA_CRUDA.t_c).reposicion_m3_h
+        m = cooling.balance(esc.torre, n, cruda.t_c).reposicion_m3_h
     except ValueError:
         return None, float("inf")
     x = np.zeros(nvar); x[0] = m
@@ -183,7 +189,7 @@ def _resolver_para_ciclos(
         caudal_total = float(x[0] + x[1:1 + k].sum())
         t_mezcla = (
             float(temp_coef @ x) / caudal_total if caudal_total > 1e-9
-            else AGUA_CRUDA.t_c
+            else cruda.t_c
         )
         try:
             m = cooling.balance(esc.torre, n, t_mezcla).reposicion_m3_h
@@ -264,7 +270,7 @@ def _evaluar(
     t_operacion_c: float,
 ) -> tuple[Calidad, Calidad, float]:
     """Reconstruye la quimica real (no linealizada) de una solucion."""
-    corrientes = [AGUA_CRUDA] + [op.calidad_producto for op in opciones]
+    corrientes = [agua_cruda(esc)] + [op.calidad_producto for op in opciones]
     caudales = [float(x[0])] + [float(v) for v in x[1:1 + len(opciones)]]
     aporte = mezclar(corrientes, caudales)
     bal = cooling.balance(esc.torre, n, aporte.t_c)
@@ -301,7 +307,7 @@ def optimizar(
         esc.economia.costo_energia_usd_kwh,
     )
 
-    bal_base = cooling.balance(esc.torre, esc.torre.ciclos_base, AGUA_CRUDA.t_c)
+    bal_base = cooling.balance(esc.torre, esc.torre.ciclos_base, agua_cruda(esc).t_c)
     consumo_h = esc.planta.consumo_total_m3_dia / 24.0
     tope_cruda = bal_base.reposicion_m3_h - meta * consumo_h
     piso_cruda = (
@@ -421,9 +427,10 @@ def _construir(
 def linea_base(esc: Escenario | None = None) -> Solucion:
     """Operacion actual: 100% agua cruda a los ciclos de base."""
     esc = esc or Escenario()
-    bal = cooling.balance(esc.torre, esc.torre.ciclos_base)
+    cruda = agua_cruda(esc)
+    bal = cooling.balance(esc.torre, esc.torre.ciclos_base, cruda.t_c)
     horas = esc.planta.horas_anio
-    circ = AGUA_CRUDA.escalar(esc.torre.ciclos_base, t_c=38.0)
+    circ = cruda.escalar(esc.torre.ciclos_base, t_c=38.0)
     costos = {
         "agua_cruda": bal.reposicion_m3_h * esc.planta.costo_agua_cruda_usd_m3 * horas,
         "reuso": 0.0,
@@ -439,6 +446,6 @@ def linea_base(esc: Escenario | None = None) -> Solucion:
     return Solucion(
         factible=True, ciclos=esc.torre.ciclos_base, balance=bal,
         caudal_cruda_m3_h=bal.reposicion_m3_h,
-        calidad_aporte=AGUA_CRUDA, calidad_circulante=circ,
+        calidad_aporte=cruda, calidad_circulante=circ,
         costo_total_usd_anio=sum(costos.values()), costos=costos,
     )

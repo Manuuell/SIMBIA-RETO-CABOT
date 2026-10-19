@@ -132,33 +132,40 @@ _LIMITES_DIRECTOS: tuple[tuple[str, str], ...] = (
 )
 
 
+def margenes(
+    circulante: Calidad, limites: LimitesCalidad, lsi_max: float
+) -> list[tuple[str, float, float]]:
+    """Cada restriccion del agua circulante como (parametro, valor, limite).
+
+    Es la vista completa que necesita quien quiere ver lo cerca que esta cada
+    limite, no solo cuales se rompen.
+    """
+    filas = [
+        (campo, getattr(circulante, campo), getattr(limites, lim_attr))
+        for campo, lim_attr in _LIMITES_DIRECTOS
+    ]
+    filas.append(
+        ("conductividad", circulante.conductividad, limites.conductividad_us_cm)
+    )
+    idx = circulante.indices()
+    filas.append(("lsi", idx["lsi"], lsi_max))
+    filas.append(("larson_skold", idx["larson_skold"], limites.larson_skold_max))
+    filas.append((
+        "producto_caso4", circulante.dureza_ca * circulante.sulfatos,
+        limites.producto_caso4_max,
+    ))
+    return filas
+
+
 def violaciones(
     circulante: Calidad, limites: LimitesCalidad, lsi_max: float
 ) -> dict[str, tuple[float, float]]:
     """Parametros del agua circulante fuera de limite -> (valor, limite)."""
-    fuera: dict[str, tuple[float, float]] = {}
-    for campo, lim_attr in _LIMITES_DIRECTOS:
-        valor = getattr(circulante, campo)
-        lim = getattr(limites, lim_attr)
-        if valor > lim:
-            fuera[campo] = (valor, lim)
-
-    if circulante.conductividad > limites.conductividad_us_cm:
-        fuera["conductividad"] = (
-            circulante.conductividad, limites.conductividad_us_cm
-        )
-
-    idx = circulante.indices()
-    if idx["lsi"] > lsi_max:
-        fuera["lsi"] = (idx["lsi"], lsi_max)
-    if idx["larson_skold"] > limites.larson_skold_max:
-        fuera["larson_skold"] = (
-            idx["larson_skold"], limites.larson_skold_max
-        )
-    producto = circulante.dureza_ca * circulante.sulfatos
-    if producto > limites.producto_caso4_max:
-        fuera["producto_caso4"] = (producto, limites.producto_caso4_max)
-    return fuera
+    return {
+        param: (valor, lim)
+        for param, valor, lim in margenes(circulante, limites, lsi_max)
+        if valor > lim
+    }
 
 
 def ciclos_maximos(

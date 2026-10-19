@@ -9,6 +9,10 @@ el dato real en cuanto este disponible.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .domain.water_chem import Calidad
 
 
 # --------------------------------------------------------------------------
@@ -141,6 +145,10 @@ class Escenario:
     limites: LimitesCalidad = field(default_factory=LimitesCalidad)
     economia: EconomiaConfig = field(default_factory=EconomiaConfig)
     usar_antiincrustante: bool = True
+    #: Analitica del agua de reposicion actual. None = el agua cruda tipo de
+    #: `domain.streams.AGUA_CRUDA`; el simulador la sustituye por la de la
+    #: planta cuando quien lo usa la conoce.
+    agua_cruda: "Calidad | None" = None
 
     @property
     def lsi_max_efectivo(self) -> float:
