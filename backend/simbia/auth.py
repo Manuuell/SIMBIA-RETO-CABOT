@@ -24,19 +24,22 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import logging
 import os
 import re
 import secrets
 import sys
+import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Mapping
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -73,6 +76,51 @@ class Config:
     #: usuario (en minusculas) -> hash scrypt de su contrasena.
     usuarios: Mapping[str, str]
     secreto: str
+    administradores: frozenset[str] = frozenset()
+    versiones: Mapping[str, str] = field(default_factory=dict)
+    nombres: Mapping[str, str] = field(default_factory=dict)
+
+
+_ARCHIVO_LOCK = threading.RLock()
+
+
+def _ruta_usuarios() -> Path | None:
+    valor = os.environ.get("SIMBIA_AUTH_USUARIOS_ARCHIVO", "").strip()
+    return Path(valor) if valor else None
+
+
+def _archivo_vacio() -> dict:
+    return {"version": 1, "usuarios": {}}
+
+
+def _leer_archivo() -> dict:
+    """Registro gestionado por el panel. Los hashes nunca salen por la API."""
+    ruta = _ruta_usuarios()
+    if ruta is None or not ruta.exists():
+        return _archivo_vacio()
+    try:
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"No se puede leer el registro de usuarios: {ruta}") from exc
+    if not isinstance(datos, dict) or not isinstance(datos.get("usuarios"), dict):
+        raise RuntimeError(f"El registro de usuarios no tiene el formato esperado: {ruta}")
+    return datos
+
+
+def _guardar_archivo(datos: dict) -> None:
+    ruta = _ruta_usuarios()
+    if ruta is None:
+        raise RuntimeError("SIMBIA_AUTH_USUARIOS_ARCHIVO no esta configurada")
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    temporal = ruta.with_suffix(ruta.suffix + ".tmp")
+    temporal.write_text(json.dumps(datos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporal.chmod(0o600)
+    os.replace(temporal, ruta)
+
+
+def _version_hash(hash_clave: str) -> str:
+    """Una clave nueva invalida de inmediato las sesiones anteriores."""
+    return hashlib.sha256(hash_clave.encode("utf-8")).hexdigest()[:16]
 
 
 def _usuarios_del_entorno() -> dict[str, str]:
@@ -101,6 +149,17 @@ def _usuarios_del_entorno() -> dict[str, str]:
 def config() -> Config | None:
     """None si la autenticacion no esta configurada (aplicacion abierta)."""
     usuarios = _usuarios_del_entorno()
+    nombres: dict[str, str] = {}
+    with _ARCHIVO_LOCK:
+        gestionados = _leer_archivo().get("usuarios", {})
+    for usuario, ficha in gestionados.items():
+        usuario = usuario.strip().lower()
+        if (
+            usuario and usuario not in usuarios and isinstance(ficha, dict)
+            and ficha.get("activo", True) and str(ficha.get("hash", "")).startswith("scrypt$")
+        ):
+            usuarios[usuario] = str(ficha["hash"])
+            nombres[usuario] = str(ficha.get("nombre", "")).strip()
     if not usuarios:
         return None
     secreto = os.environ.get("SIMBIA_AUTH_SECRETO", "").strip()
@@ -109,7 +168,21 @@ def config() -> Config | None:
             "Hay usuarios definidos pero falta SIMBIA_AUTH_SECRETO "
             "(minimo 32 caracteres; openssl rand -hex 32)."
         )
-    return Config(MappingProxyType(usuarios), secreto)
+    principal = os.environ.get("SIMBIA_AUTH_USUARIO", "").strip().lower()
+    administradores = {
+        u.strip().lower()
+        for u in re.split(r"[,;\s]+", os.environ.get("SIMBIA_AUTH_ADMIN", "").strip())
+        if u.strip()
+    }
+    # Compatibilidad con instalaciones anteriores: si no se declara un
+    # administrador, el usuario principal sigue siendo quien administra.
+    if not administradores and principal:
+        administradores.add(principal)
+    versiones = {u: _version_hash(h) for u, h in usuarios.items()}
+    return Config(
+        MappingProxyType(usuarios), secreto, frozenset(administradores),
+        MappingProxyType(versiones), MappingProxyType(nombres),
+    )
 
 
 # --------------------------------------------------------------------------
@@ -145,7 +218,8 @@ def _firma(secreto: str, carga: str) -> str:
 
 def emitir_token(cfg: Config, usuario: str, ahora: float | None = None) -> str:
     expira = int((time.time() if ahora is None else ahora) + DURACION_S)
-    carga = f"{usuario}|{expira}"
+    version = cfg.versiones.get(usuario) or _version_hash(cfg.usuarios[usuario])
+    carga = f"{usuario}|{version}|{expira}"
     return base64.urlsafe_b64encode(f"{carga}|{_firma(cfg.secreto, carga)}".encode("utf-8")).decode("ascii")
 
 
@@ -154,15 +228,18 @@ def usuario_del_token(cfg: Config, token: str | None, ahora: float | None = None
     if not token:
         return None
     try:
-        usuario, expira, firma = base64.urlsafe_b64decode(token.encode("ascii")).decode("utf-8").rsplit("|", 2)
+        usuario, version, expira, firma = base64.urlsafe_b64decode(token.encode("ascii")).decode("utf-8").rsplit("|", 3)
         expira_en = int(expira)
     except (ValueError, UnicodeDecodeError):
         return None
-    if not hmac.compare_digest(firma, _firma(cfg.secreto, f"{usuario}|{expira}")):
+    if not hmac.compare_digest(firma, _firma(cfg.secreto, f"{usuario}|{version}|{expira}")):
         return None
     if expira_en < (time.time() if ahora is None else ahora):
         return None
     if usuario not in cfg.usuarios:
+        return None
+    esperada = cfg.versiones.get(usuario) or _version_hash(cfg.usuarios[usuario])
+    if not hmac.compare_digest(version, esperada):
         return None
     return usuario
 
@@ -204,6 +281,54 @@ class Credenciales(BaseModel):
     clave: str
 
 
+class UsuarioNuevo(BaseModel):
+    usuario: str
+    nombre: str = ""
+    clave: str
+
+
+class CambioClave(BaseModel):
+    usuario: str
+    clave: str
+
+
+class CambioEstado(BaseModel):
+    usuario: str
+    activo: bool
+
+
+def _normalizar_correo(valor: str) -> str:
+    correo = valor.strip().lower()
+    if len(correo) > 254 or not re.fullmatch(r"[^@\s,;:|\"']+@[^@\s,;:|\"']+\.[^@\s,;:|\"']+", correo):
+        raise HTTPException(status_code=422, detail="Escribe un correo valido")
+    return correo
+
+
+def _validar_clave(clave: str) -> None:
+    if len(clave) < 12:
+        raise HTTPException(status_code=422, detail="La contrasena debe tener al menos 12 caracteres")
+    if len(clave) > 256:
+        raise HTTPException(status_code=422, detail="La contrasena es demasiado larga")
+
+
+def _usuario_actual(request: Request, cfg: Config) -> str:
+    usuario = usuario_del_token(cfg, request.cookies.get(COOKIE))
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Sesion requerida")
+    return usuario
+
+
+def _administrador_actual(request: Request, cfg: Config) -> str:
+    usuario = _usuario_actual(request, cfg)
+    if usuario not in cfg.administradores:
+        raise HTTPException(status_code=403, detail="Solo el administrador principal puede gestionar usuarios")
+    return usuario
+
+
+def _ahora_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
 def _cookie(respuesta, request: Request, token: str | None) -> None:
     seguro = request.url.scheme == "https"
     if token is None:
@@ -237,8 +362,14 @@ def instalar(app: FastAPI, web: Path) -> None:
     def sesion(request: Request) -> dict:
         cfg = config()
         if cfg is None:
-            return {"autenticacion": False, "usuario": None}
-        return {"autenticacion": True, "usuario": usuario_del_token(cfg, request.cookies.get(COOKIE))}
+            return {"autenticacion": False, "usuario": None, "administrador": False}
+        usuario = usuario_del_token(cfg, request.cookies.get(COOKIE))
+        return {
+            "autenticacion": True,
+            "usuario": usuario,
+            "nombre": cfg.nombres.get(usuario or "", ""),
+            "administrador": bool(usuario and usuario in cfg.administradores),
+        }
 
     @router.post("/api/acceso")
     def entrar(credenciales: Credenciales, request: Request):
@@ -272,6 +403,100 @@ def instalar(app: FastAPI, web: Path) -> None:
         respuesta = JSONResponse({"ok": True})
         _cookie(respuesta, request, None)
         return respuesta
+
+    @router.get("/api/admin/usuarios")
+    def listar_usuarios(request: Request):
+        cfg = config()
+        if cfg is None:
+            raise HTTPException(status_code=404, detail="La autenticacion no esta configurada")
+        _administrador_actual(request, cfg)
+        entorno = _usuarios_del_entorno()
+        with _ARCHIVO_LOCK:
+            gestionados = _leer_archivo().get("usuarios", {})
+        salida = [{
+            "usuario": usuario,
+            "nombre": "Administrador principal" if usuario in cfg.administradores else "",
+            "activo": True,
+            "administrador": usuario in cfg.administradores,
+            "gestionable": False,
+            "origen": "servidor",
+            "creado": "",
+        } for usuario in entorno]
+        salida.extend({
+            "usuario": usuario,
+            "nombre": str(ficha.get("nombre", "")),
+            "activo": bool(ficha.get("activo", True)),
+            "administrador": usuario in cfg.administradores,
+            "gestionable": usuario not in cfg.administradores,
+            "origen": "panel",
+            "creado": str(ficha.get("creado", "")),
+        } for usuario, ficha in gestionados.items() if usuario not in entorno and isinstance(ficha, dict))
+        return {"usuarios": sorted(salida, key=lambda u: (not u["administrador"], u["usuario"]))}
+
+    @router.post("/api/admin/usuarios", status_code=201)
+    def crear_usuario(nuevo: UsuarioNuevo, request: Request):
+        cfg = config()
+        if cfg is None:
+            raise HTTPException(status_code=404, detail="La autenticacion no esta configurada")
+        administrador = _administrador_actual(request, cfg)
+        usuario = _normalizar_correo(nuevo.usuario)
+        _validar_clave(nuevo.clave)
+        nombre = nuevo.nombre.strip()[:100]
+        with _ARCHIVO_LOCK:
+            datos = _leer_archivo()
+            if usuario in _usuarios_del_entorno() or usuario in datos["usuarios"]:
+                raise HTTPException(status_code=409, detail="Ese usuario ya existe")
+            datos["usuarios"][usuario] = {
+                "nombre": nombre,
+                "hash": hashear(nuevo.clave),
+                "activo": True,
+                "creado": _ahora_iso(),
+                "creado_por": administrador,
+            }
+            _guardar_archivo(datos)
+        log.info("usuario %s creado por %s", usuario, administrador)
+        return {"ok": True, "usuario": usuario}
+
+    @router.post("/api/admin/usuarios/clave")
+    def cambiar_clave(cambio: CambioClave, request: Request):
+        cfg = config()
+        if cfg is None:
+            raise HTTPException(status_code=404, detail="La autenticacion no esta configurada")
+        administrador = _administrador_actual(request, cfg)
+        usuario = _normalizar_correo(cambio.usuario)
+        _validar_clave(cambio.clave)
+        with _ARCHIVO_LOCK:
+            datos = _leer_archivo()
+            ficha = datos["usuarios"].get(usuario)
+            if not isinstance(ficha, dict):
+                raise HTTPException(status_code=409, detail="La cuenta principal se gestiona en el servidor")
+            ficha["hash"] = hashear(cambio.clave)
+            ficha["actualizado"] = _ahora_iso()
+            ficha["actualizado_por"] = administrador
+            _guardar_archivo(datos)
+        log.info("clave de %s restablecida por %s", usuario, administrador)
+        return {"ok": True}
+
+    @router.post("/api/admin/usuarios/estado")
+    def cambiar_estado(cambio: CambioEstado, request: Request):
+        cfg = config()
+        if cfg is None:
+            raise HTTPException(status_code=404, detail="La autenticacion no esta configurada")
+        administrador = _administrador_actual(request, cfg)
+        usuario = _normalizar_correo(cambio.usuario)
+        if usuario == administrador or usuario in cfg.administradores:
+            raise HTTPException(status_code=409, detail="La cuenta administradora no se puede desactivar")
+        with _ARCHIVO_LOCK:
+            datos = _leer_archivo()
+            ficha = datos["usuarios"].get(usuario)
+            if not isinstance(ficha, dict):
+                raise HTTPException(status_code=409, detail="La cuenta principal se gestiona en el servidor")
+            ficha["activo"] = cambio.activo
+            ficha["actualizado"] = _ahora_iso()
+            ficha["actualizado_por"] = administrador
+            _guardar_archivo(datos)
+        log.info("usuario %s %s por %s", usuario, "activado" if cambio.activo else "desactivado", administrador)
+        return {"ok": True}
 
     app.include_router(router)
 

@@ -1321,3 +1321,58 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .ini-accion b { font-family: var(--f-titulo); font-size: 20px; font-weight: 800; letter-spacing: -.025em; }
 .ini-accion-d { font-size: 13.5px; color: var(--texto-2); line-height: 1.5; }
 .ini-accion-ir { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--tinta); }
+
+/* -- administración de usuarios ------------------------------------------- */
+.admin-cabecera { margin-bottom: 22px; }
+.admin-resumen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.admin-resumen > div {
+  display: flex; align-items: baseline; gap: 8px; padding: 17px 20px; background: var(--panel);
+  border: 1px solid var(--borde); border-radius: 16px;
+}
+.admin-resumen b { font-family: var(--f-titulo); font-size: 27px; color: var(--texto); }
+.admin-resumen span { color: var(--texto-tenue); font-size: 12px; }
+.admin-rejilla { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.admin-crear { position: sticky; top: 18px; }
+.admin-crear h2, .admin-listado h2 { margin: 2px 0 5px; }
+.admin-crear form { display: grid; gap: 13px; margin-top: 20px; }
+.admin-sobrelinea { color: var(--acento); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.admin-clave-campo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.admin-clave-campo input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.admin-listado-cab { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 3px 2px 13px; }
+.admin-listado-cab p { max-width: 360px; margin: 0; color: var(--texto-tenue); font-size: 12px; text-align: right; }
+#admin-usuarios { display: grid; gap: 8px; }
+.admin-usuario {
+  display: grid; grid-template-columns: 42px minmax(180px, 1fr) auto auto; gap: 12px; align-items: center;
+  padding: 13px 14px; background: var(--panel); border: 1px solid var(--borde); border-radius: 15px;
+}
+.admin-usuario.inactivo { opacity: .65; }
+.admin-avatar {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  color: var(--tinta); background: #ffe5d3; font-family: var(--f-titulo); font-weight: 800;
+}
+.admin-identidad { display: grid; gap: 2px; min-width: 0; }
+.admin-identidad b, .admin-identidad span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-identidad span, .admin-identidad small { color: var(--texto-tenue); font-size: 11px; }
+.admin-estado, .admin-acciones { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.admin-protegida { max-width: 150px; color: var(--texto-tenue); font-size: 10.5px; text-align: right; }
+.admin-aviso {
+  display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-bottom: 18px;
+  padding: 15px 18px; border: 1px solid rgba(30, 158, 99, .3); border-radius: 15px; background: #eef8f2;
+}
+.admin-aviso > div { display: grid; gap: 4px; }
+.admin-aviso code { width: fit-content; padding: 5px 8px; border-radius: 7px; background: white; color: var(--texto); font-size: 13px; }
+.admin-aviso small { color: var(--texto-tenue); }
+.sesion-identidad { display: grid; gap: 1px; width: 100%; }
+.sesion-identidad small { overflow: hidden; text-overflow: ellipsis; color: var(--texto-tenue); }
+@media (max-width: 1000px) {
+  .admin-rejilla { grid-template-columns: 1fr; }
+  .admin-crear { position: static; }
+}
+@media (max-width: 720px) {
+  .admin-resumen { grid-template-columns: 1fr; }
+  .admin-usuario { grid-template-columns: 42px minmax(0, 1fr); }
+  .admin-estado, .admin-acciones { grid-column: 2; justify-content: flex-start; }
+  .admin-listado-cab { align-items: start; flex-direction: column; }
+  .admin-listado-cab p { text-align: left; }
+  .admin-clave-campo { grid-template-columns: 1fr; }
+}

@@ -83,6 +83,24 @@ Para un tercero, se edita esa misma línea y se añade `,usuario:hash`. Para dar
 de baja a alguien basta con quitar su entrada y reiniciar: su cookie deja de
 valer aunque no haya caducado. Todos los usuarios tienen los mismos permisos.
 
+### Panel de administración
+
+El usuario principal de `SIMBIA_AUTH_USUARIO` es administrador por defecto. Se
+puede declarar de forma explícita con `SIMBIA_AUTH_ADMIN`; es el único que ve
+**Administración** y puede crear, desactivar o restablecer cuentas desde el
+panel. Las cuentas creadas allí se guardan en
+`/var/lib/simbia/usuarios.json`, con permisos privados y contraseñas `scrypt`.
+El archivo no está dentro del repositorio y sobrevive a los despliegues.
+
+```bash
+printf 'SIMBIA_AUTH_ADMIN=%s\n' 'correo@dominio' | sudo tee -a /etc/simbia.env > /dev/null
+sudo systemctl restart simbia
+```
+
+Cambiar la contraseña o desactivar una cuenta invalida inmediatamente sus
+sesiones existentes. La cuenta administradora principal permanece en
+`/etc/simbia.env` y no se puede desactivar desde la web.
+
 ## IA por API: extraccion, asistente y voz
 
 Con `OPENAI_API_KEY` en `/etc/simbia.env` se activan la lectura de permisos en

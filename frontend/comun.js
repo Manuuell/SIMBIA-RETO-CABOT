@@ -64,6 +64,7 @@ export const bus = {
 };
 
 export const estado = {
+  sesion: null,
   config: null,        // /api/scout/estado
   escenario: null,     // /api/escenario
   oferentes: [],       // /api/oferentes

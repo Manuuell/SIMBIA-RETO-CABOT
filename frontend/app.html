@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="estilos.css?v=14">
+  <link rel="stylesheet" href="estilos.css?v=15">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -63,6 +63,11 @@
     <a href="#modelo" data-modulo="modelo">
       <span class="n">3</span>
       <span><span class="t">Criterios técnicos</span><br><span class="d">Trazabilidad y método</span></span>
+    </a>
+    <div class="grupo" id="grupo-administracion" hidden>Cuenta</div>
+    <a href="#administracion" data-modulo="administracion" hidden>
+      <span class="n">◇</span>
+      <span><span class="t">Administración</span><br><span class="d">Usuarios y accesos</span></span>
     </a>
   </nav>
 
@@ -532,6 +537,56 @@
     </div>
   </section>
 
+  <!-- ====================================================== administracion -->
+  <section class="modulo" id="mod-administracion">
+    <div class="cabecera admin-cabecera">
+      <div>
+        <p class="ini-antetitulo">Acceso · solo administrador principal</p>
+        <h1>Administración de usuarios</h1>
+        <p class="intro">Crea cuentas para el equipo, desactiva el acceso y restablece contraseñas.
+          Las contraseñas se convierten en un hash seguro antes de guardarse y nunca vuelven a mostrarse.</p>
+      </div>
+    </div>
+
+    <div class="admin-resumen" id="admin-resumen"></div>
+    <div class="admin-aviso" id="admin-aviso" hidden></div>
+
+    <div class="admin-rejilla">
+      <div class="tarjeta admin-crear">
+        <span class="admin-sobrelinea">Nueva cuenta</span>
+        <h2>Invitar a una persona</h2>
+        <p class="pie">Crea una contraseña temporal y compártela por un canal seguro.</p>
+        <div class="error" id="admin-error" hidden></div>
+        <form id="admin-form">
+          <div class="control">
+            <label for="admin-nombre">Nombre</label>
+            <input id="admin-nombre" maxlength="100" placeholder="Nombre de la persona" autocomplete="off">
+          </div>
+          <div class="control">
+            <label for="admin-correo">Correo</label>
+            <input type="email" id="admin-correo" placeholder="persona@empresa.com" autocomplete="off" required>
+          </div>
+          <div class="control">
+            <label for="admin-clave">Contraseña temporal</label>
+            <div class="admin-clave-campo">
+              <input type="text" id="admin-clave" minlength="12" maxlength="256" autocomplete="new-password" required>
+              <button type="button" class="secundario pequeno" id="admin-generar">Generar otra</button>
+            </div>
+          </div>
+          <button type="submit" id="admin-crear">Crear usuario</button>
+        </form>
+      </div>
+
+      <div class="admin-listado">
+        <div class="admin-listado-cab">
+          <div><span class="admin-sobrelinea">Equipo</span><h2>Personas con acceso</h2></div>
+          <p>Desactivar conserva la cuenta, pero invalida su sesión inmediatamente.</p>
+        </div>
+        <div id="admin-usuarios"><p class="cargando">Cargando usuarios…</p></div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <div class="velo" id="velo"></div>
@@ -706,6 +761,6 @@
 </aside>
 
 
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>

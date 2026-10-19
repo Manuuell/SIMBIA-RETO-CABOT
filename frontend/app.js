@@ -15,8 +15,9 @@ import optimizador from "./modulos/optimizador.js";
 import operacion from "./modulos/operacion.js";
 import modelo from "./modulos/modelo.js";
 import simulador from "./modulos/simulador.js";
+import administracion from "./modulos/administracion.js";
 
-const MODULOS = { inicio, prospeccion, embudo, optimizador, operacion, simulador, asistente, modelo };
+const MODULOS = { inicio, prospeccion, embudo, optimizador, operacion, simulador, asistente, modelo, administracion };
 // Las cuatro pantallas de prospeccion son ahora una sola. Sus enlaces siguen
 // valiendo: llevan a Vecinos, y Vecinos abre lo que cada uno pedia.
 const ALIAS = { datos: "prospeccion", vital: "prospeccion", prospectos: "prospeccion", empresas: "prospeccion" };
@@ -51,10 +52,16 @@ async function arrancar() {
       pedir("/api/scout/estado"), pedir("/api/escenario"), pedir("/api/oferentes"), pedir("/api/sesion"),
     ]);
     estado.config = config; estado.escenario = escenario; estado.oferentes = oferentes;
+    estado.sesion = sesion;
     estado.radio = config.radio_km;
     // El asistente siempre esta en el menu; sin clave, su pantalla lo explica.
     if (sesion.autenticacion) {
-      $("pie-sesion").innerHTML = `<b>${escapar(sesion.usuario || "")}</b>
+      const enlaceAdmin = document.querySelector('[data-modulo="administracion"]');
+      if (enlaceAdmin) enlaceAdmin.hidden = !sesion.administrador;
+      if ($("grupo-administracion")) $("grupo-administracion").hidden = !sesion.administrador;
+      $("pie-sesion").innerHTML = `<span class="sesion-identidad"><b>${escapar(sesion.nombre || sesion.usuario || "")}</b>
+        ${sesion.nombre ? `<small>${escapar(sesion.usuario || "")}</small>` : ""}</span>
+        ${sesion.administrador ? '<a class="secundario pequeno" href="#administracion">Administrar</a>' : ""}
         <button class="secundario pequeno" id="btn-salir">Salir</button>`;
       $("btn-salir").addEventListener("click", async () => {
         await fetch("/api/salir", { method: "POST" });
