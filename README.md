@@ -47,6 +47,11 @@ backend/simbia/
 ├── optim/
 │   ├── blend.py           Optimizador: barrido en N + LP con linealización sucesiva
 │   └── analysis.py        Frontera coste-ahorro, contingencias, sensibilidad
+├── simulador/             Gemelo de la torre que usa la planta: sus datos, sus vecinos, en vivo
+│   ├── planta.py          Lo que la planta indica de sí misma y la calibración con la reposición medida
+│   ├── fuentes.py         Vecinos como fuentes de agua, salgan del barrido o se escriban a mano
+│   ├── motor.py           Qué le pasa a la torre con unos caudales dados, y la mezcla que sugiere el optimizador
+│   └── dinamica.py        La torre en el tiempo: balances de agua y sales, lazos LIC/AIC/FIC, rampa de consigna
 ├── data/synth.py          Generador de histórico sintético (gemelo digital)
 ├── ml/                    Demanda +24 h · detección de fugas · riesgo de ensuciamiento
 ├── scout/                 PROSPECCIÓN: de dónde sale el catálogo de vecinos
@@ -66,11 +71,14 @@ backend/simbia/
 ├── api/                   API REST (FastAPI)
 └── main.py                Aplicación
 
-frontend/                  Dashboard por módulos, sin dependencias npm (ES modules + SVG)
-│   ├── index.html         Barra lateral y un contenedor por módulo
+frontend/                  Portada y dashboard por módulos, sin dependencias npm (ES modules + SVG)
+│   ├── index.html         Portada pública (landing.css, landing.js): el proyecto y la torre 3D en vivo
+│   ├── app.html           El panel, en /app: barra lateral y un contenedor por módulo
 │   ├── app.js             Enrutado por #hash; cada módulo se monta al visitarlo
 │   ├── comun.js           Peticiones, almacén compartido y bitácora
-│   └── modulos/           inicio · datos · prospectos · embudo · optimizador · operacion · modelo
+│   ├── torre3d.js         Torre 3D paramétrica (three.js): celdas, ventiladores, tuberías e instrumentos ISA
+│   ├── vendor/three/      three.js r169 (MIT), copia local para funcionar sin conexión
+│   └── modulos/           inicio · prospeccion (Vecinos) · simulador (gemelo) · asistente · modelo · …
 docs/                      Modelo técnico, supuestos, decisiones y prospección
 ```
 
@@ -78,15 +86,15 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 
 | # | Módulo | Pregunta que responde |
 |---|---|---|
-| 1 | **Datos externos** (`#datos`) | ¿De dónde sale el catálogo? Consultar fuentes, cruzar permisos de vertimiento y traer documentos del expediente, con una bitácora de lo que hizo el sistema. |
-| 2 | **Buscador VITAL** (`#vital`) | ¿Qué trámites tiene una empresa concreta ante la autoridad ambiental? Búsqueda libre con filtros, los documentos del expediente para ver, descargar o guardar, la solicitud lista para enviar y el vínculo al prospecto. |
-| 3 | **Prospectos** (`#prospectos`) | ¿Quiénes son los vecinos, qué agua producen y a quién visito primero? |
-| 4 | **Empresas** (`#empresas`) | La cartera: las empresas elegidas con su dossier completo — ficha, caracterización, expedientes y trámites con sus documentos, lectura con IA y aplicación de lo declarado al prospecto. |
-| 5 | **Embudo comercial** (`#embudo`) | ¿Cuánto caudal hay contactado, caracterizado o contratado, y qué cambió en el parque? |
-| 6 | **Optimizador** (`#optimizador`) | Dado un catálogo, ¿qué mezclo, con qué tratamiento y a qué ciclos? Con el catálogo supuesto o con los prospectos reales. |
-| 7 | **Operación e IA** (`#operacion`) | ¿Cuánta reposición hará falta, hay una fuga, se va a ensuciar el circuito? |
-| 8 | **Modelo y supuestos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
-| — | **Asistente** (botón en la barra lateral) | Se le escribe o se le dicta; responde con los datos de la aplicación (prospectos, cartera, expedientes, documentos, resultado) y puede leer la respuesta en voz alta. |
+| 1 | **Vecinos** (`#prospeccion`) | ¿Quiénes son los vecinos, qué agua producen y qué se sabe de cada uno? Lista y mapa con buscador y filtros, y el dossier de la empresa elegida: caracterización, expedientes y trámites de VITAL con sus documentos, lectura con IA y ficha comercial. Desde la cabecera se abren el **Buscador VITAL** y **Fuentes y documentos** (actualizar datos, cruzar permisos, subir un PDF). |
+| 2 | **Gemelo de la torre** (`#simulador`) | ¿Qué le pasa a mi torre, hora a hora, si acepto el agua de estos vecinos? Torre 3D a escala dimensionada con el caudal de recirculación, simulación dinámica con los lazos de una planta real (nivel → reposición, conductividad → purga, caudal de cada vecino, ácido, ventiladores), alarmas y tendencias. La mezcla de partida la propone el optimizador. |
+| 3 | **Criterios técnicos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+| — | **Asistente** (`#asistente`) | Se le escribe o se le dicta; responde con los datos de la aplicación y puede leer la respuesta en voz alta. |
+
+Ocultos del menú por ahora, pero accesibles por su enlace: **Embudo comercial**
+(`#embudo`), **Optimizador** (`#optimizador`) y **Operación e IA** (`#operacion`).
+Los enlaces antiguos `#datos`, `#vital?q=…`, `#prospectos` y `#empresas` llevan a
+Vecinos y abren lo que cada uno pedía.
 
 La prospección alimenta al optimizador: las empresas que encuentra el barrido
 entran al mismo optimizador, con la misma química y las mismas restricciones. Lo
@@ -114,7 +122,7 @@ Levantar la aplicación:
 ./.venv/bin/python -m uvicorn simbia.main:app --app-dir backend --port 8123
 ```
 
-Dashboard en `http://localhost:8123` · API documentada en `http://localhost:8123/docs`
+Portada pública en `http://localhost:8123` · panel en `http://localhost:8123/app` (detrás de «Iniciar sesión» cuando el acceso está activo) · API documentada en `http://localhost:8123/docs`
 
 La prospección arranca **sin salir a la red** (caché local), para que nada
 dependa de que haya conexión o de que una API de terceros esté en pie. Desde el
