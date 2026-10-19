@@ -44,6 +44,28 @@ function montarCabeceraFlotante() {
   window.addEventListener("scroll", actualizar, { passive: true });
 }
 
+/** Revela cada bloque una sola vez cuando entra en el campo visual. */
+function montarRevelados() {
+  const elementos = [...document.querySelectorAll("[data-reveal]")];
+  if (!elementos.length) return;
+  const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducir || !("IntersectionObserver" in window)) {
+    elementos.forEach((elemento) => elemento.classList.add("is-in"));
+    return;
+  }
+  elementos.forEach((elemento) => {
+    if (elemento.dataset.revealDelay) elemento.style.transitionDelay = `${elemento.dataset.revealDelay}ms`;
+  });
+  const observador = new IntersectionObserver((entradas) => {
+    entradas.forEach((entrada) => {
+      if (!entrada.isIntersecting) return;
+      entrada.target.classList.add("is-in");
+      observador.unobserve(entrada.target);
+    });
+  }, { threshold: 0.15, rootMargin: "0px 0px -12% 0px" });
+  elementos.forEach((elemento) => observador.observe(elemento));
+}
+
 /* -- Simular: la ventana del gemelo reproduciendo una simulacion real ---------
  * gemelo-demo.json es la salida del modelo dinamico del panel (dos semanas,
  * los vecinos entran al empezar el dia 1). Aqui solo se reproduce: dos
@@ -181,6 +203,7 @@ async function montarDemoGemelo() {
 
 ajustarEntrada();
 montarCabeceraFlotante();
+montarRevelados();
 montarDemoGemelo();
 if ("requestIdleCallback" in window) window.requestIdleCallback(montarTorre, { timeout: 800 });
 else setTimeout(montarTorre, 200);

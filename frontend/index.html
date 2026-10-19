@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="landing.css?v=14">
+  <link rel="stylesheet" href="landing.css?v=15">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -54,7 +54,7 @@
 
   <!-- Franja de color: la meta -->
   <section class="franja" data-color="naranja">
-    <div class="contenedor franja-fila">
+    <div class="contenedor franja-fila" data-reveal>
       <p>Meta del reto: <b>−10 %</b> de agua. Con los vecinos reales de Mamonal, SIMBIA encuentra un camino a <b>−38 %</b>.</p>
       <a class="boton boton-tinta" href="#reto">Ver el reto</a>
     </div>
@@ -64,7 +64,7 @@
   <section class="reto" id="reto">
     <div class="contenedor">
       <div class="reto-dentro">
-        <div class="reto-titulo">
+        <div class="reto-titulo" data-reveal="left">
           <p class="kicker">El reto</p>
           <h2>Cabot necesita menos agua. <span class="subraya">Sus vecinos la están vertiendo.</span></h2>
           <blockquote class="reto-enunciado">
@@ -73,7 +73,7 @@
             <cite>Enunciado del Reto Cabot</cite>
           </blockquote>
         </div>
-        <ol class="reto-filas">
+        <ol class="reto-filas" data-reveal="right">
           <li><strong>−10 %</strong><span>de agua captada en la planta de Cabot: la meta del reto.</span></li>
           <li><strong>33</strong><span>empresas a menos de 20 km generan agua de rechazo que hoy acaba vertida.</span></li>
           <li><strong>≈ 46.000</strong><span>m³ al día de rechazo estimado entre todas: unas 16 veces lo que consume la planta.</span></li>
@@ -81,30 +81,30 @@
       </div>
 
       <div class="ataque">
-        <div class="ataque-cab">
+        <div class="ataque-cab" data-reveal>
           <p class="kicker">Cómo lo atacamos</p>
           <h3>De un mapa de vecinos a una tubería que se puede construir.</h3>
         </div>
         <ol class="ataque-pasos">
-          <li>
+          <li data-reveal data-reveal-delay="0">
             <span class="ataque-n">1</span>
             <b>Encontrar</b>
             <p>Escaneamos las empresas alrededor de Cabot y estimamos el agua de rechazo que produce cada una.</p>
             <a href="#como">Ver el paso →</a>
           </li>
-          <li>
+          <li data-reveal data-reveal-delay="80">
             <span class="ataque-n">2</span>
             <b>Verificar</b>
             <p>Cruzamos cada empresa con sus permisos de vertimiento en VITAL y leemos los documentos de su expediente.</p>
             <a href="#verificar">Ver el paso →</a>
           </li>
-          <li>
+          <li data-reveal data-reveal-delay="160">
             <span class="ataque-n">3</span>
             <b>Simular</b>
             <p>Probamos su agua en un gemelo de la torre: con qué tratamiento, a cuántos ciclos, sin incrustar ni corroer.</p>
             <a href="#gemelo">Ver el paso →</a>
           </li>
-          <li>
+          <li data-reveal data-reveal-delay="240">
             <span class="ataque-n">4</span>
             <b>Decidir</b>
             <p>Elegimos la mezcla más barata que cumple la meta y armamos el plan: a quién visitar, qué pedirle y qué pilotar.</p>
@@ -118,7 +118,7 @@
   <!-- 01 Encontrar -->
   <section class="panel" data-tono="abismo" id="como">
     <div class="panel-dentro dividido">
-      <div class="panel-texto">
+      <div class="panel-texto" data-reveal="left">
         <p class="kicker">01 · Encontrar</p>
         <h2>Todos los vecinos de Cabot, <span class="tono">en una lista</span>.</h2>
         <p>Las empresas salen de OpenStreetMap: posición real, tamaño del predio y nombre. Su actividad económica dice qué agua
@@ -129,7 +129,7 @@
           <li>Si una fuente externa cae, se conserva lo último descargado</li>
         </ul>
       </div>
-      <div class="maqueta maqueta-lista" aria-hidden="true">
+      <div class="maqueta maqueta-lista" aria-hidden="true" data-reveal="card" data-reveal-delay="100">
         <div class="mq-cab"><b>Vecinos</b><span>20 de 27 · solo viables</span></div>
         <div class="mq-fila activa"><i style="--t:#f2762e">64</i><span><b>Lamitech</b><small>Papel y empaques · 105 m³/h · 2,3 km</small><em class="sello inferido">inferido</em><em class="exp">expediente</em></span></div>
         <div class="mq-fila"><i style="--t:#f0823c">62</i><span><b>Ecopetrol</b><small>Refinación · 540 m³/h · 0,8 km</small><em class="sello inferido">inferido</em><em class="exp">expediente</em></span></div>
@@ -143,7 +143,7 @@
   <!-- 02 Verificar -->
   <section class="panel" data-tono="hondo" id="verificar">
     <div class="panel-dentro dividido invertido">
-      <div class="maqueta maqueta-vital" aria-hidden="true">
+      <div class="maqueta maqueta-vital" aria-hidden="true" data-reveal="card">
         <div class="mq-cab"><b>VITAL · permisos de vertimiento</b><span>135 en Cartagena</span></div>
         <div class="mq-tramite"><b>Lamitech</b><span>Vertimiento de aguas ante EPA Cartagena</span><code>1070860522056225001</code></div>
         <div class="mq-tramite"><b>Ecopetrol</b><span>Vertimiento de aguas ante EPA Cartagena</span><code>1070089999906822001</code></div>
@@ -153,7 +153,7 @@
           <span class="sello declarado">declarado 0,70</span><span class="sello medido">medido 0,95</span>
         </div>
       </div>
-      <div class="panel-texto">
+      <div class="panel-texto" data-reveal="right" data-reveal-delay="100">
         <p class="kicker">02 · Verificar</p>
         <h2>Un expediente vale <span class="tono">más que mil supuestos</span>.</h2>
         <p>SIMBIA cruza cada vecino con VITAL, la ventanilla de trámites ambientales del Ministerio: quién vierte de verdad, ante
@@ -165,7 +165,7 @@
   <!-- 03 Simular -->
   <section class="panel" data-tono="arena" id="gemelo">
     <div class="panel-dentro dividido">
-      <div class="panel-texto">
+      <div class="panel-texto" data-reveal="left">
         <p class="kicker">03 · Simular</p>
         <h2>Prueba la mezcla en la torre <span class="tono">antes de tender un tubo.</span></h2>
         <p>El gemelo es una copia digital de la torre de Cabot que se comporta como la real. Le conectas el agua
@@ -175,7 +175,7 @@
       </div>
       <!-- Simulacion real grabada con el modelo dinamico del panel (landing/gemelo-demo.json,
            generada con python -m simbia.simulador.demo_portada). -->
-      <div class="maqueta maqueta-gemelo" id="demo-gemelo" role="group" aria-label="Simulación del gemelo de la torre: durante dos semanas, el agua de tres vecinos reemplaza la mayor parte del agua cruda que capta Cabot.">
+      <div class="maqueta maqueta-gemelo" id="demo-gemelo" role="group" aria-label="Simulación del gemelo de la torre: durante dos semanas, el agua de tres vecinos reemplaza la mayor parte del agua cruda que capta Cabot." data-reveal="card" data-reveal-delay="100">
         <div class="gd-barra">
           <span class="gd-puntos" aria-hidden="true"><i></i><i></i><i></i></span>
           <b>Gemelo de la torre</b>
@@ -217,7 +217,7 @@
   <section class="ancha">
     <img class="ancha-fondo" src="landing/planta-ilustrativa.jpg" alt="Planta de tratamiento de agua junto a la bahía, con torres de enfriamiento al fondo." loading="lazy">
     <div class="ancha-velo" aria-hidden="true"></div>
-    <div class="contenedor ancha-texto">
+    <div class="contenedor ancha-texto" data-reveal="scale">
       <h2>El residuo de uno es el recurso del otro.</h2>
       <p>El agua que hoy se vierte en Mamonal puede enfriar la planta de Cabot.</p>
     </div>
@@ -226,24 +226,24 @@
   <!-- Datos honestos: filas -->
   <section class="datos" id="datos">
     <div class="contenedor">
-      <div class="datos-cab">
+      <div class="datos-cab" data-reveal>
         <p class="kicker">Datos honestos</p>
         <h2>Cada número dice <span class="subraya">de dónde sale</span>.</h2>
         <p>Una calidad de agua equivocada hunde los ciclos y se descubre con la tubería ya enterrada. Por eso ningún dato viaja
           sin su sello, y la confianza decide qué entra a la inversión.</p>
       </div>
       <ol class="filas">
-        <li><span class="sello medido">medido</span><b>Analítica de laboratorio</b><span>de la corriente real, con laboratorio e informe citados.</span><em>0,95</em></li>
-        <li><span class="sello declarado">declarado</span><b>Lo reporta la empresa</b><span>o su permiso de vertimiento, leído del expediente.</span><em>0,70</em></li>
-        <li><span class="sello inferido">inferido</span><b>Estimado por su sector</b><span>a partir de la actividad económica: prioriza, no sustituye.</span><em>0,45</em></li>
-        <li><span class="sello supuesto">supuesto</span><b>Rango típico de industria</b><span>sin nada específico de la empresa. Visible, nunca escondido.</span><em>0,20</em></li>
+        <li data-reveal data-reveal-delay="0"><span class="sello medido">medido</span><b>Analítica de laboratorio</b><span>de la corriente real, con laboratorio e informe citados.</span><em>0,95</em></li>
+        <li data-reveal data-reveal-delay="70"><span class="sello declarado">declarado</span><b>Lo reporta la empresa</b><span>o su permiso de vertimiento, leído del expediente.</span><em>0,70</em></li>
+        <li data-reveal data-reveal-delay="140"><span class="sello inferido">inferido</span><b>Estimado por su sector</b><span>a partir de la actividad económica: prioriza, no sustituye.</span><em>0,45</em></li>
+        <li data-reveal data-reveal-delay="210"><span class="sello supuesto">supuesto</span><b>Rango típico de industria</b><span>sin nada específico de la empresa. Visible, nunca escondido.</span><em>0,20</em></li>
       </ol>
     </div>
   </section>
 
   <!-- Cierre -->
   <section class="cierre" data-color="naranja">
-    <div class="cierre-dentro">
+    <div class="cierre-dentro" data-reveal="scale">
       <h2>El futuro del agua se construye entre vecinos.</h2>
       <p>Una nueva forma de conectar industrias, compartir oportunidades y transformar Mamonal.</p>
       <a class="boton boton-tinta boton-grande" href="/acceso?siguiente=/app" data-entrar>Entrar a SIMBIA <span aria-hidden="true">→</span></a>
@@ -311,6 +311,6 @@
   </div>
 </footer>
 
-<script type="module" src="landing.js?v=6"></script>
+<script type="module" src="landing.js?v=7"></script>
 </body>
 </html>
