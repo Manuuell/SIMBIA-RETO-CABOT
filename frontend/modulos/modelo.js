@@ -2,7 +2,7 @@
 
 import { $, escapar, estado, fmt, pedir } from "../comun.js";
 
-const TONOS = { desplazamiento: "#f2762e", ciclos: "#f5b323", distancia: "#4a9de0", tratamiento: "#2ec27e", incentivo: "#8b97a8" };
+const TONOS = { desplazamiento: "#f2762e", ciclos: "#f5b323", distancia: "#2f7fc1", tratamiento: "#1e9e63", incentivo: "#67747e" };
 const NOMBRE = {
   desplazamiento: "Agua cruda que desplaza", ciclos: "Ciclos a los que deja operar",
   distancia: "Distancia de conduccion", tratamiento: "Costo del tren de tratamiento", incentivo: "Incentivo del vecino",
@@ -24,7 +24,7 @@ export default {
     $("modelo-pesos").innerHTML = Object.entries(pesos).map(([k, v]) => `
       <div style="display:grid;grid-template-columns:1fr 60px;gap:10px;align-items:center;margin-bottom:6px;font-size:12.5px">
         <span>${NOMBRE[k] || k}</span>
-        <span style="text-align:right;font-weight:640;color:${TONOS[k]}">${v} %</span>
+        <span style="text-align:right;font-weight:640">${v} %</span>
         <div class="barra-limite" style="grid-column:1/-1"><i style="width:${v / 40 * 100}%;background:${TONOS[k]}"></i></div>
       </div>`).join("");
 

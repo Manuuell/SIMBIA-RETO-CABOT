@@ -14,9 +14,9 @@ function el(nombre, attrs = {}, texto = null) {
  * limite cumplido en el resto de la aplicacion, y ademas es la pareja que
  * mas gente confunde. */
 function colorPuntaje(p) {
-  if (p == null || p <= 0) return "#3f4b5c";
+  if (p == null || p <= 0) return "#b8c2c8";
   const t = Math.max(0, Math.min(1, p / 60));
-  const a = [110, 124, 145], b = [242, 118, 46];
+  const a = [168, 180, 188], b = [242, 118, 46];
   return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`;
 }
 
@@ -113,7 +113,7 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
       const y = Math.max(anterior + 24, Math.min(H - 36 - (grupo.length - i - 1) * 24, Y(p.y_km)));
       anterior = y;
       const x = lado < 0 ? 150 : W - 150;
-      svg.appendChild(el("line", { x1: X(p.x_km), y1: Y(p.y_km), x2: x, y2: y - 4, stroke: "#566579", "stroke-width": 0.6 }));
+      svg.appendChild(el("line", { x1: X(p.x_km), y1: Y(p.y_km), x2: x, y2: y - 4, stroke: "#9aa6ae", "stroke-width": 0.6 }));
       svg.appendChild(el("text", { class: "nodo-txt", x, y: y - 7, "text-anchor": lado < 0 ? "end" : "start" },
         p.nombre.length > 24 ? p.nombre.slice(0, 23) + "…" : p.nombre));
     });
@@ -123,10 +123,10 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
   const gp = el("g");
   gp.appendChild(el("path", {
     d: `M ${cx - 8} ${cy - 8} L ${cx + 8} ${cy} L ${cx - 8} ${cy + 8} Z`,
-    fill: "#f5b323",
+    fill: "#0f1b24",
   }));
   gp.appendChild(el("circle", {
-    cx, cy, r: 13, fill: "none", stroke: "#f5b323", "stroke-width": 1.2,
+    cx, cy, r: 13, fill: "none", stroke: "#0f1b24", "stroke-width": 1.2,
   }));
   gp.appendChild(el("text", {
     class: "planta-txt", x: cx, y: cy + 28, "text-anchor": "middle",
@@ -169,7 +169,7 @@ export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
   ley.className = "leyenda";
   ley.innerHTML =
     "<span><i style=\"width:10px;height:10px;border-radius:50%;background:#f2762e\"></i> tamaño = caudal · color = puntaje</span>" +
-    "<span><i style=\"width:10px;height:10px;border-radius:50%;border:1.5px dashed #8391a3;background:none\"></i> borde discontinuo = calidad inferida</span>" +
+    "<span><i style=\"width:10px;height:10px;border-radius:50%;border:1.5px dashed #67747e;background:none\"></i> borde discontinuo = calidad inferida</span>" +
     "<span><i style=\"background:#f2762e\"></i> vínculo directo, no trazado real</span>";
   contenedor.appendChild(ley);
 }

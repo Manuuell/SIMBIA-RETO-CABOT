@@ -15,11 +15,11 @@ export default {
         x: h(p), txt: new Date(p.t).toLocaleDateString("es", { day: "2-digit", month: "short" }),
       }));
       lineas(cont, [
-        { nombre: "Reposicion", color: "#4a9de0", datos: op.serie.map((p) => ({ x: h(p), y: p.reposicion_m3_h })), area: true },
-        { nombre: "Prob. fuga", color: "#e5534b", eje: "der", datos: op.serie.map((p) => ({ x: h(p), y: p.prob_fuga })) },
-        { nombre: "Prob. ensuciamiento 7 d", color: "#d9a441", eje: "der", datos: op.serie.map((p) => ({ x: h(p), y: p.prob_riesgo })) },
+        { nombre: "Reposicion", color: "#2f7fc1", datos: op.serie.map((p) => ({ x: h(p), y: p.reposicion_m3_h })), area: true },
+        { nombre: "Prob. fuga", color: "#c9372e", eje: "der", datos: op.serie.map((p) => ({ x: h(p), y: p.prob_fuga })) },
+        { nombre: "Prob. ensuciamiento 7 d", color: "#c9901f", eje: "der", datos: op.serie.map((p) => ({ x: h(p), y: p.prob_riesgo })) },
       ], { alto: 260, ejeDerecho: true, etiquetaY: "m³/h", ticksX: ticks, min_der: 0, max_der: 1,
-        lineasRef: [{ y: op.umbral_fuga, eje: "der", color: "#e5534b", texto: "umbral de aviso de fuga" }] });
+        lineasRef: [{ y: op.umbral_fuga, eje: "der", color: "#c9372e", texto: "umbral de aviso de fuga" }] });
 
       $("alertas").innerHTML =
         chip(op.alerta_fuga ? "fuga probable" : "balance hidrico normal", op.alerta_fuga ? "alerta" : "ok") +

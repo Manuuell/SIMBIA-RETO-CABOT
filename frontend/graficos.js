@@ -26,8 +26,8 @@ function lienzo(ancho, alto) {
   return svg;
 }
 
-const COLOR_EJE = "#3a4757";
-const COLOR_TEXTO = "#8b97a8";
+const COLOR_EJE = "#cfd8dd";
+const COLOR_TEXTO = "#67747e";
 
 function ejes(svg, m, ancho, alto, ticksY, ticksX, etiquetaY) {
   for (const t of ticksY) {
@@ -157,11 +157,11 @@ export function barras(contenedor, datos, opciones = {}) {
   datos.forEach((d, i) => {
     const y = i * filaAlto + 6;
     svg.appendChild(el("text", {
-      x: 0, y: y + 13, fill: "#e6edf3", "font-size": 11.5,
+      x: 0, y: y + 13, fill: "#0f1b24", "font-size": 11.5,
     }, d.etiqueta.length > 30 ? d.etiqueta.slice(0, 29) + "…" : d.etiqueta));
     svg.appendChild(el("rect", {
       x: anchoEtiqueta, y: y + 4, width: anchoBarra, height: 12,
-      rx: 3, fill: "#232c38",
+      rx: 3, fill: "#e7ecef",
     }));
     svg.appendChild(el("rect", {
       x: anchoEtiqueta, y: y + 4,
@@ -170,7 +170,7 @@ export function barras(contenedor, datos, opciones = {}) {
     }));
     svg.appendChild(el("text", {
       x: ancho, y: y + 14, "text-anchor": "end",
-      fill: "#8b97a8", "font-size": 11,
+      fill: "#67747e", "font-size": 11,
     }, d.nota ?? fmt.num(d.valor, 1)));
   });
   contenedor.replaceChildren(svg);
@@ -186,15 +186,15 @@ export function balanceFlujo(contenedor, { entradas, evaporacion, purga, arrastr
   const svg = lienzo(ancho, alto);
   const total = entradas.reduce((s, e) => s + e.valor, 0) || 1;
   const salidas = [
-    { etiqueta: "Evaporacion", valor: evaporacion, color: "#4a9de0" },
-    { etiqueta: "Purga", valor: purga, color: "#d9a441" },
-    { etiqueta: "Arrastre", valor: arrastre, color: "#6b7688" },
+    { etiqueta: "Evaporacion", valor: evaporacion, color: "#2f7fc1" },
+    { etiqueta: "Purga", valor: purga, color: "#c9901f" },
+    { etiqueta: "Arrastre", valor: arrastre, color: "#a3afb7" },
   ].filter((s) => s.valor > 0.001);
 
   const xIzq = 214, xTorre = 342, anchoTorre = 116, xDer = xTorre + anchoTorre;
   const yTop = 34, alturaTotal = alto - yTop - 20;
 
-  svg.appendChild(el("text", { x: 0, y: 16, fill: "#8b97a8", "font-size": 11, "font-weight": 600 }, titulo));
+  svg.appendChild(el("text", { x: 0, y: 16, fill: "#67747e", "font-size": 11, "font-weight": 600 }, titulo));
 
   let y = yTop;
   for (const e of entradas) {
@@ -205,26 +205,26 @@ export function balanceFlujo(contenedor, { entradas, evaporacion, purga, arrastr
     }));
     svg.appendChild(el("text", {
       x: xIzq - 8, y: y + h / 2 + 4, "text-anchor": "end",
-      fill: "#e6edf3", "font-size": 11,
+      fill: "#0f1b24", "font-size": 11,
     }, corta(e.etiqueta)));
     svg.appendChild(el("text", {
       x: xIzq - 8, y: y + h / 2 + 16, "text-anchor": "end",
-      fill: "#8b97a8", "font-size": 10,
+      fill: "#67747e", "font-size": 10,
     }, fmt.num(e.valor, 0) + " m³/d"));
     y += h + 4;
   }
 
   svg.appendChild(el("rect", {
     x: xTorre, y: yTop, width: anchoTorre, height: alturaTotal,
-    rx: 6, fill: "#1d2530", stroke: "#f2762e", "stroke-width": 1.3,
+    rx: 6, fill: "#f6f8f9", stroke: "#f2762e", "stroke-width": 1.3,
   }));
   svg.appendChild(el("text", {
     x: xTorre + anchoTorre / 2, y: yTop + alturaTotal / 2 - 2,
-    "text-anchor": "middle", fill: "#e6edf3", "font-size": 12, "font-weight": 600,
+    "text-anchor": "middle", fill: "#0f1b24", "font-size": 12, "font-weight": 600,
   }, "Torre"));
   svg.appendChild(el("text", {
     x: xTorre + anchoTorre / 2, y: yTop + alturaTotal / 2 + 14,
-    "text-anchor": "middle", fill: "#8b97a8", "font-size": 10,
+    "text-anchor": "middle", fill: "#67747e", "font-size": 10,
   }, "enfriamiento"));
 
   y = yTop;
@@ -235,10 +235,10 @@ export function balanceFlujo(contenedor, { entradas, evaporacion, purga, arrastr
       fill: s.color, opacity: .55,
     }));
     svg.appendChild(el("text", {
-      x: xDer + 136, y: y + h / 2 + 4, fill: "#e6edf3", "font-size": 11,
+      x: xDer + 136, y: y + h / 2 + 4, fill: "#0f1b24", "font-size": 11,
     }, s.etiqueta));
     svg.appendChild(el("text", {
-      x: xDer + 136, y: y + h / 2 + 16, fill: "#8b97a8", "font-size": 10,
+      x: xDer + 136, y: y + h / 2 + 16, fill: "#67747e", "font-size": 10,
     }, fmt.num(s.valor, 0) + " m³/d"));
     y += h + 4;
   }
@@ -249,13 +249,13 @@ export function balanceFlujo(contenedor, { entradas, evaporacion, purga, arrastr
 export function limites(contenedor, filas) {
   contenedor.replaceChildren(...filas.map((f) => {
     const frac = Math.min(f.valor / f.limite, 1.25);
-    const color = frac > 1 ? "#e5534b" : frac > 0.9 ? "#d9a441" : "#2ec27e";
+    const color = frac > 1 ? "#c9372e" : frac > 0.9 ? "#c9901f" : "#1e9e63";
     const div = document.createElement("div");
     div.style.marginBottom = "9px";
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">
         <span>${f.nombre}</span>
-        <span style="color:#8b97a8;font-variant-numeric:tabular-nums">
+        <span style="color:#67747e;font-variant-numeric:tabular-nums">
           ${fmt.num(f.valor, f.decimales ?? 0)} / ${fmt.num(f.limite, f.decimales ?? 0)} ${f.unidad ?? ""}
         </span>
       </div>

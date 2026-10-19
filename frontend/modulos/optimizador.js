@@ -35,14 +35,14 @@ function pintarBalance(d) {
   const o = d.optimo, b = d.linea_base;
   balanceFlujo($("flujo-base"), {
     titulo: "OPERACION ACTUAL — 100 % agua cruda",
-    entradas: [{ etiqueta: "Agua cruda captada", valor: b.agua_cruda_m3_dia, color: "#e5534b" }],
+    entradas: [{ etiqueta: "Agua cruda captada", valor: b.agua_cruda_m3_dia, color: "#c9372e" }],
     evaporacion: b.balance.evaporacion_m3_h * 24, purga: b.balance.purga_m3_dia, arrastre: b.balance.arrastre_m3_h * 24,
   });
   balanceFlujo($("flujo-optimo"), {
     titulo: "CON SIMBIA — mezcla optimizada",
     entradas: [
-      { etiqueta: "Agua cruda captada", valor: o.agua_cruda_m3_dia, color: "#e5534b" },
-      ...o.aportes.map((a) => ({ etiqueta: `${a.oferente} ${a.empresa.split(/[ /]/)[0]} · ${a.tren}`, valor: a.caudal_m3_dia, color: "#2ec27e" })),
+      { etiqueta: "Agua cruda captada", valor: o.agua_cruda_m3_dia, color: "#c9372e" },
+      ...o.aportes.map((a) => ({ etiqueta: `${a.oferente} ${a.empresa.split(/[ /]/)[0]} · ${a.tren}`, valor: a.caudal_m3_dia, color: "#1e9e63" })),
     ],
     evaporacion: o.balance.evaporacion_m3_h * 24, purga: o.balance.purga_m3_dia, arrastre: o.balance.arrastre_m3_h * 24,
   });
@@ -90,7 +90,7 @@ async function pintarFrontera() {
     if (!p.length) { cont.innerHTML = '<p class="pie">Sin puntos factibles.</p>'; return; }
     lineas(cont, [
       { nombre: "Costo total", color: "#f2762e", datos: p.map((x) => ({ x: x.ahorro_pct * 100, y: x.costo_usd_anio / 1000 })), area: true },
-      { nombre: "CAPEX", color: "#4a9de0", datos: p.map((x) => ({ x: x.ahorro_pct * 100, y: x.capex_usd / 1000 })), discontinua: true },
+      { nombre: "CAPEX", color: "#2f7fc1", datos: p.map((x) => ({ x: x.ahorro_pct * 100, y: x.capex_usd / 1000 })), discontinua: true },
     ], { alto: 250, etiquetaY: "k USD", min_izq: 0,
       ticksX: p.filter((_, i) => i % 2 === 0).map((x) => ({ x: x.ahorro_pct * 100, txt: fmt.pct(x.ahorro_pct, 0) })) });
     const meta = ajustes.meta_reduccion;
@@ -138,7 +138,7 @@ async function pintarSensibilidad() {
     const s = await pedir("/api/sensibilidad?parametro=costo_agua_cruda_usd_m3", ajustes);
     barras(cont, s.map((x) => ({
       etiqueta: `Agua cruda a ${x.valor.toFixed(2)} USD/m³`, valor: x.ahorro_neto_usd_anio,
-      color: "#2ec27e", nota: fmt.usdk(x.ahorro_neto_usd_anio) + "/año",
+      color: "#1e9e63", nota: fmt.usdk(x.ahorro_neto_usd_anio) + "/año",
     })), { anchoEtiqueta: 200, ancho: 620 });
   } catch (e) { error(cont, e); }
 }

@@ -175,6 +175,16 @@ function formatear(texto) {
 
 function pintarHistorial(enCurso = false) {
   const caja = $("asistente-historial");
+  if (!historial.length && ia && !ia.disponible) {
+    caja.innerHTML = `<div class="asistente-vacio">
+      <div class="asistente-vacio-marca">S</div>
+      <div><h2>Solo falta conectar la IA</h2>
+        <p>El asistente responde con los datos del panel: vecinos, expedientes, documentos y el gemelo.
+          Para activarlo, el servidor necesita una clave de OpenAI o de Anthropic. Mientras tanto,
+          el resto del panel funciona igual.</p></div>
+    </div>`;
+    return;
+  }
   if (!historial.length) {
     caja.innerHTML = `<div class="asistente-vacio">
       <div class="asistente-vacio-marca">S</div>

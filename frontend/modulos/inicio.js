@@ -1,85 +1,119 @@
-/* Modulo 0: resultado con los vecinos reales y recorrido por la aplicacion. */
+/* Modulo 0: la respuesta al reto en una pantalla.
+ *
+ * Primero la pregunta que importa (¿llega Cabot al 10 %?), despues de donde
+ * sale el agua y al final que hacer a continuacion. El detalle tecnico vive
+ * en Vecinos, el Gemelo y Criterios tecnicos.
+ */
 
-import { $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, pedir } from "../comun.js";
+import { $, bus, cargarBarrido, chip, escapar, estado, fmt, pedir } from "../comun.js";
 
-const TRAMOS = [
-  { id: "datos", n: "Paso 1", t: "Datos externos",
-    d: "Consultar OpenStreetMap y los permisos de vertimiento de VITAL; traer los documentos del expediente." },
-  { id: "vital", n: "Paso 2", t: "Buscador VITAL",
-    d: "Encontrar el expediente de una empresa concreta, redactar la solicitud y vincularlo al prospecto." },
-  { id: "prospectos", n: "Paso 3", t: "Prospectos",
-    d: "Cada empresa con su agua estimada, su confianza y un puntaje que dice a quien visitar primero." },
-  { id: "empresas", n: "Paso 4", t: "Empresas",
-    d: "La cartera: las elegidas con su dossier, expedientes, documentos leidos con IA y revision humana." },
-  { id: "asistente", n: "Asistente", t: "Pregunta y escucha",
-    d: "Se le escribe o se le dicta; responde con los datos de la aplicacion y lo explica hablando." },
-];
+const pct = (v, d = 1) => fmt.num(v * 100, d) + " %";
 
-function conExpediente(b) {
-  return b.prospectos.filter((p) => (p.referencias || []).some((r) => r.fuente === "vital")).length;
-}
-
-function pintarRecorrido() {
+function pintarAcciones() {
   const b = estado.barrido;
-  const osm = (b?.fuentes || []).find((f) => f.fuente === "osm");
-  const documentos = b ? b.prospectos.reduce((s, p) => s + (p.ficha?.documentos || []).length, 0) : 0;
-  const estadoDe = b ? {
-    datos: chip(`${b.resumen.detectados} empresas${osm?.fecha_dato ? " · " + fechaCorta(osm.fecha_dato) : ""}`, "ok"),
-    vital: chip(`${conExpediente(b)} con expediente`, "neutra"),
-    prospectos: chip(`${b.resumen.viables} con simbiosis viable`, "azul"),
-    empresas: chip(`${b.prospectos.filter((p) => p.ficha?.en_cartera).length} en cartera · ${documentos} documento${documentos === 1 ? "" : "s"}`, "neutra"),
-  } : {};
-  const tramos = TRAMOS.filter((t) => t.id !== "asistente" || estado.config?.extraccion_ia?.disponible);
-  $("inicio-recorrido").innerHTML = tramos.map((t) => `
-    <a class="tramo" href="#${t.id}">
-      <div class="n">${t.n}</div>
-      <div class="t">${t.t}</div>
-      <div class="d">${t.d}</div>
-      <div class="estado">${estadoDe[t.id] || ""}</div>
+  const ia = Boolean(estado.config?.extraccion_ia?.disponible);
+  const radio = estado.radio ? ` a menos de ${fmt.num(estado.radio)} km` : "";
+  const vecinos = b
+    ? `${b.resumen.detectados} empresas${radio}; ${b.resumen.viables} con agua que la torre puede aprovechar.`
+    : "Las empresas alrededor de la planta, con su agua de rechazo y sus expedientes.";
+  const acciones = [
+    { href: "#prospeccion", n: "01", t: "Ver los vecinos", d: vecinos, ir: "Abrir Vecinos" },
+    { href: "#simulador", n: "02", t: "Probarlo en el gemelo",
+      d: "Mueve caudales, ciclos y ácido; la torre responde en 3D como en planta.", ir: "Abrir el gemelo" },
+    { href: "#asistente", n: "03", t: "Preguntarle a la IA",
+      d: ia ? "Escríbele o díctale: «¿qué vecino conviene visitar primero?»"
+        : "Responde con los datos del panel. Falta configurar la clave en el servidor.",
+      ir: "Abrir el asistente" },
+  ];
+  $("inicio-acciones").innerHTML = acciones.map((a) => `
+    <a class="ini-accion" href="${a.href}">
+      <span class="ini-accion-n">${a.n}</span>
+      <b>${a.t}</b>
+      <span class="ini-accion-d">${escapar(a.d)}</span>
+      <span class="ini-accion-ir">${a.ir} →</span>
     </a>`).join("");
 }
 
-/* El resultado de portada sale del optimizador corriendo sobre el catalogo
-   prospectado, no sobre el catalogo supuesto del caso base. */
+function pintarMezcla(o, b) {
+  const filas = (o.aportes || []).map((a) => ({
+    nombre: a.empresa, detalle: `${a.tren_nombre || a.tren} · a ${fmt.num(a.distancia_km, 1)} km`,
+    m3: a.caudal_m3_dia, tono: "vecino",
+  }));
+  filas.push({ nombre: "Agua cruda", detalle: `la que se sigue captando (hoy son ${fmt.num(b.agua_cruda_m3_dia)} m³/día)`,
+    m3: o.agua_cruda_m3_dia, tono: "cruda" });
+  const total = filas.reduce((s, f) => s + f.m3, 0) || 1;
+  $("inicio-mezcla").innerHTML = `
+    <div class="ini-pila" role="img" aria-label="Reparto del agua de reposición">
+      ${filas.map((f) => `<i class="${f.tono}" style="flex:${f.m3}" title="${escapar(f.nombre)}"></i>`).join("")}
+    </div>
+    <ul class="ini-filas">
+      ${filas.map((f) => `<li>
+        <span class="ini-punto ${f.tono}"></span>
+        <span class="ini-fila-nombre"><b>${escapar(f.nombre)}</b><small>${escapar(f.detalle)}</small></span>
+        <span class="ini-fila-m3"><b>${fmt.num(f.m3)}</b> m³/día<small>${pct(f.m3 / total, 0)}</small></span>
+      </li>`).join("")}
+    </ul>
+    <p class="pie">El agua de cada vecino pasa por el tratamiento indicado antes de entrar a la torre.
+      Detalle y evidencia de cada empresa en <a href="#prospeccion">Vecinos</a>.</p>`;
+}
+
+/* El resultado sale del optimizador corriendo sobre el catalogo prospectado,
+   no sobre el catalogo supuesto del caso base. */
 async function pintarResultado() {
   let r;
   try {
     r = await pedir("/api/scout/optimizar", {});
   } catch (e) {
-    $("inicio-kpis").innerHTML = `<p class="cargando">No se pudo optimizar: ${escapar(e.message)}</p>`;
+    $("inicio-resultado").innerHTML = `<p class="cargando">No se pudo calcular: ${escapar(e.message)}</p>`;
     return;
   }
   if (!r.factible) {
-    $("inicio-meta").innerHTML = chip("sin solucion", "alerta");
-    $("inicio-kpis").innerHTML = `<p class="cargando">${escapar(r.motivo || "")}</p>`;
+    $("inicio-titular").textContent = "Con los datos actuales no hay una mezcla que funcione";
+    $("inicio-bajada").textContent = r.motivo || "";
+    $("inicio-resultado").innerHTML = chip("sin solución", "alerta");
+    $("inicio-mezcla").innerHTML = "";
     return;
   }
-  const o = r.optimo, b = r.linea_base;
+  const o = r.optimo, b = r.linea_base, meta = r.meta_reduccion;
   const ahorroUsd = b.costo_total_usd_anio - o.costo_total_usd_anio;
   const payback = ahorroUsd > 0 ? o.capex_total_usd / ahorroUsd : null;
   const empresas = [...new Set((o.aportes || []).map((a) => a.empresa))];
-  $("inicio-meta").innerHTML = chip(r.cumple_meta ? "meta cumplida" : "meta no alcanzada", r.cumple_meta ? "ok" : "alerta");
-  $("inicio-kpis").innerHTML = [
-    kpi("Reduccion del consumo", fmt.pct(o.ahorro_pct_planta),
-      `meta ${fmt.pct(r.meta_reduccion, 0)} · ${fmt.num(o.ahorro_m3_dia)} m³/d de agua cruda evitada`, "destacado"),
-    kpi("Agua de vecinos reutilizada", `${fmt.num(o.reuso_total_m3_dia)} m³/d`,
-      `${empresas.length} empresa${empresas.length === 1 ? "" : "s"} en la mezcla`),
-    kpi("Ciclos de concentracion", `${fmt.num(b.ciclos, 1)} → ${fmt.num(o.ciclos, 1)}`, "menos purga por cada m³ evaporado"),
-    kpi("Ahorro economico", `${fmt.usdk(ahorroUsd)}/año`,
-      `inversion ${fmt.usdk(o.capex_total_usd)}${payback ? ` · recuperacion ${fmt.num(payback, 1)} años` : ""}`),
-  ].join("");
-  $("inicio-mezcla").innerHTML = empresas.length
-    ? `Mezcla propuesta: ${empresas.map((e) => `<b>${escapar(e)}</b>`).join(", ")}.
-       Los datos con menor confianza reciben una disponibilidad conservadora. Consulta la evidencia
-       de cada empresa en <a href="#prospectos">Prospectos</a>.`
-    : "";
+  const escala = Math.max(0.5, Math.ceil(o.ahorro_pct_planta * 1.15 * 10) / 10);
+
+  $("inicio-titular").textContent = r.cumple_meta
+    ? `Sí: Cabot puede gastar un ${pct(o.ahorro_pct_planta)} menos de agua`
+    : `Todavía no: con estos vecinos se llega al ${pct(o.ahorro_pct_planta)}`;
+  $("inicio-bajada").innerHTML = `La meta del reto es ${pct(meta, 0)}. Reutilizando el agua de rechazo de
+    ${empresas.length} vecino${empresas.length === 1 ? "" : "s"} y subiendo los ciclos de la torre de
+    ${fmt.num(b.ciclos, 1)} a ${fmt.num(o.ciclos, 1)}, la planta deja de captar
+    ${fmt.num(o.ahorro_m3_dia)} m³ de agua cruda al día.`;
+
+  $("inicio-resultado").innerHTML = `
+    <div class="ini-cifra">
+      <span class="ini-cifra-n">−${pct(o.ahorro_pct_planta)}</span>
+      <span class="ini-cifra-t">del consumo de agua de la planta</span>
+      ${chip(r.cumple_meta ? "meta cumplida" : "meta no alcanzada", r.cumple_meta ? "ok" : "alerta")}
+    </div>
+    <div class="ini-barra" role="img" aria-label="Reducción ${pct(o.ahorro_pct_planta)} frente a una meta de ${pct(meta, 0)}">
+      <i style="width:${Math.min(100, o.ahorro_pct_planta / escala * 100)}%"></i>
+      <span class="ini-meta" style="left:${meta / escala * 100}%"><em>meta ${pct(meta, 0)}</em></span>
+    </div>
+    <div class="ini-escala"><span>0 %</span><span>${pct(escala, 0)}</span></div>
+    <dl class="ini-datos">
+      <div><dt>Agua cruda captada</dt><dd>${fmt.num(b.agua_cruda_m3_dia)} → <b>${fmt.num(o.agua_cruda_m3_dia)}</b> m³/día</dd></div>
+      <div><dt>Agua de vecinos</dt><dd><b>${fmt.num(o.reuso_total_m3_dia)}</b> m³/día</dd></div>
+      <div><dt>Ciclos de la torre</dt><dd>${fmt.num(b.ciclos, 1)} → <b>${fmt.num(o.ciclos, 1)}</b></dd></div>
+      <div><dt>Ahorro al año (USD)</dt><dd><b>${fmt.usdk(ahorroUsd)}</b></dd>
+        <small>inversión ${fmt.usdk(o.capex_total_usd)}${payback ? ` · se paga en ${fmt.num(payback, 1)} años` : ""}</small></div>
+    </dl>`;
+  pintarMezcla(o, b);
 }
 
 export default {
   id: "inicio",
   async montar() {
-    pintarRecorrido();
-    bus.on("barrido", pintarRecorrido);
+    pintarAcciones();
+    bus.on("barrido", pintarAcciones);
     if (!estado.barrido) cargarBarrido().catch(() => {});
     await pintarResultado();
   },
