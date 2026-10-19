@@ -75,8 +75,13 @@ def test_sin_configurar_la_aplicacion_queda_abierta(abierta):
 
 
 def test_sin_sesion_el_html_redirige_y_la_api_devuelve_401(protegida):
-    r = protegida.get("/", follow_redirects=False)
+    r = protegida.get("/app", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/acceso"
+    # La landing y lo que necesita para dibujarse son publicos.
+    assert protegida.get("/").status_code == 200
+    assert protegida.get("/landing.css").status_code == 200
+    assert protegida.get("/vendor/three/three.module.min.js").status_code == 200
+    assert protegida.get("/app.js", follow_redirects=False).status_code == 303
     r = protegida.get("/prospeccion.html", follow_redirects=False)
     assert r.headers["location"].startswith("/acceso?siguiente=")
     assert protegida.get("/api/escenario").status_code == 401
@@ -148,6 +153,6 @@ def test_la_cookie_no_es_legible_por_javascript(protegida):
 
 def test_el_destino_de_vuelta_no_puede_salir_de_la_aplicacion():
     assert auth._destino_seguro("/#datos") == "/#datos"
-    assert auth._destino_seguro("//malo.com") == "/"
-    assert auth._destino_seguro("https://malo.com") == "/"
-    assert auth._destino_seguro(None) == "/"
+    assert auth._destino_seguro("//malo.com") == "/app"
+    assert auth._destino_seguro("https://malo.com") == "/app"
+    assert auth._destino_seguro(None) == "/app"

@@ -82,6 +82,9 @@ def test_kpis_coherentes(cliente):
     assert k["ciclos_optimo"] > k["ciclos_base"]
 
 
-def test_el_dashboard_se_sirve(cliente):
+def test_la_landing_y_el_panel_se_sirven(cliente):
     r = cliente.get("/")
-    assert r.status_code == 200 and "SIMBIA" in r.text
+    assert r.status_code == 200 and "SIMBIA" in r.text and "/acceso" in r.text
+    r = cliente.get("/app")
+    assert r.status_code == 200 and 'id="nav-modulos"' in r.text
+    assert cliente.get("/app/", follow_redirects=False).headers["location"] == "/app"

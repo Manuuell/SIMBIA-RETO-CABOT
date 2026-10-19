@@ -52,7 +52,14 @@ BLOQUEO_S = 15 * 60
 RUTAS_LIBRES = frozenset({
     "/acceso", "/acceso.js", "/estilos.css", "/api/acceso", "/api/salir",
     "/api/sesion", "/salud",
+    # La landing es publica: es la puerta de entrada al proyecto.
+    "/", "/index.html", "/landing.css", "/landing.js", "/torre3d.js",
 })
+#: Carpetas publicas: las imagenes de la landing y three.js, que dibuja la
+#: torre del hero. Ninguna sirve datos de la aplicacion.
+PREFIJOS_LIBRES = ("/landing/", "/vendor/")
+#: A donde se entra despues de identificarse.
+PANEL = "/app"
 
 _SCRYPT = {"n": 2 ** 14, "r": 8, "p": 1, "dklen": 64}
 
@@ -212,7 +219,7 @@ def _destino_seguro(siguiente: str | None) -> str:
     """Solo rutas relativas de esta aplicacion: nada de redirigir fuera."""
     if siguiente and siguiente.startswith("/") and not siguiente.startswith("//"):
         return siguiente
-    return "/"
+    return PANEL
 
 
 def instalar(app: FastAPI, web: Path) -> None:
@@ -223,7 +230,7 @@ def instalar(app: FastAPI, web: Path) -> None:
     def pagina_acceso(request: Request):
         cfg = config()
         if cfg is None or usuario_del_token(cfg, request.cookies.get(COOKIE)):
-            return RedirectResponse("/", status_code=303)
+            return RedirectResponse(_destino_seguro(request.query_params.get("siguiente")), status_code=303)
         return FileResponse(web / "acceso.html")
 
     @router.get("/api/sesion")
@@ -272,18 +279,21 @@ def instalar(app: FastAPI, web: Path) -> None:
     async def guardia(request: Request, call_next):
         cfg = config()
         ruta = request.url.path
-        if cfg is None or ruta in RUTAS_LIBRES:
+        if cfg is None or ruta in RUTAS_LIBRES or ruta.startswith(PREFIJOS_LIBRES):
             return await call_next(request)
         if usuario_del_token(cfg, request.cookies.get(COOKIE)):
             return await call_next(request)
         if ruta.startswith(("/api/", "/openapi", "/docs", "/redoc")):
             return JSONResponse({"detail": "Sesion requerida"}, status_code=401)
         destino = ruta + (f"?{request.url.query}" if request.url.query else "")
-        siguiente = f"?siguiente={quote(destino, safe='/#?=&')}" if destino != "/" else ""
+        siguiente = f"?siguiente={quote(destino, safe='/#?=&')}" if destino != PANEL else ""
         return RedirectResponse(f"/acceso{siguiente}", status_code=303)
 
-    if config() is None:
-        log.warning("SIMBIA_AUTH_HASH no definida: la aplicacion queda ABIERTA sin autenticacion")
+    cfg = config()
+    if cfg is None:
+        log.warning("sin usuarios definidos: la aplicacion queda ABIERTA sin autenticacion")
+    else:
+        log.info("autenticacion activa para %d usuario(s)", len(cfg.usuarios))
 
 
 # --------------------------------------------------------------------------

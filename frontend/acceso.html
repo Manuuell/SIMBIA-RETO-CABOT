@@ -4,34 +4,49 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>SIMBIA · Acceso</title>
-  <link rel="stylesheet" href="/estilos.css?v=5">
+  <title>SIMBIA · Iniciar sesión</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/estilos.css?v=14">
 </head>
-<body class="solo">
-  <main class="acceso">
-    <form class="tarjeta acceso-caja" id="form-acceso" autocomplete="on">
-      <div class="marca" style="padding:0;margin-bottom:18px">
-        <div class="chevron"></div>
-        <div>
-          <h1>SIMBIA</h1>
-          <p class="sub">Simbiosis hidrica industrial · Reto Cabot</p>
+<body class="acceso-pagina">
+
+  <aside class="acc-escena">
+    <a class="acc-marca" href="/" title="Volver a la portada de SIMBIA"><span class="chevron"></span>SIMBIA</a>
+    <img class="acc-foto" src="/landing/planta-ilustrativa.jpg"
+      alt="Planta industrial junto a la bahía, con piscinas de tratamiento de agua y torres de enfriamiento al atardecer.">
+    <div class="acc-texto">
+      <p class="acc-antetitulo">Reto Cabot · Caribe Innova</p>
+      <h2>El agua que hoy se vierte en Mamonal puede enfriar la planta de Cabot.</h2>
+      <ul class="acc-dentro" aria-label="Lo que hay en el panel">
+        <li>Vecinos</li><li>Gemelo de la torre</li><li>Asistente con IA</li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="acc-formulario">
+    <a class="acc-volver" href="/">← Volver a la portada</a>
+    <form class="acc-caja" id="form-acceso" autocomplete="on">
+      <h1>Iniciar sesión</h1>
+      <p class="acc-sub">Entra al panel de SIMBIA para ver a los vecinos, probar el gemelo de la torre y preguntarle a la IA.</p>
+      <div class="control">
+        <label for="usuario">Correo</label>
+        <input type="email" id="usuario" name="username" autocomplete="username" placeholder="tu@empresa.com" required autofocus>
+      </div>
+      <div class="control">
+        <label for="clave">Contraseña</label>
+        <div class="acc-clave">
+          <input type="password" id="clave" name="password" autocomplete="current-password" required>
+          <button type="button" class="acc-ver" id="ver-clave" aria-controls="clave" aria-pressed="false">Mostrar</button>
         </div>
       </div>
-      <p class="prosa" style="margin-bottom:16px">Herramienta de uso interno. Identificate para continuar.</p>
-      <div class="control" style="margin-bottom:12px">
-        <label for="usuario">Correo</label>
-        <input type="email" id="usuario" name="username" autocomplete="username" required autofocus>
-      </div>
-      <div class="control" style="margin-bottom:18px">
-        <label for="clave">Contrasena</label>
-        <input type="password" id="clave" name="password" autocomplete="current-password" required>
-      </div>
-      <div class="error" id="acceso-error" hidden></div>
-      <div class="acciones" style="margin-top:14px">
-        <button type="submit" id="btn-entrar" style="width:100%">Entrar</button>
-      </div>
+      <div class="error" id="acceso-error" role="alert" hidden></div>
+      <button type="submit" class="acc-entrar" id="btn-entrar">Entrar</button>
+      <p class="acc-nota">Acceso para el equipo del Reto Cabot.</p>
     </form>
   </main>
-  <script type="module" src="/acceso.js?v=3"></script>
+
+  <script type="module" src="/acceso.js?v=5"></script>
 </body>
 </html>

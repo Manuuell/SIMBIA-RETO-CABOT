@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth
@@ -43,6 +44,19 @@ auth.instalar(app, WEB)
 @app.get("/salud")
 def salud() -> dict[str, str]:
     return {"estado": "ok", "version": __version__}
+
+
+# La raiz es la landing (index.html, publica); el panel vive en /app y queda
+# detras del acceso. Sus recursos son relativos, asi que /app sin barra final
+# los resuelve contra la raiz igual que antes.
+@app.get("/app", include_in_schema=False)
+def panel():
+    return FileResponse(WEB / "app.html")
+
+
+@app.get("/app/", include_in_schema=False)
+def panel_barra():
+    return RedirectResponse("/app", status_code=307)
 
 
 @app.middleware("http")

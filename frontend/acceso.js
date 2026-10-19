@@ -20,18 +20,26 @@ form.addEventListener("submit", async (ev) => {
     });
     if (r.ok) {
       // El #modulo no viaja al servidor, asi que se conserva desde aqui.
-      const siguiente = new URLSearchParams(location.search).get("siguiente") || ("/" + location.hash);
+      const siguiente = new URLSearchParams(location.search).get("siguiente") || ("/app" + location.hash);
       // Solo rutas de esta aplicacion: nada de saltar a otro sitio.
-      location.replace(siguiente.startsWith("/") && !siguiente.startsWith("//") ? siguiente : "/");
+      location.replace(siguiente.startsWith("/") && !siguiente.startsWith("//") ? siguiente : "/app");
       return;
     }
-    let detalle = "No se pudo iniciar sesion.";
+    let detalle = "No se pudo iniciar sesión.";
     try { detalle = (await r.json()).detail || detalle; } catch { /* sin cuerpo */ }
     mostrarError(detalle);
     if (r.status === 401) { $("clave").value = ""; $("clave").focus(); }
   } catch (e) {
-    mostrarError("Sin conexion con el servidor.");
+    mostrarError("Sin conexión con el servidor.");
   } finally {
     boton.disabled = false; boton.textContent = "Entrar";
   }
+});
+
+$("ver-clave").addEventListener("click", (ev) => {
+  const clave = $("clave"), visible = clave.type === "password";
+  clave.type = visible ? "text" : "password";
+  ev.currentTarget.textContent = visible ? "Ocultar" : "Mostrar";
+  ev.currentTarget.setAttribute("aria-pressed", String(visible));
+  clave.focus();
 });

@@ -3,734 +3,315 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SIMBIA · Simbiosis hidrica industrial · Reto Cabot</title>
-  <link rel="stylesheet" href="estilos.css?v=5">
+  <title>SIMBIA · Agua de vecinos para la torre de Cabot</title>
+  <meta name="description" content="SIMBIA encuentra a las empresas vecinas de Mamonal, lee sus permisos de vertimiento y simula en un gemelo de la torre de Cabot cuánta agua cruda deja de captar.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="landing.css?v=12">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
 </head>
 <body>
 
-<aside class="lateral">
-  <div class="marca">
-    <div class="chevron"></div>
-    <div>
-      <h1>SIMBIA</h1>
-      <p class="sub">Simbiosis hidrica · Reto Cabot</p>
-    </div>
-  </div>
-
-  <nav class="modulos" id="nav-modulos">
-    <a href="#inicio" data-modulo="inicio">
-      <span class="n">0</span>
-      <span><span class="t">Inicio</span><br><span class="d">Resultado y recorrido</span></span>
-    </a>
-    <div class="grupo">Prospeccion</div>
-    <a href="#datos" data-modulo="datos">
-      <span class="n">1</span>
-      <span><span class="t">Datos externos</span><br><span class="d">Fuentes, permisos y documentos</span></span>
-    </a>
-    <a href="#vital" data-modulo="vital">
-      <span class="n">2</span>
-      <span><span class="t">Buscador VITAL</span><br><span class="d">Tramites y expedientes</span></span>
-    </a>
-    <a href="#prospectos" data-modulo="prospectos">
-      <span class="n">3</span>
-      <span><span class="t">Prospectos</span><br><span class="d">Mapa, puntaje y detalle</span></span>
-    </a>
-    <a href="#empresas" data-modulo="empresas">
-      <span class="n">4</span>
-      <span><span class="t">Empresas</span><br><span class="d">Cartera: expedientes y dossier</span></span>
-    </a>
-    <!-- Oculto del menu por ahora, como el grupo Decision; sigue en #embudo. -->
-    <a href="#embudo" data-modulo="embudo" hidden>
-      <span class="n">5</span>
-      <span><span class="t">Embudo comercial</span><br><span class="d">Etapas, fichas y vigilancia</span></span>
-    </a>
-    <!-- Grupo Decision oculto del menu por ahora (16 sep 2026). Los modulos
-         siguen existiendo y responden en #optimizador y #operacion; para
-         volver a mostrarlos basta con quitar los `hidden`. -->
-    <div class="grupo" hidden>Decision</div>
-    <a href="#optimizador" data-modulo="optimizador" hidden>
-      <span class="n">6</span>
-      <span><span class="t">Optimizador</span><br><span class="d">Mezcla, tratamiento y ciclos</span></span>
-    </a>
-    <a href="#operacion" data-modulo="operacion" hidden>
-      <span class="n">7</span>
-      <span><span class="t">Operacion e IA</span><br><span class="d">Demanda, fugas, ensuciamiento</span></span>
-    </a>
-    <div class="grupo" id="grupo-asistente">Asistente</div>
-    <a href="#asistente" data-modulo="asistente" class="destacado">
-      <span class="n">✦</span>
-      <span><span class="t">Asistente</span><br><span class="d">Pregunta, escucha, dicta</span></span>
-    </a>
-    <div class="grupo">Metodologia</div>
-    <a href="#modelo" data-modulo="modelo">
-      <span class="n">5</span>
-      <span><span class="t">Criterios tecnicos</span><br><span class="d">Trazabilidad y metodo</span></span>
-    </a>
+<header class="cab" id="cab">
+  <a class="cab-marca" href="#inicio" aria-label="SIMBIA, inicio">
+    <span class="chevron" aria-hidden="true"></span><span>SIMBIA</span>
+  </a>
+  <nav class="cab-nav" aria-label="Secciones">
+    <a href="#como">Cómo funciona</a>
+    <a href="#gemelo">Gemelo</a>
+    <a href="#datos">Datos honestos</a>
   </nav>
-
-  <div class="lateral-pie">
-    <span class="sesion" id="pie-sesion"></span>
-  </div>
-</aside>
+  <a class="boton boton-tinta cab-entrar" id="entrar" href="/acceso?siguiente=/app">Iniciar sesión</a>
+</header>
 
 <main>
 
-  <!-- ================================================================ 0 -->
-  <section class="modulo" id="mod-inicio">
-    <div class="cabecera">
-      <div>
-        <h1>Reto Cabot: reducir al menos un 10 % el consumo de agua</h1>
-        <p class="intro">SIMBIA encuentra a los vecinos industriales de la planta, reconstruye con
-          fuentes publicas el agua de rechazo que producen y decide que mezclar, con que tratamiento
-          y a que ciclos operar las torres de enfriamiento.</p>
+  <!-- Hero: el agua y la torre, en vivo -->
+  <section class="hero" id="inicio">
+    <div class="hero-texto">
+      <p class="kicker">Reto Cabot · Mamonal, Cartagena</p>
+      <h1>El agua que tus vecinos <span class="resalte">vierten</span>, enfriando tu planta.</h1>
+      <p class="hero-sub">SIMBIA encuentra a las empresas de Mamonal, lee sus permisos de vertimiento y simula en un gemelo
+        de tu torre cuánta agua cruda dejas de captar. Antes de tender un metro de tubería.</p>
+      <div class="hero-acciones">
+        <a class="boton boton-tinta" href="/acceso?siguiente=/app" data-entrar>Iniciar sesión <span aria-hidden="true">→</span></a>
+        <a class="boton boton-claro" href="#como">Ver cómo funciona</a>
       </div>
     </div>
-    <div class="bloque">
-      <h2>Resultado con el catalogo prospectado en Mamonal <span class="nota" id="inicio-meta"></span></h2>
-      <div class="rejilla kpis" id="inicio-kpis"><p class="cargando">Optimizando con los prospectos…</p></div>
-      <p class="pie" id="inicio-mezcla"></p>
-      <p class="pie evidencia">Resultado de prefactibilidad: combina fuentes publicas, documentos de expediente
-        y estimaciones sectoriales ponderadas por confianza. La decision de inversion requiere muestreo y
-        validacion en planta.</p>
+    <div class="hero-escena">
+      <div class="torre-viva" id="torre-viva" role="img"
+        aria-label="Torre de enfriamiento de cuatro celdas en 3D, dimensionada con el caudal de recirculación de la planta, con sus ventiladores girando.">
+        <noscript><p>La vista 3D necesita JavaScript.</p></noscript>
+      </div>
+      <p class="pegatina p1"><b>−38 %</b> agua cruda</p>
+      <p class="pegatina p2"><b>6,5</b> ciclos · sin alarmas</p>
+      <p class="pegatina p3"><b>33</b> vecinos en 20 km</p>
+      <p class="hero-pie">Gemelo de la torre: 4 celdas de 7,4 m · ventiladores de 6 m a 190 rpm · arrástrala para girarla</p>
     </div>
-    <div class="bloque">
-      <h2>El recorrido</h2>
-      <div class="recorrido" id="inicio-recorrido"></div>
+  </section>
+
+  <!-- Franja de color: la meta -->
+  <section class="franja" data-color="naranja">
+    <div class="contenedor franja-fila">
+      <p>Meta del reto: <b>−10 %</b> de agua. Con los vecinos reales de Mamonal, SIMBIA encuentra un camino a <b>−38 %</b>.</p>
+      <a class="boton boton-tinta" href="#reto">Ver el reto</a>
     </div>
-    <div class="bloque">
-      <h2>Como funciona</h2>
-      <div class="rejilla tres">
-        <div class="tarjeta">
-          <h3>1 · Encontrar</h3>
-          <div class="prosa">
-            <p>Las empresas alrededor de la planta salen de <b>OpenStreetMap</b> y se cruzan con los
-              tramites de vertimiento de <b>VITAL</b>, la ventanilla del Ministerio de Ambiente. Un
-              expediente prueba que la empresa vierte y abre la puerta a sus documentos.</p>
-          </div>
+  </section>
+
+  <!-- El reto: el enunciado, las cifras y como lo atacamos -->
+  <section class="reto" id="reto">
+    <div class="contenedor">
+      <div class="reto-dentro">
+        <div class="reto-titulo">
+          <p class="kicker">El reto</p>
+          <h2>Cabot necesita menos agua. <span class="subraya">Sus vecinos la están vertiendo.</span></h2>
+          <blockquote class="reto-enunciado">
+            <p>«Reducir al menos un 10 % el consumo de agua en la planta, reutilizando las aguas de rechazo de empresas
+              vecinas para los sistemas de enfriamiento.»</p>
+            <cite>Enunciado del Reto Cabot</cite>
+          </blockquote>
         </div>
-        <div class="tarjeta">
-          <h3>2 · Caracterizar</h3>
-          <div class="prosa">
-            <p>Cada corriente lleva un sello que dice de donde salio el dato:
-              <span class="sello medido">medido</span>
-              <span class="sello declarado">declarado</span>
-              <span class="sello inferido">inferido</span>
-              <span class="sello supuesto">supuesto</span>.
-              Se parte de la referencia del sector, se sustituye por lo que dice el expediente y,
-              con analitica de laboratorio, pasa a medido. La confianza sube con cada paso.</p>
-          </div>
+        <ol class="reto-filas">
+          <li><strong>−10 %</strong><span>de agua captada en la planta de Cabot: la meta del reto.</span></li>
+          <li><strong>33</strong><span>empresas a menos de 20 km generan agua de rechazo que hoy acaba vertida.</span></li>
+          <li><strong>≈ 46.000</strong><span>m³ al día de rechazo estimado entre todas: unas 16 veces lo que consume la planta.</span></li>
+        </ol>
+      </div>
+
+      <div class="ataque">
+        <div class="ataque-cab">
+          <p class="kicker">Cómo lo atacamos</p>
+          <h3>De un mapa de vecinos a una tubería que se puede construir.</h3>
         </div>
-        <div class="tarjeta">
-          <h3>3 · Decidir</h3>
-          <div class="prosa">
-            <p><span class="formula">M = E · N / (N − 1)</span></p>
-            <p>La <b>evaporacion (E)</b> la fija la carga termica; lo unico recortable es la purga, y
-              depende de los <b>ciclos (N)</b>, que a su vez limita la calidad del aporte. Por eso
-              mezcla, tratamiento y ciclos se resuelven a la vez: agua de rechazo sin optimizar
-              puede <b>subir</b> la captacion.</p>
+        <ol class="ataque-pasos">
+          <li>
+            <span class="ataque-n">1</span>
+            <b>Encontrar</b>
+            <p>Escaneamos las empresas alrededor de Cabot y estimamos el agua de rechazo que produce cada una.</p>
+            <a href="#como">Ver el paso →</a>
+          </li>
+          <li>
+            <span class="ataque-n">2</span>
+            <b>Verificar</b>
+            <p>Cruzamos cada empresa con sus permisos de vertimiento en VITAL y leemos los documentos de su expediente.</p>
+            <a href="#verificar">Ver el paso →</a>
+          </li>
+          <li>
+            <span class="ataque-n">3</span>
+            <b>Simular</b>
+            <p>Probamos su agua en un gemelo de la torre: con qué tratamiento, a cuántos ciclos, sin incrustar ni corroer.</p>
+            <a href="#gemelo">Ver el paso →</a>
+          </li>
+          <li>
+            <span class="ataque-n">4</span>
+            <b>Decidir</b>
+            <p>Elegimos la mezcla más barata que cumple la meta y armamos el plan: a quién visitar, qué pedirle y qué pilotar.</p>
+            <a href="/acceso?siguiente=/app">Probarlo en el panel →</a>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 Encontrar -->
+  <section class="panel" data-tono="abismo" id="como">
+    <div class="panel-dentro dividido">
+      <div class="panel-texto">
+        <p class="kicker">01 · Encontrar</p>
+        <h2>Todos los vecinos de Cabot, <span class="tono">en una lista</span>.</h2>
+        <p>Las empresas salen de OpenStreetMap: posición real, tamaño del predio y nombre. Su actividad económica dice qué agua
+          de rechazo producen, y la física del optimizador les pone un puntaje: a quién visitar primero.</p>
+        <ul class="puntos">
+          <li><b>33 empresas</b> en 20 km, <b>24</b> con simbiosis viable</li>
+          <li>Distancia de conducción real, no la línea recta</li>
+          <li>Si una fuente externa cae, se conserva lo último descargado</li>
+        </ul>
+      </div>
+      <div class="maqueta maqueta-lista" aria-hidden="true">
+        <div class="mq-cab"><b>Vecinos</b><span>20 de 27 · solo viables</span></div>
+        <div class="mq-fila activa"><i style="--t:#f2762e">64</i><span><b>Lamitech</b><small>Papel y empaques · 105 m³/h · 2,3 km</small><em class="sello inferido">inferido</em><em class="exp">expediente</em></span></div>
+        <div class="mq-fila"><i style="--t:#f0823c">62</i><span><b>Ecopetrol</b><small>Refinación · 540 m³/h · 0,8 km</small><em class="sello inferido">inferido</em><em class="exp">expediente</em></span></div>
+        <div class="mq-fila"><i style="--t:#ec8a4a">59</i><span><b>Abocol S.A.</b><small>Fertilizantes · 38 m³/h · 1,3 km</small><em class="sello medido">medido</em></span></div>
+        <div class="mq-fila"><i style="--t:#e2925a">56</i><span><b>Dexton · Ajover</b><small>Plásticos · 57 m³/h · 0,9 km</small><em class="sello inferido">inferido</em><em class="exp">expediente</em></span></div>
+        <div class="mq-fila"><i style="--t:#d39a6d">55</i><span><b>Mexichem S.A.</b><small>Químicos · 165 m³/h · 2,2 km</small><em class="sello declarado">declarado</em><em class="exp">expediente</em></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 Verificar -->
+  <section class="panel" data-tono="hondo" id="verificar">
+    <div class="panel-dentro dividido invertido">
+      <div class="maqueta maqueta-vital" aria-hidden="true">
+        <div class="mq-cab"><b>VITAL · permisos de vertimiento</b><span>135 en Cartagena</span></div>
+        <div class="mq-tramite"><b>Lamitech</b><span>Vertimiento de aguas ante EPA Cartagena</span><code>1070860522056225001</code></div>
+        <div class="mq-tramite"><b>Ecopetrol</b><span>Vertimiento de aguas ante EPA Cartagena</span><code>1070089999906822001</code></div>
+        <div class="mq-tramite"><b>Dexton · Ajover</b><span>Vertimiento de aguas ante EPA Cartagena</span><code>1100086001377123003</code></div>
+        <div class="mq-escalera">
+          <span class="sello supuesto">supuesto 0,20</span><span class="sello inferido">inferido 0,45</span>
+          <span class="sello declarado">declarado 0,70</span><span class="sello medido">medido 0,95</span>
+        </div>
+      </div>
+      <div class="panel-texto">
+        <p class="kicker">02 · Verificar</p>
+        <h2>Un expediente vale <span class="tono">más que mil supuestos</span>.</h2>
+        <p>SIMBIA cruza cada vecino con VITAL, la ventanilla de trámites ambientales del Ministerio: quién vierte de verdad, ante
+          qué autoridad y con qué número de expediente. Trae sus documentos, los lee con IA y una persona decide qué se aplica.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 Simular -->
+  <section class="panel" data-tono="arena" id="gemelo">
+    <div class="panel-dentro dividido">
+      <div class="panel-texto">
+        <p class="kicker">03 · Simular</p>
+        <h2>Prueba la mezcla en la torre <span class="tono">antes de tender un tubo.</span></h2>
+        <p>El gemelo es una copia digital de la torre de Cabot que se comporta como la real. Le conectas el agua
+          de los vecinos y ves, día a día, cuánta agua deja de captar la planta.</p>
+        <p>La torre se ajusta sola, como en planta: purga menos y sube los ciclos poco a poco. Si una mezcla
+          fuera a incrustar o corroer los equipos, el aviso sale en el gemelo, no en la planta.</p>
+      </div>
+      <!-- Simulacion real grabada con el modelo dinamico del panel (landing/gemelo-demo.json,
+           generada con python -m simbia.simulador.demo_portada). -->
+      <div class="maqueta maqueta-gemelo" id="demo-gemelo" role="group" aria-label="Simulación del gemelo de la torre: durante dos semanas, el agua de tres vecinos reemplaza la mayor parte del agua cruda que capta Cabot.">
+        <div class="gd-barra">
+          <span class="gd-puntos" aria-hidden="true"><i></i><i></i><i></i></span>
+          <b>Gemelo de la torre</b>
+          <span class="gd-reloj">Día <span id="gd-dia">0</span> · <span id="gd-hora">00:00</span></span>
+        </div>
+        <div class="gd-cuerpo">
+          <div class="gd-kpis">
+            <div class="gd-kpi principal" id="gd-kpi-ahorro"><span>Reducción del consumo</span><b id="gd-ahorro">0,0 %</b><i>meta 10 %</i></div>
+            <div class="gd-kpi"><span>Agua cruda</span><b id="gd-cruda">53,0</b><i>m³/h</i></div>
+            <div class="gd-kpi"><span>De vecinos</span><b id="gd-vecinos">0,0</b><i>m³/h</i></div>
+            <div class="gd-kpi"><span>Ciclos</span><b id="gd-ciclos">3,2</b><i>hoy 3,2</i></div>
+          </div>
+          <div class="gd-grafica">
+            <div class="gd-graf-cab">
+              <b>Agua que entra a la torre</b>
+              <span class="gd-leyenda"><span><i class="cruda"></i>cruda</span><span><i class="vecinos"></i>de vecinos</span></span>
+            </div>
+            <div class="gd-svg-caja">
+              <svg class="gd-svg" id="gd-svg" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
+                <path class="gd-area-vecinos" id="gd-p-vecinos" d=""/>
+                <path class="gd-area-cruda" id="gd-p-cruda" d=""/>
+                <line class="gd-marca" id="gd-marca" x1="0" y1="0" x2="0" y2="120"/>
+              </svg>
+              <span class="gd-evento" id="gd-evento" aria-hidden="true">entran los vecinos</span>
+            </div>
+            <div class="gd-eje" aria-hidden="true"><span>día 0</span><span id="gd-eje-medio">día 7</span><span id="gd-eje-fin">día 14</span></div>
+          </div>
+          <div class="gd-vecinos" id="gd-vecinos-lista"></div>
+          <div class="gd-pie">
+            <span class="gd-estado" id="gd-estado">Operación de hoy, sin vecinos</span>
+            <button type="button" class="gd-repetir" id="gd-repetir" hidden>↻ Ver de nuevo</button>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ================================================================ 1 -->
-  <section class="modulo" id="mod-datos">
-    <div class="cabecera">
-      <div>
-        <h1>Datos externos</h1>
-        <p class="intro">De donde sale el catalogo de vecinos. Tres pasos: consultar las fuentes,
-          cruzar los permisos de vertimiento y traer los documentos del expediente. La bitacora de
-          la derecha cuenta que hizo el sistema en cada paso.</p>
-      </div>
-      <div class="acciones-cab"><span id="datos-chip-modo"></span></div>
-    </div>
-
-    <div class="rejilla dos-tercios">
-      <div>
-        <!-- paso 1 -->
-        <div class="tarjeta paso bloque" id="paso-fuentes">
-          <h3><span class="paso-num" id="paso1-num">1</span> Consultar las fuentes
-            <span class="estado" id="paso1-estado"></span></h3>
-          <div class="fuentes-lista" id="fuentes-lista"><p class="cargando">Leyendo configuracion…</p></div>
-          <div class="barra-accion">
-            <div class="control" style="flex:0 0 140px">
-              <label>Radio de busqueda (km)</label>
-              <input type="number" id="radio-km" min="0.5" max="40" step="0.5" value="8">
-              <span class="pie" id="radio-nota" style="display:block;margin-top:4px;color:var(--aviso)"></span>
-            </div>
-            <div class="que-pasara" id="que-pasara"></div>
-            <button id="btn-barrido">Actualizar catalogo</button>
-          </div>
-          <details class="ayuda">
-            <summary>Opciones de actualizacion</summary>
-            <div class="cuerpo">
-              <div class="control" style="margin-bottom:12px">
-                <label>Origen de los datos</label>
-                <div class="opciones" id="modo-opciones">
-                  <label class="activo"><input type="radio" name="modo" value="offline" checked> Ultima consulta</label>
-                  <label><input type="radio" name="modo" value="cache"> Actualizar si hace falta</label>
-                  <label><input type="radio" name="modo" value="vivo"> Consultar ahora</label>
-                </div>
-              </div>
-              <p><b>Ultima consulta</b> usa la evidencia ya descargada y garantiza que la presentacion
-                funcione aunque una fuente externa no responda.</p>
-              <p><b>Actualizar si hace falta</b> conserva los datos vigentes y consulta solamente lo que
-                haya caducado.</p>
-              <p><b>Consultar ahora</b> vuelve a OpenStreetMap y VITAL y registra la fecha y el resultado
-                de cada fuente.</p>
-            </div>
-          </details>
-        </div>
-
-        <!-- paso 2 -->
-        <div class="tarjeta paso bloque" id="paso-permisos">
-          <h3><span class="paso-num pendiente" id="paso2-num">2</span> Cruzar permisos de vertimiento
-            <span class="estado" id="paso2-estado"></span></h3>
-          <div id="permisos-resumen"></div>
-          <div class="tabla-envoltorio" id="permisos-tabla"></div>
-          <details class="ayuda">
-            <summary>Que aporta un permiso y que no</summary>
-            <div class="cuerpo">
-              <p>Un permiso radicado ante la autoridad ambiental prueba que la empresa <b>vierte
-                de verdad</b> y esta regulada. Eso sube su confianza. Lo mas valioso es el
-                <b>numero de expediente</b>: una solicitud que lo cita se responde; una generica
-                se pierde.</p>
-              <p>El buscador no publica caudal ni analitica: eso vive en los documentos del
-                expediente, que se piden por derecho de peticion y entran en el paso 3.</p>
-              <p>Fuente: VITAL, la Ventanilla Integral de Tramites Ambientales del Ministerio.
-                Los permisos de Cartagena no estan en datos.gov.co.</p>
-            </div>
-          </details>
-        </div>
-
-        <!-- paso 3 -->
-        <div class="tarjeta paso bloque" id="paso-documentos">
-          <h3><span class="paso-num pendiente" id="paso3-num">3</span> Traer documentos del expediente
-            <span class="estado" id="paso3-estado"></span></h3>
-          <div class="zona-suelta" id="zona-pdf">
-            <b>Suelta aqui un PDF o pulsa para elegirlo</b>
-            Permiso de vertimiento, resolucion o informe de caracterizacion
-            <input type="file" id="archivo-pdf" accept="application/pdf" hidden>
-          </div>
-          <div id="documento-caja"></div>
-          <div id="documento-resultado"></div>
-          <details class="ayuda">
-            <summary>Archivar frente a leer con IA</summary>
-            <div class="cuerpo">
-              <p><b>Archivar</b> guarda el PDF junto al resto de la evidencia del prospecto. Siempre
-                funciona. Existe porque el portal antiguo de VITAL no se deja consultar desde un
-                programa: los expedientes se descargan a mano y entran por aqui.</p>
-              <p><b>Leer con IA</b> extrae caudal autorizado y la tabla de caracterizacion a una
-                estructura fija. Lo extraido entra como <span class="sello declarado">declarado</span>,
-                nunca como medido: es lo que la empresa reporto, no una muestra nuestra. El PDF se
-                trata como dato, no como instruccion.</p>
-            </div>
-          </details>
-        </div>
-      </div>
-
-      <div class="tarjeta" style="align-self:start;position:sticky;top:20px">
-        <h3>Bitacora <span class="nota">que hizo el sistema</span>
-          <button class="secundario pequeno" id="btn-bitacora-limpiar" style="margin-left:auto">Limpiar</button></h3>
-        <div class="bitacora" id="bitacora"><p class="vacia">Todavia no se ha ejecutado nada.</p></div>
-      </div>
+  <!-- Banda ancha: la pregunta -->
+  <section class="ancha">
+    <img class="ancha-fondo" src="landing/planta-ilustrativa.jpg" alt="Planta de tratamiento de agua junto a la bahía, con torres de enfriamiento al fondo." loading="lazy">
+    <div class="ancha-velo" aria-hidden="true"></div>
+    <div class="contenedor ancha-texto">
+      <h2>El residuo de uno es el recurso del otro.</h2>
+      <p>El agua que hoy se vierte en Mamonal puede enfriar la planta de Cabot.</p>
     </div>
   </section>
 
-  <!-- ================================================================ 2 -->
-  <section class="modulo" id="mod-vital">
-    <div class="cabecera">
-      <div>
-        <h1>Buscador VITAL</h1>
-        <p class="intro">Localiza trámites y expedientes ambientales, revisa su evidencia documental y
-          vincúlala con los prospectos de SIMBIA.</p>
+  <!-- Datos honestos: filas -->
+  <section class="datos" id="datos">
+    <div class="contenedor">
+      <div class="datos-cab">
+        <p class="kicker">Datos honestos</p>
+        <h2>Cada número dice <span class="subraya">de dónde sale</span>.</h2>
+        <p>Una calidad de agua equivocada hunde los ciclos y se descubre con la tubería ya enterrada. Por eso ningún dato viaja
+          sin su sello, y la confianza decide qué entra a la inversión.</p>
       </div>
-      <div class="acciones-cab"><span id="vital-chip-origen"></span></div>
-    </div>
-    <div class="vital-workspace">
-      <div class="vital-principal">
-        <div class="vital-busqueda-panel">
-          <form class="buscador vital-buscador" id="vital-form">
-            <div class="vital-campo-busqueda">
-              <span aria-hidden="true">⌕</span>
-              <input type="search" id="vital-q" placeholder="Empresa, expediente o radicado" autocomplete="off" aria-label="Buscar en VITAL">
-            </div>
-            <button type="submit" id="vital-btn">Buscar en VITAL</button>
-          </form>
-          <div class="vital-ejemplos">Prueba con <button data-vital-buscar="Lamitech">Lamitech</button>, <button data-vital-buscar="Abocol">Abocol</button> o un radicado como <button data-vital-buscar="VDA-00020-24">VDA-00020-24</button>.</div>
-          <div class="filtros vital-filtros">
-            <label class="casilla activo"><input type="checkbox" id="vital-solo-vert" checked> Solo vertimientos</label>
-            <select id="vital-aut" aria-label="Filtrar por autoridad"><option value="">Todas las autoridades</option></select>
-            <select id="vital-tra" aria-label="Filtrar por trámite"><option value="">Todos los trámites</option></select>
-            <select id="vital-mun" aria-label="Filtrar por municipio"><option value="">Todos los municipios</option></select>
-            <div class="opciones" id="vital-modo" hidden>
-              <label class="activo"><input type="radio" name="vital-modo" value="cache" checked> Evidencia disponible</label>
-              <label><input type="radio" name="vital-modo" value="vivo"> Actualizar ahora</label>
-              <label><input type="radio" name="vital-modo" value="offline"> Última consulta</label>
-            </div>
-          </div>
-        </div>
-
-        <div class="vital-resultados-panel">
-          <div class="vital-resultados-cab">
-            <div>
-              <span class="vital-sobrelinea">Evidencia pública</span>
-              <h2 id="vital-titulo-resultados">Resultados</h2>
-            </div>
-            <p class="pie" id="vital-resumen">Busca una empresa para comenzar.</p>
-          </div>
-          <div class="tabla-envoltorio" id="vital-resultados"></div>
-          <div class="acciones vital-paginacion" id="vital-paginacion"></div>
-        </div>
-
-        <details class="ayuda vital-ayuda">
-          <summary>Qué información aporta VITAL</summary>
-          <div class="cuerpo">
-            <p><b>VITAL</b> es la Ventanilla Integral de Tramites Ambientales del Ministerio. Publica los
-              tramites radicados ante las autoridades del pais (EPA Cartagena, CARDIQUE, ANLA…): quien pidio
-              que, ante quien, con que expediente y cuando. Cuando el portal expone documentos, SIMBIA permite
-              revisarlos y guardarlos en la ficha del prospecto.</p>
-            <p>La busqueda es texto libre sobre titular, proyecto, expediente y radicado. Una empresa puede
-              tramitar con otra razon social o a traves de una filial: si "solo vertimientos" no encuentra
-              nada, quita el filtro y mira que otros tramites tiene.</p>
-            <p>La aplicacion conserva durante dos semanas cada consulta para que el expediente pueda
-              revisarse aunque el portal externo no responda. La fecha visible indica la vigencia del dato.</p>
-          </div>
-        </details>
-      </div>
-
-      <aside class="vital-lateral">
-        <div class="tarjeta vital-cobertura">
-          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Avance documental</span><h3>Cobertura de expedientes</h3></div></div>
-          <div id="vital-metricas"><p class="cargando">…</p></div>
-        </div>
-        <div class="tarjeta vital-pendientes-card">
-          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Siguiente acción</span><h3>Prospectos por verificar</h3></div><span class="nota">por prioridad</span></div>
-          <div id="vital-pendientes"><p class="cargando">…</p></div>
-        </div>
-        <div class="tarjeta vital-vinculados-card">
-          <div class="vital-lateral-cab"><div><span class="vital-sobrelinea">Evidencia confirmada</span><h3>Expedientes asociados</h3></div></div>
-          <div id="vital-vinculados"></div>
-        </div>
-      </aside>
+      <ol class="filas">
+        <li><span class="sello medido">medido</span><b>Analítica de laboratorio</b><span>de la corriente real, con laboratorio e informe citados.</span><em>0,95</em></li>
+        <li><span class="sello declarado">declarado</span><b>Lo reporta la empresa</b><span>o su permiso de vertimiento, leído del expediente.</span><em>0,70</em></li>
+        <li><span class="sello inferido">inferido</span><b>Estimado por su sector</b><span>a partir de la actividad económica: prioriza, no sustituye.</span><em>0,45</em></li>
+        <li><span class="sello supuesto">supuesto</span><b>Rango típico de industria</b><span>sin nada específico de la empresa. Visible, nunca escondido.</span><em>0,20</em></li>
+      </ol>
     </div>
   </section>
 
-  <!-- ================================================================ 3 -->
-  <section class="modulo" id="mod-prospectos">
-    <div class="cabecera">
-      <div>
-        <h1>Prospectos</h1>
-        <p class="intro">Las empresas encontradas alrededor de la planta, con el agua de rechazo que
-          probablemente producen y un puntaje que dice a quien visitar primero. Pulsa una fila o un
-          punto del mapa para ver el detalle.</p>
-      </div>
-      <div class="acciones-cab">
-        <a href="#datos" class="chip neutra sin-punto" id="prospectos-origen"></a>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="rejilla kpis" id="prospectos-kpis"><p class="cargando">Prospectando…</p></div>
-    </div>
-    <div class="tarjeta prospectos-herramientas">
-      <label>Buscar empresa o sector<input id="prospectos-buscar" type="search" placeholder="Nombre, sector o corriente…"></label>
-      <label>Ordenar por<select id="prospectos-orden"><option value="puntaje">Mayor puntaje</option><option value="distancia">Menor distancia</option><option value="caudal">Mayor caudal</option><option value="confianza">Mayor confianza</option><option value="nombre">Nombre A–Z</option></select></label>
-      <div class="casillas" id="prospectos-filtros">
-        <label class="activo"><input type="checkbox" id="filtro-viables"> Solo viables</label>
-        <label><input type="checkbox" id="filtro-permiso"> Con expediente</label>
-        <label><input type="checkbox" id="filtro-confianza"> Confianza suficiente</label>
-      </div>
-      <button class="secundario pequeno" id="prospectos-limpiar">Ver todos</button>
-      <p class="pie">Los filtros se aplican al mapa y a ambas tablas. Los indicadores superiores resumen todo el barrido.</p>
-    </div>
-    <div class="bloque">
-      <div class="rejilla dos-tercios">
-        <div class="tarjeta mapa-envoltorio" id="mapa"><p class="cargando">Dibujando…</p></div>
-        <div class="tarjeta">
-          <h3>Conducción estimada <span class="nota">hasta 8 cercanos del filtro</span></h3>
-          <table id="tabla-trazado"><tbody></tbody></table>
-          <details class="ayuda">
-            <summary>Por que no vale la linea recta</summary>
-            <div class="cuerpo"><p>Una conduccion sigue corredores existentes, bordea predios y
-              cruza vias y canos. Se estima con un factor de tortuosidad por tipo de corredor mas una
-              penalizacion por cruce. Es una estimacion declarada: cuando exista el trazado real
-              medido, se sustituye y no cambia nada mas.</p></div>
-          </details>
-        </div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Empresas del barrido
-          <span class="chip neutra sin-punto" id="prospectos-filtro-txt"></span>
-
-        </h3>
-        <div class="tabla-envoltorio">
-          <table id="tabla-prospectos">
-            <thead><tr>
-              <th>Empresa</th><th>Sector</th><th class="num">Km</th>
-              <th class="num">m³/h</th><th>Calidad</th><th>Confianza</th>
-              <th class="num">Puntaje</th><th>Etapa</th>
-            </tr></thead>
-            <tbody><tr><td colspan="8" class="cargando">Prospectando…</td></tr></tbody>
-          </table>
-        </div>
-        <details class="ayuda">
-          <summary>Como se calcula el puntaje</summary>
-          <div class="cuerpo" id="ayuda-puntaje"></div>
-        </details>
-      </div>
+  <!-- Cierre -->
+  <section class="cierre" data-color="naranja">
+    <div class="cierre-dentro">
+      <h2>Entra al panel y pon a prueba tu torre.</h2>
+      <p>Vecinos, expedientes, gemelo dinámico y optimizador, con los datos de Mamonal.</p>
+      <a class="boton boton-tinta boton-grande" href="/acceso?siguiente=/app" data-entrar>Iniciar sesión <span aria-hidden="true">→</span></a>
     </div>
   </section>
-
-  <!-- ================================================================ 4 -->
-  <section class="modulo" id="mod-empresas">
-    <div class="cabecera">
-      <div>
-        <h1>Empresas en cartera</h1>
-        <p class="intro">La cartera son las empresas que decidieron seguir; en <b>Todos los prospectos</b> esta el resto del
-          barrido para elegir. De cada una, todo lo que se sabe: datos y caracterizacion, ficha comercial, expedientes y
-          tramites con sus documentos, y la lectura con IA de lo guardado para aplicar al prospecto lo que declara.</p>
-      </div>
-      <div class="acciones-cab">
-        <span id="empresas-lote"></span>
-        <span class="chip neutra sin-punto" id="empresas-kpi"></span>
-        <button class="secundario pequeno" id="btn-analizar-todos" data-texto="Analizar todos los expedientes">Analizar todos los expedientes</button>
-      </div>
-    </div>
-    <div class="rejilla tercio-dos">
-      <div>
-        <div class="pestanas" id="empresas-vista" style="margin-bottom:10px"></div>
-        <div id="empresas-lista" class="empresas-lista"><p class="cargando">Cargando la cartera…</p></div>
-        <details class="ayuda">
-          <summary>Como entra una empresa en la cartera</summary>
-          <div class="cuerpo"><p>A mano, con "Seguir en cartera" en la ficha del prospecto. O sola, en cuanto hay trabajo
-            registrado sobre ella: mover de etapa, vincular un expediente desde el Buscador VITAL, guardar un documento o
-            declarar su calidad. "Quitar de la cartera" solo la esconde de aqui: la ficha y los documentos se conservan.</p></div>
-        </details>
-      </div>
-      <div id="empresa-dossier"></div>
-    </div>
-  </section>
-
-  <!-- ================================================================ 5 -->
-  <section class="modulo" id="mod-embudo">
-    <div class="cabecera">
-      <div>
-        <h1>Embudo comercial</h1>
-        <p class="intro">Cuanto caudal hay en cada etapa de contratacion y que ha cambiado en el parque
-          desde la ultima revision. El embudo se mide en caudal, no en numero de empresas.</p>
-      </div>
-      <div class="acciones-cab">
-        <button class="secundario" id="btn-instantanea">Archivar instantanea de hoy</button>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="rejilla kpis" id="embudo-kpis"></div>
-    </div>
-    <div class="bloque">
-      <div class="rejilla dos">
-        <div class="tarjeta">
-          <h3>Caudal por etapa</h3>
-          <div class="embudo" id="embudo"><p class="cargando">…</p></div>
-          <h4 style="margin:16px 0 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">
-            Que hace falta para pasar a la siguiente</h4>
-          <div class="siguiente" id="embudo-requisitos"></div>
-        </div>
-        <div class="tarjeta">
-          <h3>Cambios desde la ultima instantanea <span class="nota" id="vigilancia-ref"></span></h3>
-          <div id="vigilancia"><p class="cargando">…</p></div>
-        </div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Fichas con trabajo comercial</h3>
-        <div id="fichas-huerfanas"></div>
-        <div class="tabla-envoltorio" id="fichas-tabla"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================ 4 -->
-  <section class="modulo" id="mod-optimizador">
-    <div class="cabecera">
-      <div>
-        <h1>Optimizador</h1>
-        <p class="intro">Dado un catalogo de vecinos, decide de quien tomar agua, con que tren de
-          tratamiento, en que proporcion, con cuanto acido y a que ciclos operar la torre. Todo a la vez,
-          minimizando costo y cumpliendo los limites del agua circulante.</p>
-      </div>
-    </div>
-    <div class="pestanas" id="opt-pestanas">
-      <button class="activa" data-pestana="base">Caso base · catalogo supuesto</button>
-      <button data-pestana="reales">Con prospectos reales</button>
-    </div>
-
-    <div class="pestana activa" id="opt-base">
-      <div class="bloque">
-        <div class="tarjeta">
-          <h3>Escenario <span class="nota">mueve un control y recalcula</span>
-            <button id="btn-recalcular" class="pequeno" style="margin-left:auto">Recalcular</button></h3>
-          <div class="controles" id="controles"></div>
-        </div>
-      </div>
-      <div class="bloque">
-        <h2>Resultado <span class="nota" id="estado-meta"></span></h2>
-        <div class="rejilla kpis" id="kpis"><p class="cargando">Optimizando…</p></div>
-      </div>
-      <div class="bloque">
-        <h2>Balance hidrico del circuito</h2>
-        <div class="rejilla dos">
-          <div class="tarjeta"><div id="flujo-base"></div></div>
-          <div class="tarjeta"><div id="flujo-optimo"></div></div>
-        </div>
-      </div>
-      <div class="bloque">
-        <h2>Mezcla optima</h2>
-        <div class="rejilla dos-tercios">
-          <div class="tarjeta">
-            <h3>Corrientes seleccionadas y su tren</h3>
-            <div class="tabla-envoltorio" id="tabla-mezcla"><p class="cargando">Calculando…</p></div>
-          </div>
-          <div class="tarjeta">
-            <h3>Agua circulante frente a limites</h3>
-            <div id="limites-calidad"></div>
-            <p class="pie" id="resumen-quimica"></p>
-          </div>
-        </div>
-      </div>
-      <div class="bloque">
-        <h2>Cuanto cuesta cada punto de ahorro</h2>
-        <div class="tarjeta">
-          <div id="gr-frontera"><p class="cargando">Calculando la curva completa…</p></div>
-          <div class="leyenda">
-            <span><i style="background:#f2762e"></i> Costo total anual</span>
-            <span><i style="background:#4a9de0"></i> Inversion (CAPEX)</span>
-          </div>
-          <div class="tabla-envoltorio" id="tabla-frontera" style="margin-top:14px"></div>
-        </div>
-      </div>
-      <div class="bloque">
-        <h2>Robustez</h2>
-        <div class="rejilla dos">
-          <div class="tarjeta">
-            <h3>Si cae cada vecino</h3>
-            <div id="tabla-contingencias"></div>
-          </div>
-          <div class="tarjeta">
-            <h3>Sensibilidad al precio del agua cruda <span class="nota">beneficio neto anual</span></h3>
-            <div id="gr-sensibilidad"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="pestana" id="opt-reales">
-      <div class="bloque">
-        <div class="tarjeta">
-          <h3>Del prospecto al plan de inversion
-            <span class="nota">el mismo optimizador, con el catalogo que salio del barrido</span></h3>
-          <div class="controles">
-            <div class="control">
-              <label>Confianza minima para entrar <span class="lectura" id="lec-umbral">0.55</span></label>
-              <input type="range" id="umbral" min="0" max="0.95" step="0.05" value="0.55">
-            </div>
-            <div class="control">
-              <label>Tope operativo de reuso <span class="lectura" id="lec-reuso">85 %</span></label>
-              <input type="range" id="reuso" min="0" max="1" step="0.05" value="0.85">
-            </div>
-            <div class="control"><button id="btn-optimizar">Optimizar con estos prospectos</button></div>
-          </div>
-          <p class="pie" id="opt-reales-quienes"></p>
-          <details class="ayuda">
-            <summary>Como viaja la confianza al optimizador</summary>
-            <div class="cuerpo"><p>Cada prospecto entra con su confianza traducida a factor de
-              disponibilidad anual. Un catalogo poco fiable produce, por construccion, una solucion mas
-              conservadora. Por debajo del umbral un prospecto no entra aunque quimicamente sea magnifico:
-              optimizar sobre datos inventados da un plan de inversion inventado.</p></div>
-          </details>
-        </div>
-      </div>
-      <div class="bloque" id="resultado-opt"></div>
-    </div>
-  </section>
-
-  <!-- ================================================================ 5 -->
-  <section class="modulo" id="mod-operacion">
-    <div class="cabecera">
-      <div>
-        <h1>Operacion e inteligencia predictiva</h1>
-        <p class="intro">Tres modelos sobre el historico del circuito: cuanta reposicion hara falta en 24 h,
-          si hay una fuga y si el circuito va camino de ensuciarse en los proximos 7 dias.</p>
-      </div>
-      <div class="acciones-cab" id="alertas"></div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Ultimas dos semanas</h3>
-        <div id="gr-operacion"><p class="cargando">Cargando telemetria…</p></div>
-        <div class="leyenda">
-          <span><i style="background:#4a9de0"></i> Reposicion medida (m³/h)</span>
-          <span><i style="background:#e5534b"></i> Probabilidad de fuga</span>
-          <span><i style="background:#d9a441"></i> Riesgo de ensuciamiento a 7 dias</span>
-        </div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Modelos y desempeño <span class="nota">validacion temporal: 70 % pasado, 30 % futuro</span></h3>
-        <div class="tabla-envoltorio" id="metricas-ia"><p class="cargando">Cargando modelos…</p></div>
-        <details class="ayuda">
-          <summary>De donde sale el historico</summary>
-          <div class="cuerpo"><p>No hay SCADA conectado. El historico es <b>sintetico</b>, generado por el
-            propio gemelo digital: la misma fisica del optimizador mas la variabilidad de una planta real
-            (clima, carga, ruido de instrumentacion, fugas, derivas de los vecinos). Al conectar el SCADA se
-            sustituye el generador y los modelos se reentrenan sin tocar nada mas. Toda metrica va acompanada
-            de su referencia ingenua: un MAE sin comparar contra persistencia no dice nada.</p></div>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================ asistente -->
-  <section class="modulo" id="mod-asistente">
-    <div class="asistente-app">
-      <header class="asistente-barra">
-        <div class="asistente-identidad">
-          <div class="asistente-avatar">
-            <div class="orbe" id="orbe" data-estado="reposo" aria-hidden="true">
-              <div class="orbe-anillo a1"></div><div class="orbe-anillo a2"></div><div class="orbe-anillo a3"></div>
-              <div class="orbe-halo"></div>
-              <div class="orbe-nucleo"></div>
-              <div class="orbe-barras"><i></i><i></i><i></i><i></i><i></i></div>
-            </div>
-          </div>
-          <div>
-            <h1>Asistente SIMBIA</h1>
-            <p class="orbe-estado" id="orbe-estado">Cargando…</p>
-          </div>
-        </div>
-        <div class="asistente-acciones">
-          <span id="asistente-chip"></span>
-          <label class="asistente-voz"><input type="checkbox" id="asistente-voz-auto" checked> Voz</label>
-          <button class="secundario pequeno" id="asistente-limpiar">＋ Nueva conversación</button>
-        </div>
-      </header>
-
-      <div class="asistente-workspace">
-        <main class="asistente-chat">
-          <div class="conversacion" id="asistente-historial" aria-live="polite"></div>
-
-          <div class="asistente-composer-zona">
-            <form class="barra-pregunta" id="asistente-form">
-              <textarea id="asistente-entrada" rows="1" placeholder="Pregunta sobre prospectos, expedientes o documentos…" aria-label="Mensaje para el asistente"></textarea>
-              <div class="asistente-composer-pie">
-                <button type="button" class="secundario asistente-icono" id="asistente-mic" title="Dictar" aria-label="Dictar pregunta">🎤</button>
-                <span>Enter para enviar · Shift + Enter para nueva línea</span>
-                <button type="submit" id="asistente-enviar">Enviar ↑</button>
-              </div>
-            </form>
-          </div>
-        </main>
-
-        <aside class="asistente-contexto">
-          <div class="asistente-contexto-titulo">
-            <div><span class="asistente-contexto-punto"></span><h2>Contexto conectado</h2></div>
-            <p>Datos disponibles para esta conversación</p>
-          </div>
-          <div id="asistente-sabe"><p class="cargando">…</p></div>
-        </aside>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================ 6 -->
-  <section class="modulo" id="mod-modelo">
-    <div class="cabecera">
-      <div>
-        <h1>Metodologia y criterios tecnicos</h1>
-        <p class="intro">Como se construye la evidencia, como se priorizan los prospectos y que
-          restricciones debe cumplir una solucion antes de considerarse viable.</p>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="rejilla dos">
-        <div class="tarjeta">
-          <h3>Como leer los sellos de procedencia</h3>
-          <div class="sellos-guia">
-            <span class="sello medido">medido</span><span>Analitica de laboratorio de la corriente real. Confianza base 0,95.</span>
-            <span class="sello declarado">declarado</span><span>La empresa o su permiso lo reporta, sin analitica nuestra. 0,70.</span>
-            <span class="sello inferido">inferido</span><span>Estimacion a partir del sector economico (codigo CIIU). 0,45.</span>
-            <span class="sello supuesto">supuesto</span><span>Rango tipico de industria, sin nada especifico. 0,20.</span>
-          </div>
-          <p class="pie">La confianza de un prospecto pondera la calidad del agua (65 %) por encima del caudal
-            (35 %): un caudal equivocado se renegocia; una calidad equivocada hunde los ciclos y se descubre
-            con la tuberia ya enterrada.</p>
-        </div>
-        <div class="tarjeta">
-          <h3>Pesos del puntaje de simbiosis</h3>
-          <div id="modelo-pesos"></div>
-          <p class="pie">Para cada prospecto se busca el mejor par (tren de tratamiento, fraccion de mezcla)
-            evaluando la mezcla real con el modelo quimico completo. El resultado se multiplica por la
-            confianza del dato: un prospecto poco fiable no se descarta, se posterga.</p>
-        </div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Arquetipos sectoriales <span class="nota">lo que traduce actividad economica a agua de rechazo</span></h3>
-        <div class="tabla-envoltorio">
-          <table id="tabla-arquetipos">
-            <thead><tr>
-              <th>Sector</th><th>CIIU</th><th>Corriente de rechazo</th>
-              <th class="num">m³/h ref</th><th class="num">TDS</th><th class="num">DQO</th>
-              <th class="num">USD/m³</th><th>Limitante</th>
-            </tr></thead>
-            <tbody><tr><td colspan="8" class="cargando">…</td></tr></tbody>
-          </table>
-        </div>
-        <p class="pie">Un arquetipo acierta el orden de magnitud y el parametro limitante, que es lo que hace falta
-          para decidir a quien visitar primero. No sustituye a la analitica: la prioriza. Un precio negativo
-          significa que el vecino paga por entregar su rechazo porque se ahorra su vertimiento.</p>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="rejilla dos">
-        <div class="tarjeta">
-          <h3>Trenes de tratamiento</h3>
-          <div class="tabla-envoltorio" id="tabla-trenes"></div>
-        </div>
-        <div class="tarjeta">
-          <h3>Limites del agua circulante</h3>
-          <div class="tabla-envoltorio" id="tabla-limites"></div>
-        </div>
-      </div>
-    </div>
-    <div class="bloque">
-      <div class="tarjeta">
-        <h3>Como resuelve el optimizador</h3>
-        <div class="prosa">
-          <ul>
-            <li><b>Barrido sobre los ciclos N.</b> Fijado N, la reposicion M es constante y casi todo es lineal.</li>
-            <li><b>Un programa lineal (HiGHS) por cada N</b> sobre caudales y dosis de acido. Cada par (vecino, tren) es una columna.</li>
-            <li><b>Las dos restricciones no lineales</b> (LSI y producto CaSO₄) por linealizacion sucesiva.</li>
-            <li><b>Toda solucion se verifica con el modelo quimico completo.</b> Si falla, se aprieta un factor de seguridad y se repite. Nunca se reporta factible lo que la quimica rechaza.</li>
-            <li><b>El pH no se promedia:</b> se mezclan alcalinidad y carbono inorganico total y se resuelve el equilibrio. El agua circulante se evalua en equilibrio con el CO₂ del aire, porque una torre airea.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
 </main>
 
-<div class="velo" id="velo"></div>
-<aside class="panel-lateral" id="panel-prospecto"></aside>
-<aside class="panel-lateral" id="panel-revision"></aside>
+<footer class="pie">
+  <div class="pie-dentro">
+    <div class="pie-alto">
+      <p class="pie-lema"><a class="cab-marca pie-marca" href="#inicio"><span class="chevron" aria-hidden="true"></span><span>SIMBIA</span></a><span class="pie-punto">.</span>
+        <span class="pie-gris">El residuo de uno es</span> <span class="pie-agua">el recurso del otro</span></p>
+      <a class="pie-cta" href="/acceso?siguiente=/app">¿Lo vemos con tus datos? <b>Entrar al panel</b> <span aria-hidden="true">→</span></a>
+    </div>
 
+    <div class="pie-columnas">
+      <nav aria-label="La portada">
+        <h3>Explorar</h3>
+        <a href="#reto">El reto</a>
+        <a href="#como">Cómo funciona</a>
+        <a href="#verificar">Expedientes</a>
+        <a href="#gemelo">Gemelo de la torre</a>
+        <a href="#datos">Datos honestos</a>
+      </nav>
+      <div>
+        <h3>Fuentes</h3>
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+        <a href="https://vital.minambiente.gov.co" target="_blank" rel="noopener">VITAL · MinAmbiente</a>
+        <a href="#datos">Cómo medimos la confianza</a>
+      </div>
+      <div class="pie-sobre">
+        <h3>SIMBIA</h3>
+        <p>Simbiosis hídrica industrial asistida por IA. Encuentra el agua que los vecinos de Mamonal
+          ya vierten y la lleva, tratada, a las torres de enfriamiento de Cabot.</p>
+      </div>
+    </div>
 
-<script type="module" src="app.js?v=6"></script>
+    <div class="pie-aliados">
+      <span class="pie-etiqueta">Un reto de</span>
+      <div class="pie-logos">
+        <!-- El logo de Caribe Innova va en landing/caribe-innova.png (blanco, fondo transparente).
+             Mientras no este, se ve el nombre. -->
+        <span class="pie-logo">
+          <img src="landing/caribe-innova.png" alt="Caribe Innova"
+            onerror="this.replaceWith(Object.assign(document.createElement('b'), {className: 'pie-logo-texto', textContent: 'Caribe Innova'}))">
+        </span>
+        <span class="pie-logo"><img class="logo-camara" src="landing/camara-comercio-cartagena.svg" alt="Cámara de Comercio de Cartagena · Tejiendo progreso en Bolívar"></span>
+        <!-- Econova: red de innovacion del Grupo Ecopetrol; logo de econova.co, solo la parte de Econova. -->
+        <span class="pie-logo"><img class="logo-econova" src="landing/econova.png" alt="Econova"></span>
+      </div>
+    </div>
+
+    <div class="pie-bajo">
+      <span>© 2026 SIMBIA</span>
+      <span class="pie-hecho">Desarrollado con
+        <svg class="corazon-cartagena" viewBox="0 0 24 24" role="img" aria-label="corazón con los colores de la bandera de Cartagena">
+              <!-- Como la bandera de Cartagena: rojo por fuera, amarillo y verde al centro. -->
+              <path fill="#da121a" d="M12 21.5s-7.6-4.7-10.1-9.4C.2 8.8 1.9 4.6 5.8 4.2 8.1 4 10 5.3 12 7.4c2-2.1 3.9-3.4 6.2-3.2 3.9.4 5.6 4.6 3.9 7.9C19.6 16.8 12 21.5 12 21.5z"/>
+              <path fill="#fcd116" transform="translate(12 12.6) scale(.68) translate(-12 -12.6)" d="M12 21.5s-7.6-4.7-10.1-9.4C.2 8.8 1.9 4.6 5.8 4.2 8.1 4 10 5.3 12 7.4c2-2.1 3.9-3.4 6.2-3.2 3.9.4 5.6 4.6 3.9 7.9C19.6 16.8 12 21.5 12 21.5z"/>
+              <path fill="#078930" transform="translate(12 12.6) scale(.38) translate(-12 -12.6)" d="M12 21.5s-7.6-4.7-10.1-9.4C.2 8.8 1.9 4.6 5.8 4.2 8.1 4 10 5.3 12 7.4c2-2.1 3.9-3.4 6.2-3.2 3.9.4 5.6 4.6 3.9 7.9C19.6 16.8 12 21.5 12 21.5z"/>
+            </svg>
+        en Cartagena por
+        <a class="pie-sentra" href="https://sentralabs.co" target="_blank" rel="noopener"><img src="landing/sentralabs-para-fondo-oscuro.png" alt="SentraLabs"></a></span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="landing.js?v=4"></script>
 </body>
 </html>
