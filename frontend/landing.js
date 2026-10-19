@@ -33,6 +33,24 @@ async function ajustarEntrada() {
   } catch { /* sin red: el boton queda en "Iniciar sesion" */ }
 }
 
+/** Integra la navegacion con el hero y la convierte en capsula al avanzar. */
+function montarCabeceraFlotante() {
+  const cabecera = document.getElementById("cab");
+  if (!cabecera) return;
+  let pendiente = false;
+  const actualizar = () => {
+    cabecera.classList.toggle("flotante", window.scrollY > 36);
+    pendiente = false;
+  };
+  const alDesplazar = () => {
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(actualizar);
+  };
+  actualizar();
+  window.addEventListener("scroll", alDesplazar, { passive: true });
+}
+
 /* -- Simular: la ventana del gemelo reproduciendo una simulacion real ---------
  * gemelo-demo.json es la salida del modelo dinamico del panel (dos semanas,
  * los vecinos entran al empezar el dia 1). Aqui solo se reproduce: dos
@@ -169,6 +187,7 @@ async function montarDemoGemelo() {
 }
 
 ajustarEntrada();
+montarCabeceraFlotante();
 montarDemoGemelo();
 if ("requestIdleCallback" in window) window.requestIdleCallback(montarTorre, { timeout: 800 });
 else setTimeout(montarTorre, 200);

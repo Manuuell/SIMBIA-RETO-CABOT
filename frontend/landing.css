@@ -72,8 +72,20 @@ p { margin: 0; }
   position: fixed; top: 14px; left: 14px; right: 14px; z-index: 50;
   max-width: var(--ancho); margin-inline: auto;
   display: flex; align-items: center; gap: 8px;
-  background: var(--blanco); border-radius: 999px; padding: 8px 8px 8px 20px;
+  background: transparent; border-radius: 0; padding: 14px 8px 14px 20px;
+  box-shadow: none;
+  transition: background-color .38s var(--suave), border-radius .38s var(--suave),
+    padding .38s var(--suave), box-shadow .38s var(--suave);
+}
+.cab.flotante {
+  background: rgba(255, 255, 255, .97); border-radius: 999px; padding: 8px 8px 8px 20px;
   box-shadow: 0 1px 0 rgba(15, 27, 36, .06), var(--sombra);
+  animation: cab-aparece .5s var(--suave) both;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+@keyframes cab-aparece {
+  from { opacity: .35; transform: translateY(-18px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .cab-marca {
   display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
@@ -423,7 +435,8 @@ p { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .boton, .filas li { transition: none; }
+  .boton, .filas li, .cab { transition: none; }
+  .cab.flotante { animation: none; }
 }
 
 /* Sin WebGL: la escena se reduce a las cifras, sin hueco vacio. */
