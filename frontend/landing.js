@@ -39,6 +39,10 @@ async function ajustarEntrada() {
  * semanas en unos doce segundos, cuando la ventana entra en pantalla. */
 
 const DURACION_MS = 12000;
+// Safari comparte el hilo de la animacion SVG con el desplazamiento de la
+// pagina. Quince repintados por segundo bastan para esta demostracion y dejan
+// libre el gesto del trackpad; requestAnimationFrame sigue marcando el tiempo.
+const INTERVALO_PINTADO_MS = 1000 / 15;
 const TREN_CORTO = { T1: "filtración", T6: "UF + ósmosis" };
 const coma = (v, d = 1) => v.toLocaleString("es", { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -53,6 +57,10 @@ async function montarDemoGemelo() {
   }
   const $ = (id) => document.getElementById(id);
   const M = [{ ...d.muestras[0], t: 0 }, ...d.muestras];
+  // El modelo conserva todas las muestras para interpolar los indicadores,
+  // pero el SVG no necesita dibujar cientos de vertices en cada repintado.
+  const saltoGrafica = Math.max(1, Math.ceil(M.length / 140));
+  const G = M.filter((_, i) => i % saltoGrafica === 0 || i === M.length - 1);
   const fin = M[M.length - 1].t;
   const W = 320, H = 120;
   const tope = Math.ceil(Math.max(...M.map((m) => m.cruda + m.vecinos)) / 10) * 10;
@@ -71,8 +79,9 @@ async function montarDemoGemelo() {
   $("gd-evento").style.left = `${(X(d.conecta_h) / W) * 100}%`;
 
   // Areas apiladas hasta el instante t: vecinos abajo, agua cruda encima.
-  function area(hasta, abajo, arriba) {
-    const pts = M.filter((m) => m.t <= hasta);
+  function area(hasta, actual, abajo, arriba) {
+    const pts = G.filter((m) => m.t <= hasta);
+    if (!pts.length || pts[pts.length - 1].t < hasta) pts.push(actual);
     if (pts.length < 2) return "";
     const sup = pts.map((m) => `${X(m.t).toFixed(1)},${Y(arriba(m)).toFixed(1)}`);
     const inf = pts.slice().reverse().map((m) => `${X(m.t).toFixed(1)},${Y(abajo(m)).toFixed(1)}`);
@@ -97,8 +106,8 @@ async function montarDemoGemelo() {
     $("gd-cruda").textContent = coma(m.cruda);
     $("gd-vecinos").textContent = coma(m.vecinos);
     $("gd-ciclos").textContent = coma(m.ciclos ?? base.ciclos);
-    $("gd-p-vecinos").setAttribute("d", area(t, () => 0, (x) => x.vecinos));
-    $("gd-p-cruda").setAttribute("d", area(t, (x) => x.vecinos, (x) => x.vecinos + x.cruda));
+    $("gd-p-vecinos").setAttribute("d", area(t, m, () => 0, (x) => x.vecinos));
+    $("gd-p-cruda").setAttribute("d", area(t, m, (x) => x.vecinos, (x) => x.vecinos + x.cruda));
     const conectados = t >= d.conecta_h;
     marca.style.opacity = conectados ? 0.5 : 0;
     $("gd-evento").classList.toggle("visible", conectados);
@@ -111,17 +120,26 @@ async function montarDemoGemelo() {
       : `<span class="gd-chip ok">dentro de límites</span>${lsi}`;
   }
 
-  let inicio = null, cuadro = 0;
+  let inicio = null, cuadro = 0, ultimoPintado = 0, terminada = false;
   function paso(ahora) {
     inicio ??= ahora;
     const t = Math.min(fin, ((ahora - inicio) / DURACION_MS) * fin);
-    pintar(t);
+    if (ahora - ultimoPintado >= INTERVALO_PINTADO_MS || t >= fin) {
+      pintar(t);
+      ultimoPintado = ahora;
+    }
     if (t < fin) cuadro = requestAnimationFrame(paso);
-    else $("gd-repetir").hidden = false;
+    else {
+      cuadro = 0;
+      terminada = true;
+      $("gd-repetir").hidden = false;
+    }
   }
   function reproducir() {
     cancelAnimationFrame(cuadro);
     inicio = null;
+    ultimoPintado = 0;
+    terminada = false;
     $("gd-repetir").hidden = true;
     cuadro = requestAnimationFrame(paso);
   }
@@ -134,8 +152,19 @@ async function montarDemoGemelo() {
   }
   pintar(0);
   const vigia = new IntersectionObserver((entradas) => {
-    if (entradas.some((e) => e.isIntersecting)) { vigia.disconnect(); reproducir(); }
-  }, { threshold: 0.4 });
+    const proporcion = Math.max(...entradas.map((e) => e.intersectionRatio));
+    if (proporcion >= 0.4 && !inicio && !terminada) reproducir();
+    // Una vez que quien visita la pagina sigue bajando, ya no hay razon para
+    // mantener el SVG actualizandose fuera de la vista. Se deja el resultado
+    // final y el boton permite repetirlo al volver.
+    if (proporcion < 0.1 && cuadro) {
+      cancelAnimationFrame(cuadro);
+      cuadro = 0;
+      terminada = true;
+      pintar(fin);
+      $("gd-repetir").hidden = false;
+    }
+  }, { threshold: [0, 0.1, 0.4] });
   vigia.observe(caja);
 }
 
