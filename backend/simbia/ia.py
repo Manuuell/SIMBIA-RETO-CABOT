@@ -23,7 +23,10 @@ que puede pasar a un numero equivocado.
 from __future__ import annotations
 
 import base64
+import json
 import os
+import time
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -241,6 +244,141 @@ def conversar_stream(
     ) as flujo:
         for trozo in flujo.text_stream:
             yield trozo
+
+
+# --------------------------------------------------------------------------
+# Conversacion con herramientas
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Herramienta:
+    """Una funcion que el modelo puede pedir que se ejecute."""
+
+    nombre: str
+    descripcion: str
+    parametros: dict[str, Any]      # esquema JSON de los argumentos
+
+
+def _argumentos(texto: str | None) -> dict[str, Any]:
+    try:
+        datos = json.loads(texto or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return datos if isinstance(datos, dict) else {}
+
+
+def conversar_con_herramientas(
+    instrucciones: str,
+    mensajes: list[dict[str, str]],
+    herramientas: Sequence[Herramienta],
+    ejecutar: Callable[[dict[str, Any]], str],
+    max_tokens: int = 900,
+    max_rondas: int = 5,
+) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Una conversacion en la que el modelo puede pedir herramientas antes de responder.
+
+    Devuelve los eventos segun ocurren:
+
+        ("texto", {"delta"})                             un trozo de respuesta
+        ("llamada", {"id", "nombre", "argumentos"})      el modelo pide una herramienta
+        ("resultado", {"id", "nombre", "argumentos", "salida"})
+        ("ronda", {"n", "segundos", "tokens"})           termina una vuelta con el modelo
+
+    `ejecutar(llamada)` corre la herramienta y devuelve lo que se le contesta
+    al modelo (texto, normalmente JSON). Este bucle lo llama entre "llamada" y
+    "resultado", asi quien consume los eventos ve el paso empezar y acabar.
+    En la ultima ronda el modelo ya no puede pedir mas: responde con lo que
+    tiene.
+    """
+    p = proveedor()
+    if p is None:
+        raise RuntimeError(disponible()[1])
+    if p.nombre == "openai":
+        yield from _rondas_openai(p, instrucciones, mensajes, herramientas, ejecutar, max_tokens, max_rondas)
+    else:
+        yield from _rondas_anthropic(p, instrucciones, mensajes, herramientas, ejecutar, max_tokens, max_rondas)
+
+
+def _rondas_openai(p, instrucciones, mensajes, herramientas, ejecutar, max_tokens, max_rondas):
+    from openai import OpenAI
+    cliente = OpenAI()
+    definiciones = [
+        {"type": "function", "name": h.nombre, "description": h.descripcion,
+         "parameters": h.parametros, "strict": False}
+        for h in herramientas
+    ]
+    entrada: list[dict[str, Any]] = _entrada_conversacion(p, mensajes, [])
+    previa: str | None = None
+    for n in range(1, max_rondas + 1):
+        inicio = time.monotonic()
+        # Las rondas siguientes encadenan con la anterior: el servidor ya
+        # tiene las llamadas (y el razonamiento); solo se le mandan las salidas.
+        flujo = cliente.responses.create(
+            model=p.modelo, instructions=instrucciones, input=entrada,
+            tools=definiciones, tool_choice="none" if n == max_rondas else "auto",
+            max_output_tokens=max_tokens, stream=True,
+            **({"previous_response_id": previa} if previa else {}),
+            **_opciones_razonamiento(p),
+        )
+        llamadas, respuesta = [], None
+        for evento in flujo:
+            tipo = getattr(evento, "type", "")
+            if tipo == "response.output_text.delta":
+                yield "texto", {"delta": evento.delta}
+            elif tipo == "response.output_item.done" and getattr(evento.item, "type", "") == "function_call":
+                llamadas.append(evento.item)
+            elif tipo in ("response.completed", "response.incomplete"):
+                respuesta = evento.response
+            elif tipo in ("response.failed", "error"):
+                fallo = getattr(getattr(evento, "response", None), "error", None) or evento
+                raise RuntimeError(getattr(fallo, "message", None) or "el proveedor devolvio un error")
+        uso = getattr(respuesta, "usage", None)
+        yield "ronda", {"n": n, "segundos": round(time.monotonic() - inicio, 2),
+                        "tokens": int(getattr(uso, "total_tokens", 0) or 0)}
+        if not llamadas or respuesta is None:
+            return
+        previa, entrada = respuesta.id, []
+        for llamada in llamadas:
+            info = {"id": llamada.call_id, "nombre": llamada.name, "argumentos": _argumentos(llamada.arguments)}
+            yield "llamada", info
+            salida = ejecutar(info)
+            yield "resultado", {**info, "salida": salida}
+            entrada.append({"type": "function_call_output", "call_id": llamada.call_id, "output": salida})
+
+
+def _rondas_anthropic(p, instrucciones, mensajes, herramientas, ejecutar, max_tokens, max_rondas):
+    import anthropic
+    cliente = anthropic.Anthropic()
+    definiciones = [
+        {"name": h.nombre, "description": h.descripcion, "input_schema": h.parametros}
+        for h in herramientas
+    ]
+    historia: list[dict[str, Any]] = _entrada_conversacion(p, mensajes, [])
+    for n in range(1, max_rondas + 1):
+        inicio = time.monotonic()
+        with cliente.messages.stream(
+            model=p.modelo, max_tokens=max_tokens, system=instrucciones, messages=historia,
+            tools=definiciones, tool_choice={"type": "none" if n == max_rondas else "auto"},
+        ) as flujo:
+            for evento in flujo:
+                if getattr(evento, "type", "") == "content_block_delta" and getattr(evento.delta, "type", "") == "text_delta":
+                    yield "texto", {"delta": evento.delta.text}
+            final = flujo.get_final_message()
+        uso = getattr(final, "usage", None)
+        yield "ronda", {"n": n, "segundos": round(time.monotonic() - inicio, 2),
+                        "tokens": int((getattr(uso, "input_tokens", 0) or 0) + (getattr(uso, "output_tokens", 0) or 0))}
+        usos = [b for b in final.content if getattr(b, "type", "") == "tool_use"]
+        if not usos:
+            return
+        historia.append({"role": "assistant", "content": final.content})
+        resultados = []
+        for b in usos:
+            info = {"id": b.id, "nombre": b.name, "argumentos": dict(b.input or {})}
+            yield "llamada", info
+            salida = ejecutar(info)
+            yield "resultado", {**info, "salida": salida}
+            resultados.append({"type": "tool_result", "tool_use_id": b.id, "content": salida})
+        historia.append({"role": "user", "content": resultados})
 
 
 # --------------------------------------------------------------------------

@@ -197,27 +197,51 @@ def test_preguntar_por_api_con_proveedor_simulado(cliente, con_openai, monkeypat
     assert r.status_code == 200 and r.headers["content-type"].startswith("audio/mpeg") and r.content == b"ID3audio"
 
 
+def _tramas(r):
+    return [json.loads(t[6:]) for t in r.text.strip().split("\n\n") if t.startswith("data: ")]
+
+
 def test_la_respuesta_en_streaming_llega_como_eventos(cliente, con_openai, monkeypatch, tmp_path):
     monkeypatch.setattr(base, "CACHE", tmp_path)
-    def falso(instrucciones, mensajes, max_tokens=900):
-        yield "Hola. "; yield "Lamitech "; yield "primero."
-    monkeypatch.setattr(ia, "conversar_stream", falso)
+    capturado = {}
+    def falso(instrucciones, mensajes, herramientas, ejecutar, max_tokens=900, max_rondas=5):
+        capturado["instrucciones"] = instrucciones
+        for trozo in ("Hola. ", "Lamitech ", "primero."):
+            yield "texto", {"delta": trozo}
+        yield "ronda", {"n": 1, "segundos": 0.5, "tokens": 42}
+    monkeypatch.setattr(ia, "conversar_con_herramientas", falso)
     r = cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "¿quien?"})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
     assert r.headers["x-accel-buffering"] == "no"
-    tramas = [json.loads(t[6:]) for t in r.text.strip().split("\n\n") if t.startswith("data: ")]
+    tramas = _tramas(r)
     assert [t.get("delta") for t in tramas[:3]] == ["Hola. ", "Lamitech ", "primero."]
-    assert tramas[-1]["fin"] is True and "contexto" in tramas[-1]
+    assert tramas[3]["ronda"]["tokens"] == 42
+    assert tramas[-1]["fin"] is True and "contexto" in tramas[-1] and tramas[-1]["tokens"] == 42
+    assert "HERRAMIENTAS" in capturado["instrucciones"] and "CONTEXTO" in capturado["instrucciones"]
+
+
+def test_los_pasos_de_las_herramientas_llegan_al_chat(cliente, con_openai, monkeypatch, tmp_path):
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    def falso(instrucciones, mensajes, herramientas, ejecutar, max_tokens=900, max_rondas=5):
+        llamada = {"id": "c1", "nombre": "abrir_en_panel", "argumentos": {"destino": "vecinos"}}
+        yield "llamada", llamada
+        yield "resultado", {**llamada, "salida": ejecutar(llamada)}
+        yield "texto", {"delta": "Te abri Vecinos."}
+    monkeypatch.setattr(ia, "conversar_con_herramientas", falso)
+    tramas = _tramas(cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "abre vecinos"}))
+    assert tramas[0]["paso"] == {"id": "c1", "herramienta": "abrir_en_panel", "estado": "en_curso", "texto": "Abriendo el panel…"}
+    assert tramas[1]["paso"]["estado"] == "hecho" and tramas[1]["paso"]["texto"] == "Abrió Vecinos"
+    assert tramas[1]["accion"] == {"tipo": "navegar", "hash": "#prospeccion"}
+    assert tramas[2]["delta"] == "Te abri Vecinos." and tramas[-1]["fin"] is True
 
 
 def test_un_fallo_del_proveedor_en_streaming_se_reporta_como_evento(cliente, con_openai, monkeypatch, tmp_path):
     monkeypatch.setattr(base, "CACHE", tmp_path)
-    def roto(instrucciones, mensajes, max_tokens=900):
-        yield "Empiezo"
+    def roto(instrucciones, mensajes, herramientas, ejecutar, max_tokens=900, max_rondas=5):
+        yield "texto", {"delta": "Empiezo"}
         raise ConnectionError("se cayo")
-    monkeypatch.setattr(ia, "conversar_stream", roto)
-    r = cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "x"})
-    tramas = [json.loads(t[6:]) for t in r.text.strip().split("\n\n") if t.startswith("data: ")]
+    monkeypatch.setattr(ia, "conversar_con_herramientas", roto)
+    tramas = _tramas(cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "x"}))
     assert tramas[0]["delta"] == "Empiezo" and "ConnectionError" in tramas[-1]["error"]
 
 

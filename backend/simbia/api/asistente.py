@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from .. import asistente, ia
 from ..scout.geo import RADIO_BUSQUEDA_KM
+from . import herramientas
 from . import scout as api_scout
 
 router = APIRouter(prefix="/api/asistente")
@@ -124,12 +125,17 @@ def _kpis_prospectados(radio_km: float) -> dict[str, Any]:
     }
 
 
-def _contexto_de(q: "Pregunta") -> asistente.Contexto:
-    barrido = api_scout.barrido(radio_km=q.radio_km)
+def _kpis_o_nada(radio_km: float) -> dict[str, Any]:
     try:
-        kpis = _kpis_prospectados(q.radio_km)
+        return _kpis_prospectados(radio_km)
     except Exception:                                   # noqa: BLE001
-        kpis = {}
+        return {}
+
+
+def _contexto_de(q: "Pregunta", kpis: dict[str, Any] | None = None) -> asistente.Contexto:
+    barrido = api_scout.barrido(radio_km=q.radio_km)
+    if kpis is None:
+        kpis = _kpis_o_nada(q.radio_km)
     return asistente.construir_contexto(
         kpis, barrido, api_scout.EXPEDIENTES, modulo=q.modulo, clave=q.clave,
     )
@@ -151,20 +157,48 @@ SIN_BUFFER = {"X-Accel-Buffering": "no", "Cache-Control": "no-store"}
 
 @router.post("/preguntar/stream")
 def preguntar_stream(q: Pregunta):
-    """La respuesta segun se genera, como eventos SSE: {delta} ... {fin, contexto}."""
+    """La respuesta segun se genera, como eventos SSE.
+
+        {paso}            una herramienta empieza ("en_curso") o termina ("hecho", "error")
+        {paso, accion}    ... y lo que el navegador tiene que abrir, si pidio abrir algo
+        {delta}           un trozo de texto
+        {ronda}           termina una vuelta con el modelo: n, segundos, tokens
+        {fin, contexto, segundos, tokens}
+    """
     _exigir_ia()
-    contexto = _contexto_de(q)
+    kpis = _kpis_o_nada(q.radio_km)
+    contexto = _contexto_de(q, kpis)
     resumen = _resumen_contexto(contexto)
+    mesa = herramientas.Mesa(q.radio_km, kpis)
 
     def evento(obj: dict[str, Any]) -> str:
         return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
 
     def generar():
+        inicio, tokens = time.monotonic(), 0
         try:
-            for trozo in asistente.responder_stream(q.mensaje, q.historial, contexto):
-                if trozo:
-                    yield evento({"delta": trozo})
-            yield evento({"fin": True, "contexto": resumen})
+            for tipo, d in asistente.responder_con_herramientas(
+                q.mensaje, q.historial, contexto, herramientas.DEFINICIONES, mesa.ejecutar,
+            ):
+                if tipo == "texto" and d["delta"]:
+                    yield evento({"delta": d["delta"]})
+                elif tipo == "llamada":
+                    yield evento({"paso": {
+                        "id": d["id"], "herramienta": d["nombre"], "estado": "en_curso",
+                        "texto": herramientas.anuncio(d["nombre"], d["argumentos"]),
+                    }})
+                elif tipo == "resultado" and (r := mesa.resultados.get(str(d["id"]))):
+                    yield evento({
+                        "paso": {"id": d["id"], "herramienta": d["nombre"], **r.para_chat()},
+                        **({"accion": r.accion} if r.accion else {}),
+                    })
+                elif tipo == "ronda":
+                    tokens += d["tokens"]
+                    yield evento({"ronda": d})
+            yield evento({
+                "fin": True, "contexto": resumen,
+                "segundos": round(time.monotonic() - inicio, 1), "tokens": tokens,
+            })
         except ValueError as exc:
             yield evento({"error": str(exc)})
         except Exception as exc:                        # noqa: BLE001
