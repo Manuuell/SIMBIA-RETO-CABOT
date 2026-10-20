@@ -457,8 +457,9 @@ p { margin: 0; }
 .pie-logo { display: inline-flex; align-items: center; min-height: 52px; padding-inline: 26px; }
 .pie-logo:first-child { padding-left: 0; }
 .pie-logo + .pie-logo { border-left: 1px solid rgba(255, 255, 255, .28); }
-/* Todos en blanco puro, como los aliados del afiche, sea cual sea su color. */
+/* Los aliados van en blanco; Cabot conserva a color el simbolo de su marca. */
 .pie-logo img { display: block; height: 40px; width: auto; filter: brightness(0) invert(1); }
+.pie-logo img.logo-cabot { filter: none; }
 .pie-logo img.logo-camara { height: 60px; }
 .pie-logo img.logo-econova { height: 42px; }
 .pie-logo-texto { font-family: var(--f-titulo); font-weight: 800; font-size: 24px; letter-spacing: -.035em; color: #fff; }
