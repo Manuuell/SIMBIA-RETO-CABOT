@@ -88,6 +88,8 @@ def test_sin_sesion_el_html_redirige_y_la_api_devuelve_401(protegida):
     assert protegida.get("/").status_code == 200
     assert protegida.get("/landing.css").status_code == 200
     assert protegida.get("/vendor/three/three.module.min.js").status_code == 200
+    for icono in ("/favicon.svg", "/favicon.ico", "/favicon-32.png", "/apple-touch-icon.png"):
+        assert protegida.get(icono).status_code == 200
     assert protegida.get("/app.js", follow_redirects=False).status_code == 303
     r = protegida.get("/prospeccion.html", follow_redirects=False)
     assert r.headers["location"].startswith("/acceso?siguiente=")

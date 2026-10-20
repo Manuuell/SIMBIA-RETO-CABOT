@@ -57,6 +57,8 @@ RUTAS_LIBRES = frozenset({
     "/api/sesion", "/salud",
     # La landing es publica: es la puerta de entrada al proyecto.
     "/", "/index.html", "/landing.css", "/landing.js", "/torre3d.js",
+    # El icono de la pestana: tambien en la portada y en el acceso.
+    "/favicon.svg", "/favicon.ico", "/favicon-32.png", "/apple-touch-icon.png",
 })
 #: Carpetas publicas: las imagenes de la landing y three.js, que dibuja la
 #: torre del hero. Ninguna sirve datos de la aplicacion.

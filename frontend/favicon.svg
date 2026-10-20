@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- El chevron de SIMBIA, el mismo de la cabecera del panel y de la portada. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5b323"/>
+      <stop offset="1" stop-color="#f2762e"/>
+    </linearGradient>
+  </defs>
+  <polygon points="3,3 17.3,3 29,16 17.3,29 3,29 14.7,16" fill="url(#g)"/>
+</svg>
