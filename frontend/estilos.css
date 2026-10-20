@@ -768,9 +768,17 @@ body[data-modulo="asistente"] main { padding-bottom: 20px; }
 .asistente-identidad h1 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
 /* El orbe pequeno de la cabecera: el grande vuela hasta aqui al empezar la
    conversacion. En la pantalla de inicio no ocupa sitio. */
-.orbe-mini { width: 44px; height: 44px; flex: none; display: block; transition: width .35s ease, margin .35s ease, opacity .25s ease; }
-.asistente-centro.en-inicio .orbe-mini { width: 0; margin-right: -10px; opacity: 0; }
-.flot-cabecera .orbe-mini { width: 38px; height: 38px; }
+.orbe-mini-caja { position: relative; width: 44px; height: 44px; flex: none; transition: width .35s ease, margin .35s ease, opacity .25s ease; }
+/* El lienzo desborda su hueco: asi las orbitas y los brillos caben enteros
+   y no se cortan contra un borde recto. */
+.orbe-mini { position: absolute; inset: -9px; width: calc(100% + 18px); height: calc(100% + 18px); display: block; }
+.asistente-centro.en-inicio .orbe-mini-caja { width: 0; margin-right: -10px; opacity: 0; }
+.flot-cabecera .orbe-mini-caja { width: 38px; height: 38px; }
+/* Y si algo llega al borde, se desvanece en circulo: nunca se ve el cuadro. */
+.orbe-mini, .asistente-orbe-grande {
+  -webkit-mask-image: radial-gradient(closest-side, #000 86%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 86%, transparent 100%);
+}
 .orbe { position: relative; display: inline-block; flex: none; width: 34px; height: 34px; --amp: 1; --b1: .15; --b2: .15; --b3: .15; --b4: .15; --b5: .15; }
 .orbe-halo {
   position: absolute; inset: 1px; border-radius: 50%;

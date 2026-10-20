@@ -29,6 +29,9 @@ let orbeGrande = null;
 const orbes = [];           // los orbes de particulas: el grande y los de cabecera
 let aterrizar = null;       // termina en el acto un vuelo del orbe a medias
 const QUIETO = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Radio de la esfera en fraccion del lienzo. El pequeno tiene un lienzo mayor
+// que su hueco de cabecera (44 px + 9 por lado) para que nada se corte.
+const RADIO_GRANDE = 0.33, RADIO_MINI = 0.25, HUECO_MINI = 44, LIENZO_MINI = 62;
 let respondiendo = false;
 let alNavegar = null;       // lo que hay que hacer antes de que el asistente abra otra pantalla
 
@@ -583,12 +586,13 @@ function volarOrbe(haciaCabecera) {
   if (QUIETO || !lienzo || !mini || lienzo.hidden || document.body.dataset.modulo !== "asistente") return;
   const grande = lienzo.getBoundingClientRect();
   if (!grande.width) return;
-  // Donde queda el orbe pequeno, aunque ahora este plegado: al principio de su fila.
-  const fila = mini.parentElement.getBoundingClientRect();
-  const lado = 44;
-  const dx = fila.left + lado / 2 - (grande.left + grande.width / 2);
+  // Donde queda el orbe pequeno, aunque ahora este plegado: al principio de su
+  // fila. La escala hace coincidir las dos esferas, no los lienzos.
+  const fila = mini.closest(".asistente-identidad").getBoundingClientRect();
+  const dx = fila.left + HUECO_MINI / 2 - (grande.left + grande.width / 2);
   const dy = fila.top + fila.height / 2 - (grande.top + grande.height / 2);
-  const enCabecera = `translate(${dx}px, ${dy}px) scale(${lado / grande.width})`;
+  const escala = (RADIO_MINI * LIENZO_MINI) / (RADIO_GRANDE * grande.width);
+  const enCabecera = `translate(${dx}px, ${dy}px) scale(${escala})`;
 
   const hueco = document.createElement("div");
   hueco.style.cssText = `width:${grande.width}px;height:${grande.height}px;flex:none;margin:4px 0`;
@@ -660,7 +664,7 @@ export async function iniciarFlotante() {
   rellenarOrbes();
   await cargarIA();
   if (!ia?.disponible) return;
-  try { orbes.push(crearOrbe($("flot-orbe"), { puntos: 170, radio: 0.36 })); } catch { /* sin canvas: queda el texto */ }
+  try { orbes.push(crearOrbe($("flot-orbe"), { puntos: 170, radio: RADIO_MINI })); } catch { /* sin canvas: queda el texto */ }
   montarVista("flotante", {
     historial: $("flot-historial"), form: $("flot-form"), entrada: $("flot-entrada"),
     enviar: $("flot-enviar"), mic: $("flot-mic"), vacio: vacioFlotante,
@@ -716,8 +720,8 @@ export default {
       if (!leerSolas) detenerAudio();
     });
     try {
-      orbeGrande = crearOrbe($("asistente-orbe"));
-      orbes.push(orbeGrande, crearOrbe($("asistente-orbe-mini"), { puntos: 170, radio: 0.36 }));
+      orbeGrande = crearOrbe($("asistente-orbe"), { radio: RADIO_GRANDE });
+      orbes.push(orbeGrande, crearOrbe($("asistente-orbe-mini"), { puntos: 170, radio: RADIO_MINI }));
     } catch { $("asistente-orbe").hidden = true; }
     pintarActividad();
     pintarPuede();
