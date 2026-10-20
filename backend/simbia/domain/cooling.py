@@ -46,6 +46,17 @@ def arrastre_m3_h(torre: TorreConfig) -> float:
 T_BASIN_C = 32.0   # temperatura del agua fria en la balsa de la torre
 
 
+def k_calor_reposicion(t_reposicion_c: float | None, t_basin_c: float = T_BASIN_C) -> float:
+    """m3 evaporados por cada m3 de reposicion que entra mas caliente que la balsa.
+
+    Ese calor tambien lo saca la torre, y lo saca evaporando:
+    k = cp * (T_rep - T_balsa) / lambda. Si entra mas fria, cero.
+    """
+    if t_reposicion_c is None or t_reposicion_c <= t_basin_c:
+        return 0.0
+    return CP_KJ_KG_K * (t_reposicion_c - t_basin_c) / LAMBDA_KJ_KG
+
+
 @dataclass(frozen=True)
 class BalanceTorre:
     ciclos: float
@@ -97,9 +108,7 @@ def balance(
     drift = arrastre_m3_h(torre)
     r = ciclos / (ciclos - 1.0)
 
-    k = 0.0
-    if t_reposicion_c is not None and t_reposicion_c > t_basin_c:
-        k = CP_KJ_KG_K * (t_reposicion_c - t_basin_c) / LAMBDA_KJ_KG
+    k = k_calor_reposicion(t_reposicion_c, t_basin_c)
     denom = 1.0 - k * r
     if denom <= 0.05:
         raise ValueError(

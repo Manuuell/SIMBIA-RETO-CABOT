@@ -81,6 +81,24 @@ def test_un_vecino_desplaza_agua_cruda_a_traves_del_lazo_de_nivel(planta):
     assert ultima["nivel_pct"] == pytest.approx(d.NIVEL_NOMINAL_PCT, abs=1.0)
 
 
+def test_el_aporte_caliente_evapora_lo_mismo_que_en_el_estacionario(planta):
+    """En regimen, los dos modelos piden la misma agua cruda con un vecino caliente."""
+    from simbia.simulador import Decision, Toma, simular
+    v6 = _fuente("V6")
+    caliente = replace(v6, calidad=replace(v6.calidad, t_c=54.0))
+    est = simular(planta.esc, Decision((Toma(caliente, 30.0, "T1"),), ciclos=4.0))
+    e = d.Entradas(conductividad=d.Lazo("auto", 4.0 * est.aporte.conductividad, 50.0),
+                   tomas=(d.TomaDinamica(caliente, 30.0, "T1"),))
+    s = d.estado_inicial(planta)
+    for _ in range(6):
+        muestras, s = d.avanzar(planta, s, e, 72)
+    ultima = muestras[-1]
+    assert ultima["ciclos"] == pytest.approx(4.0, rel=0.01)
+    assert ultima["evaporacion_m3_h"] > cooling.evaporacion_m3_h(planta.esc.torre) + 0.8
+    assert ultima["evaporacion_m3_h"] == pytest.approx(est.balance.evaporacion_m3_h, rel=0.01)
+    assert ultima["cruda_m3_h"] == pytest.approx(est.agua_cruda_m3_h, rel=0.02)
+
+
 def _alarmas_de_tomas(muestra):
     return [a for a in muestra["alarmas"] if a["tag"].startswith("FIC-")]
 

@@ -10,8 +10,9 @@ Modelo de mezcla perfecta del agua del sistema (balsa + tuberias + equipos):
     dV/dt      = M_cruda + suma(M_vecinos) - E - D - B
     d(V*C)/dt  = suma(Q_i * C_i) - (B + D) * C        para cada especie conservativa
 
-La evaporacion E no se lleva sales: por eso el circuito se concentra. Los
-lazos son los de una torre real:
+La evaporacion E no se lleva sales: por eso el circuito se concentra. E es
+la de la carga termica mas la que exige el aporte cuando entra mas caliente
+que la balsa, como en el estacionario. Los lazos son los de una torre real:
 
     LIC-101  nivel de la balsa  -> LV-101, valvula de reposicion de agua cruda
     AIC-102  conductividad      -> AV-102, valvula de purga
@@ -265,9 +266,21 @@ def estado_inicial(p: Planta) -> Estado:
     )
 
 
-def _evaporacion(p: Planta, e: Entradas) -> float:
+def _evaporacion_proceso(p: Planta, e: Entradas) -> float:
     torre = replace(p.esc.torre, delta_t_c=p.esc.torre.delta_t_c * e.carga_pct / 100.0)
     return cooling.evaporacion_m3_h(torre)
+
+
+def _evaporacion(evap_proceso: float, aporte_m3_h: float, t_aporte_c: float, t_fria_c: float) -> float:
+    """La de proceso mas la que exige el calor que trae el aporte.
+
+    La misma cuenta que `cooling.balance`: el agua que entra mas caliente que
+    la balsa tambien hay que enfriarla, y eso se paga evaporando. Con una
+    purga de caldera, mas evaporacion y mas reposicion. La referencia es el
+    agua fria que calcula este modelo (31,5 °C en diseno; el estacionario
+    supone 32 °C).
+    """
+    return evap_proceso + aporte_m3_h * cooling.k_calor_reposicion(t_aporte_c, t_fria_c)
 
 
 def t_quimica(p: Planta, t_caliente: float) -> float:
@@ -290,7 +303,17 @@ def temperaturas(p: Planta, e: Entradas) -> tuple[float, float, float]:
     return fria, fria + p.esc.torre.delta_t_c * e.carga_pct / 100.0, aproximacion
 
 
-def _productos(e: Entradas) -> tuple[list[tuple[dict[str, float], float, dict[str, Any]]], list[dict[str, Any]]]:
+@dataclass(frozen=True)
+class _Producto:
+    """El agua tratada de un vecino tal como llega a la torre."""
+
+    conc: dict[str, float]
+    caudal_m3_h: float
+    t_c: float
+    fila: dict[str, Any]
+
+
+def _productos(e: Entradas) -> tuple[list[_Producto], list[dict[str, Any]]]:
     """Composicion tratada y caudal de cada vecino, y las alarmas de sus tomas.
 
     Fijos durante una llamada. Se comprueba lo mismo que en el simulador
@@ -313,9 +336,10 @@ def _productos(e: Entradas) -> tuple[list[tuple[dict[str, float], float, dict[st
                 f"{t.fuente.nombre}: con {tren.nombre} solo puede entregar {rev.maximo_m3_h:.1f} m³/h")})
         if pedido > 0 and not rev.admisible:
             alarmas.append({**aviso, "texto": f"{t.fuente.nombre}: {tren.nombre} no basta ({rev.motivo})"})
-        salida.append((
+        salida.append(_Producto(
             {k: getattr(rev.producto, k) for k in PARAMETROS_CONSERVATIVOS},
             caudal,
+            rev.producto.t_c,
             {"fuente_id": t.fuente.id, "caudal_m3_h": round(caudal, 2), "pedido_m3_h": round(pedido, 2),
              "maximo_m3_h": round(rev.maximo_m3_h, 2), "tren": t.tren, "excede": rev.excede,
              "admisible": rev.admisible, "motivo": rev.motivo},
@@ -323,8 +347,7 @@ def _productos(e: Entradas) -> tuple[list[tuple[dict[str, float], float, dict[st
     return salida, alarmas
 
 
-def _aporte(cruda: dict[str, float], cruda_m3_h: float,
-            productos: Sequence[tuple[dict[str, float], float, Any]],
+def _aporte(cruda: dict[str, float], cruda_m3_h: float, productos: Sequence[_Producto],
             acido_mg_l: float) -> tuple[dict[str, float], float]:
     """Composicion y caudal del agua que entra, con el acido dosificado.
 
@@ -333,11 +356,11 @@ def _aporte(cruda: dict[str, float], cruda_m3_h: float,
     aire al muestrear. El acido, como en `dosificar_acido`: destruye
     alcalinidad y aporta sulfato.
     """
-    total = cruda_m3_h + sum(q for _, q, _ in productos)
+    total = cruda_m3_h + sum(pr.caudal_m3_h for pr in productos)
     if total <= 1e-9:
         return dict(cruda), 0.0
     mezcla = {
-        k: (cruda[k] * cruda_m3_h + sum(c[k] * q for c, q, _ in productos)) / total
+        k: (cruda[k] * cruda_m3_h + sum(pr.conc[k] * pr.caudal_m3_h for pr in productos)) / total
         for k in PARAMETROS_CONSERVATIVOS
     }
     if acido_mg_l > 0:
@@ -378,11 +401,12 @@ def avanzar(p: Planta, estado: Estado, e: Entradas, horas: float) -> tuple[list[
         raise ValueError(f"Se simulan entre 0 y {MAX_HORAS_POR_LLAMADA:g} horas por llamada.")
     s = replace(estado, conc=dict(estado.conc))
     lazo_cond = e.conductividad or Lazo("auto", p.cond_consigna_base, s.av_pct)
-    evap = _evaporacion(p, e)
+    evap_proceso = _evaporacion_proceso(p, e)
     arrastre = cooling.arrastre_m3_h(p.esc.torre)
     productos, alarmas_tomas = _productos(e)
-    filas = [f for _, _, f in productos]
-    q_vecinos = sum(q for _, q, _ in productos)
+    filas = [pr.fila for pr in productos]
+    q_vecinos = sum(pr.caudal_m3_h for pr in productos)
+    calor_vecinos = sum(pr.t_c * pr.caudal_m3_h for pr in productos)
     cruda = {k: getattr(p.cruda, k) for k in PARAMETROS_CONSERVATIVOS}
     t_fria, t_caliente, aproximacion = temperaturas(p, e)
     muestras: list[dict[str, Any]] = []
@@ -403,6 +427,8 @@ def avanzar(p: Planta, estado: Estado, e: Entradas, horas: float) -> tuple[list[
         cruda_q = p.capacidad_lv_m3_h * s.lv_pct / 100.0
         purga = p.capacidad_av_m3_h * s.av_pct / 100.0
         aporte, total = _aporte(cruda, cruda_q, productos, e.acido_mg_l)
+        t_aporte = (p.cruda.t_c * cruda_q + calor_vecinos) / total if total > 1e-9 else p.cruda.t_c
+        evap = _evaporacion(evap_proceso, total, t_aporte, t_fria)
 
         dv = (total - evap - arrastre - purga) * DT_H
         nuevo_v = max(s.volumen_m3 + dv, p.geo.volumen_fuera_balsa_m3 * 0.5)
