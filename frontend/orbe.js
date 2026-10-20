@@ -106,6 +106,8 @@ export function crearOrbe(lienzo, { puntos: n = 560, radio = 0.33 } = {}) {
     // Puntos, trazos y satelites se achican con la esfera: en una cabecera
     // de 44 px los tamanos del orbe grande lo taparian todo.
     const k = Math.min(1, Math.max(0.32, R / 110));
+    // El brillo de los satelites, en cambio, sin minimo: en pequeno serian manchas.
+    const kBrillo = Math.min(1, R / 110);
     const ay = angulo, ax = 0.35 + Math.sin(t * 0.45) * 0.22;
     const cy1 = Math.cos(ay), sy1 = Math.sin(ay), cx1 = Math.cos(ax), sx1 = Math.sin(ax);
     const base = actual.color;
@@ -128,7 +130,7 @@ export function crearOrbe(lienzo, { puntos: n = 560, radio = 0.33 } = {}) {
 
     // Orbitas, cada una con dos satelites que la recorren.
     ctx.lineWidth = Math.max(0.6, 1.2 * k);
-    orbitas.forEach((o, k) => {
+    orbitas.forEach((o, indice) => {
       const fi = o.giro + angulo * o.velocidad * 1.6;
       const aplaste = Math.abs(Math.cos(o.inclinacion)) * 0.9 + 0.1;
       ctx.save();
@@ -139,15 +141,15 @@ export function crearOrbe(lienzo, { puntos: n = 560, radio = 0.33 } = {}) {
       ctx.beginPath(); ctx.arc(0, 0, R * o.radio, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
       for (let s = 0; s < 2; s++) {
-        const th = angulo * 2.2 * Math.sign(o.velocidad) + k * 2.1 + s * Math.PI;
+        const th = angulo * 2.2 * Math.sign(o.velocidad) + indice * 2.1 + s * Math.PI;
         const x = Math.cos(th) * R * o.radio, y = Math.sin(th) * R * o.radio * aplaste;
         const sx = cx + x * Math.cos(fi) - y * Math.sin(fi), sy = cy + x * Math.sin(fi) + y * Math.cos(fi);
-        const color = mezclar(GRIS, SATELITES[k], base);
-        const brillo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 9 * k);
+        const color = mezclar(GRIS, SATELITES[indice], base);
+        const brillo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 9 * kBrillo + 0.5);
         brillo.addColorStop(0, rgba(color, 0.55));
         brillo.addColorStop(1, rgba(color, 0));
         ctx.fillStyle = brillo;
-        ctx.beginPath(); ctx.arc(sx, sy, 9 * k, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, sy, 9 * kBrillo + 0.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = rgba(color, 0.95);
         ctx.beginPath(); ctx.arc(sx, sy, Math.max(0.9, 2.8 * k), 0, Math.PI * 2); ctx.fill();
       }
