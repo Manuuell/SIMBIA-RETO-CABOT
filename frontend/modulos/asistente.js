@@ -54,6 +54,8 @@ const ACTIVIDAD = [
   { clave: "abrir", etiqueta: "Pantallas abiertas", herramientas: ["abrir_en_panel"] },
 ];
 const cuenta = Object.fromEntries(ACTIVIDAD.map((a) => [a.clave, 0]));
+// La tarjeta de contexto resume: los documentos completos estan en Vecinos.
+const MAX_DOCUMENTOS_LATERAL = 4;
 
 const PUEDE = [
   { icono: "buscar", texto: "Buscar y comparar vecinos", ejemplo: "Busca las empresas de plásticos y compáralas" },
@@ -549,8 +551,11 @@ async function pintarSabe() {
       ${c.empresa_en_pantalla ? `<p class="pie">En pantalla: <b>${escapar(c.empresa_en_pantalla)}</b></p>` : ""}
       <p class="pie">${escapar(fuente)} · radio de ${estado.radio} km.</p>
       ${c.cartera.length ? `<p class="pie">Cartera: ${c.cartera.map(escapar).join(", ")}.</p>` : ""}
-      ${c.documentos.length ? `<ul class="refs">${c.documentos.map((d) => `<li>📄 ${escapar(d.archivo)} <span class="sub" style="display:inline">· ${escapar(d.empresa)}</span> ${d.con_resumen ? chip("analizado", "ok") : chip("pendiente", "aviso")}</li>`).join("")}</ul>` : ""}
-      ${sinResumen.length ? `<p class="pie" style="color:var(--aviso)">${sinResumen.length} documento(s) pendientes de análisis en Vecinos.</p>` : ""}`;
+      ${c.documentos.length ? `<p class="pie">${c.documentos.length} documento${c.documentos.length === 1 ? "" : "s"} guardado${c.documentos.length === 1 ? "" : "s"} · ${c.documentos.length - sinResumen.length} analizado${c.documentos.length - sinResumen.length === 1 ? "" : "s"}.</p>
+        <ul class="refs">${[...sinResumen, ...c.documentos.filter((d) => d.con_resumen)].slice(0, MAX_DOCUMENTOS_LATERAL).map((d) =>
+          `<li><span class="doc-nombre" title="${escapar(`${d.archivo} · ${d.empresa}`)}">📄 ${escapar(d.empresa)} · ${escapar(d.archivo)}</span>${d.con_resumen ? chip("analizado", "ok") : chip("pendiente", "aviso")}</li>`).join("")}</ul>
+        ${c.documentos.length > MAX_DOCUMENTOS_LATERAL ? `<p class="pie">y ${c.documentos.length - MAX_DOCUMENTOS_LATERAL} más en Vecinos.</p>` : ""}` : ""}
+      ${sinResumen.length ? `<p class="pie" style="color:var(--aviso)">${sinResumen.length} pendiente${sinResumen.length === 1 ? "" : "s"} de análisis en Vecinos.</p>` : ""}`;
   } catch (e) {
     caja.innerHTML = `<p class="pie">${escapar(e.message)}</p>`;
   }
