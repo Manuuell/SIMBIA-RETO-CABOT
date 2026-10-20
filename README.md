@@ -68,7 +68,7 @@ backend/simbia/
 │   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
 ├── ia.py                  Proveedor de IA por API (OpenAI o Anthropic), en un solo sitio
 ├── asistente.py           Asistente: contexto de la aplicación + conversación + resúmenes de documentos
-├── api/                   API REST (FastAPI)
+├── api/                   API REST (FastAPI); herramientas.py: lo que el asistente puede consultar, simular y abrir
 └── main.py                Aplicación
 
 frontend/                  Portada y dashboard por módulos, sin dependencias npm (ES modules + SVG)
@@ -77,6 +77,7 @@ frontend/                  Portada y dashboard por módulos, sin dependencias np
 │   ├── app.js             Enrutado por #hash; cada módulo se monta al visitarlo
 │   ├── comun.js           Peticiones, almacén compartido y bitácora
 │   ├── torre3d.js         Torre 3D paramétrica (three.js): celdas, ventiladores, tuberías e instrumentos ISA
+│   ├── orbe.js            Orbe de partículas del asistente (canvas 2D), que cambia con su estado y late con la voz
 │   ├── vendor/three/      three.js r169 (MIT), copia local para funcionar sin conexión
 │   └── modulos/           inicio · prospeccion (Vecinos) · simulador (gemelo) · asistente · modelo · …
 docs/                      Modelo técnico, supuestos, decisiones y prospección
@@ -89,7 +90,7 @@ docs/                      Modelo técnico, supuestos, decisiones y prospección
 | 1 | **Vecinos** (`#prospeccion`) | ¿Quiénes son los vecinos, qué agua producen y qué se sabe de cada uno? Lista y mapa con buscador y filtros, y el dossier de la empresa elegida: caracterización, expedientes y trámites de VITAL con sus documentos, lectura con IA y ficha comercial. Desde la cabecera se abren el **Buscador VITAL** y **Fuentes y documentos** (actualizar datos, cruzar permisos, subir un PDF). |
 | 2 | **Gemelo de la torre** (`#simulador`) | ¿Qué le pasa a mi torre, hora a hora, si acepto el agua de estos vecinos? Torre 3D a escala dimensionada con el caudal de recirculación, simulación dinámica con los lazos de una planta real (nivel → reposición, conductividad → purga, caudal de cada vecino, ácido, ventiladores), alarmas y tendencias. La mezcla de partida la propone el optimizador. |
 | 3 | **Criterios técnicos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
-| — | **Asistente** (`#asistente`) | Se le escribe o se le dicta; responde con los datos de la aplicación y puede leer la respuesta en voz alta. |
+| — | **Asistente** (`#asistente`) | Se le escribe o se le dicta, y además actúa: busca vecinos, lee fichas, simula la torre, pide la mezcla al optimizador y abre el gemelo o una ficha. Cada herramienta que usa se ve en el chat como un paso, con lo que hizo y lo que salió. Tiene su pantalla y, como ventana flotante, está en todo el panel. |
 
 Ocultos del menú por ahora, pero accesibles por su enlace: **Embudo comercial**
 (`#embudo`), **Optimizador** (`#optimizador`) y **Operación e IA** (`#operacion`).
