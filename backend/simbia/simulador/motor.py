@@ -23,7 +23,7 @@ from typing import Any, Sequence
 
 from ..config import Escenario
 from ..domain import cooling
-from ..domain.streams import TRENES_POR_CODIGO, admisible, desglose_costo
+from ..domain.streams import TRENES_POR_CODIGO, Oferente, Tren, admisible, desglose_costo
 from ..domain.water_chem import Calidad, dosificar_acido, mezclar
 from ..optim.blend import Solucion, agua_cruda, linea_base, optimizar
 from .fuentes import Fuente, oferente
@@ -71,6 +71,43 @@ class Toma:
     fuente: Fuente
     caudal_m3_h: float          # producto entregado a la torre
     tren: str = "T1"
+
+
+@dataclass(frozen=True)
+class Revision:
+    """Lo que se comprueba de una toma antes de creerse su agua."""
+
+    oferente: Oferente
+    producto: Calidad
+    admisible: bool
+    motivo: str
+    #: Agua del vecino que hace falta para entregar el caudal pedido.
+    alimentacion_m3_h: float
+    #: Lo mas que el vecino puede entregar con este tren.
+    maximo_m3_h: float
+    excede: bool
+
+
+def revisar(fuente: Fuente, tren: Tren, caudal_m3_h: float) -> Revision:
+    """Si el tren resuelve la corriente y si el vecino tiene esa agua.
+
+    La usan el simulador estacionario y el dinamico: los dos rechazan lo mismo.
+    """
+    of = oferente(fuente)
+    producto = tren.aplicar(of.calidad)
+    ok, motivo = admisible(of, tren)
+    if ok and producto.t_c > T_MAX_APORTE_C:
+        ok, motivo = False, (
+            f"sale a {producto.t_c:.0f} °C; necesita un tren con enfriamiento"
+        )
+    rec = tren.recuperacion
+    alimentacion = caudal_m3_h / rec if rec else float("inf")
+    return Revision(
+        oferente=of, producto=producto, admisible=ok, motivo=motivo,
+        alimentacion_m3_h=alimentacion,
+        maximo_m3_h=fuente.caudal_disponible_m3_h * rec,
+        excede=alimentacion > fuente.caudal_disponible_m3_h * (1 + 1e-6),
+    )
 
 
 @dataclass(frozen=True)
@@ -308,17 +345,11 @@ def _evaluar_tomas(
             raise ValueError(f"Tren de tratamiento desconocido: {toma.tren}")
         if toma.caudal_m3_h < 0:
             raise ValueError("El caudal de una toma no puede ser negativo.")
-        of = oferente(toma.fuente)
-        producto = tren.aplicar(of.calidad)
-        ok, motivo = admisible(of, tren)
-        if ok and producto.t_c > T_MAX_APORTE_C:
-            ok, motivo = False, (
-                f"sale a {producto.t_c:.0f} °C; necesita un tren con enfriamiento"
-            )
         q = toma.caudal_m3_h
+        rev = revisar(toma.fuente, tren, q)
+        of, producto, ok, motivo = rev.oferente, rev.producto, rev.admisible, rev.motivo
         rec = tren.recuperacion
-        alimentacion = q / rec if rec else float("inf")
-        excede = alimentacion > toma.fuente.caudal_disponible_m3_h * (1 + 1e-6)
+        alimentacion, excede = rev.alimentacion_m3_h, rev.excede
         desglose = desglose_costo(
             of, tren, eco.crf, horas, eco.capex_conduccion_usd_m3h_km,
             eco.energia_bombeo_kwh_m3_km, eco.costo_energia_usd_kwh,

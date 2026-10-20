@@ -15,7 +15,8 @@ lazos son los de una torre real:
 
     LIC-101  nivel de la balsa  -> LV-101, valvula de reposicion de agua cruda
     AIC-102  conductividad      -> AV-102, valvula de purga
-    FIC-2nn  caudal de cada vecino, a la consigna del operador
+    FIC-2nn  caudal de cada vecino, a la consigna del operador y hasta lo
+             que el vecino puede dar; alarma si el tren no basta
     P-101    bomba dosificadora de acido sulfurico sobre la reposicion
     SIC-103  velocidad de los ventiladores -> temperatura del agua fria
 
@@ -42,8 +43,8 @@ from ..domain.water_chem import (
     MG_CACO3_POR_MEQ, PARAMETROS_CONSERVATIVOS, Calidad, ph_sistema_abierto,
 )
 from ..optim.blend import agua_cruda
-from .fuentes import Fuente, oferente
-from .motor import ETIQUETAS, T_OPERACION_C
+from .fuentes import Fuente
+from .motor import ETIQUETAS, T_OPERACION_C, revisar
 
 # --------------------------------------------------------------------------
 # Reglas de diseno (supuestos declarados)
@@ -289,20 +290,37 @@ def temperaturas(p: Planta, e: Entradas) -> tuple[float, float, float]:
     return fria, fria + p.esc.torre.delta_t_c * e.carga_pct / 100.0, aproximacion
 
 
-def _productos(e: Entradas) -> list[tuple[dict[str, float], float, dict[str, Any]]]:
-    """Composicion tratada y caudal de cada vecino. Fijos durante una llamada."""
-    salida = []
-    for t in e.tomas:
+def _productos(e: Entradas) -> tuple[list[tuple[dict[str, float], float, dict[str, Any]]], list[dict[str, Any]]]:
+    """Composicion tratada y caudal de cada vecino, y las alarmas de sus tomas.
+
+    Fijos durante una llamada. Se comprueba lo mismo que en el simulador
+    estacionario (`motor.revisar`). Un FIC no entrega agua que el vecino no
+    tiene: el caudal se queda en lo que puede dar. Un tren que no resuelve la
+    corriente, o que la deja demasiado caliente, se simula igual, porque la
+    valvula abre, pero con alarma alta: ese ahorro no vale.
+    """
+    salida, alarmas = [], []
+    for i, t in enumerate(e.tomas):
         tren = TRENES_POR_CODIGO.get(t.tren)
         if tren is None:
             raise ValueError(f"Tren de tratamiento desconocido: {t.tren}")
-        producto = tren.aplicar(oferente(t.fuente).calidad)
+        pedido = max(t.caudal_m3_h, 0.0)
+        rev = revisar(t.fuente, tren, pedido)
+        caudal = min(pedido, rev.maximo_m3_h)
+        aviso = {"tag": f"FIC-{201 + i}", "fuente_id": t.fuente.id, "severidad": "alta"}
+        if pedido > 0 and rev.excede:
+            alarmas.append({**aviso, "texto": (
+                f"{t.fuente.nombre}: con {tren.nombre} solo puede entregar {rev.maximo_m3_h:.1f} m³/h")})
+        if pedido > 0 and not rev.admisible:
+            alarmas.append({**aviso, "texto": f"{t.fuente.nombre}: {tren.nombre} no basta ({rev.motivo})"})
         salida.append((
-            {k: getattr(producto, k) for k in PARAMETROS_CONSERVATIVOS},
-            max(t.caudal_m3_h, 0.0),
-            {"fuente_id": t.fuente.id, "caudal_m3_h": round(t.caudal_m3_h, 2), "tren": t.tren},
+            {k: getattr(rev.producto, k) for k in PARAMETROS_CONSERVATIVOS},
+            caudal,
+            {"fuente_id": t.fuente.id, "caudal_m3_h": round(caudal, 2), "pedido_m3_h": round(pedido, 2),
+             "maximo_m3_h": round(rev.maximo_m3_h, 2), "tren": t.tren, "excede": rev.excede,
+             "admisible": rev.admisible, "motivo": rev.motivo},
         ))
-    return salida
+    return salida, alarmas
 
 
 def _aporte(cruda: dict[str, float], cruda_m3_h: float,
@@ -362,7 +380,7 @@ def avanzar(p: Planta, estado: Estado, e: Entradas, horas: float) -> tuple[list[
     lazo_cond = e.conductividad or Lazo("auto", p.cond_consigna_base, s.av_pct)
     evap = _evaporacion(p, e)
     arrastre = cooling.arrastre_m3_h(p.esc.torre)
-    productos = _productos(e)
+    productos, alarmas_tomas = _productos(e)
     filas = [f for _, _, f in productos]
     q_vecinos = sum(q for _, q, _ in productos)
     cruda = {k: getattr(p.cruda, k) for k in PARAMETROS_CONSERVATIVOS}
@@ -432,7 +450,7 @@ def avanzar(p: Planta, estado: Estado, e: Entradas, horas: float) -> tuple[list[
                     {"parametro": k, "valor": round(v, 3), "limite": round(lim, 3)}
                     for k, v, lim in margenes
                 ],
-                "alarmas": _alarmas(p, nivel, margenes, t_fria),
+                "alarmas": alarmas_tomas + _alarmas(p, nivel, margenes, t_fria),
                 "tomas": filas,
             })
     return muestras, s

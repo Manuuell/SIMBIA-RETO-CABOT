@@ -81,6 +81,41 @@ def test_un_vecino_desplaza_agua_cruda_a_traves_del_lazo_de_nivel(planta):
     assert ultima["nivel_pct"] == pytest.approx(d.NIVEL_NOMINAL_PCT, abs=1.0)
 
 
+def _alarmas_de_tomas(muestra):
+    return [a for a in muestra["alarmas"] if a["tag"].startswith("FIC-")]
+
+
+def test_un_vecino_no_entrega_mas_agua_de_la_que_tiene(planta):
+    v2 = _fuente("V2")
+    maximo = v2.caudal_disponible_m3_h * 0.97              # T9: enfriamiento + filtracion
+    e = d.Entradas(tomas=(d.TomaDinamica(v2, 3 * v2.caudal_disponible_m3_h, "T9"),))
+    muestras, _ = d.avanzar(planta, d.estado_inicial(planta), e, 6)
+    ultima = muestras[-1]
+    assert ultima["vecinos_m3_h"] == pytest.approx(maximo, abs=0.01)
+    toma = ultima["tomas"][0]
+    assert toma["excede"] and toma["caudal_m3_h"] < toma["pedido_m3_h"]
+    alarmas = _alarmas_de_tomas(ultima)
+    assert [a["severidad"] for a in alarmas] == ["alta"]
+    assert alarmas[0]["fuente_id"] == v2.id and "solo puede entregar" in alarmas[0]["texto"]
+
+
+def test_un_tren_que_no_basta_dispara_alarma_alta(planta):
+    caliente = d.TomaDinamica(_fuente("V2"), 5.0, "T1")    # sale a 95 °C sin enfriar
+    sucia = d.TomaDinamica(_fuente("V3"), 5.0, "T1")       # el agua de la PTAR pide biologico
+    muestras, _ = d.avanzar(planta, d.estado_inicial(planta), d.Entradas(tomas=(caliente, sucia)), 2)
+    alarmas = _alarmas_de_tomas(muestras[-1])
+    assert [a["tag"] for a in alarmas] == ["FIC-201", "FIC-202"]
+    assert "enfriamiento" in alarmas[0]["texto"]
+    assert all(a["severidad"] == "alta" for a in alarmas)
+    assert not any(t["admisible"] for t in muestras[-1]["tomas"])
+
+
+def test_un_vecino_bien_tratado_no_dispara_alarmas_de_toma(planta):
+    e = d.Entradas(tomas=(d.TomaDinamica(_fuente("V2"), 5.0, "T9"), d.TomaDinamica(_fuente("V6"), 0.0, "T0")))
+    muestras, _ = d.avanzar(planta, d.estado_inicial(planta), e, 2)
+    assert _alarmas_de_tomas(muestras[-1]) == []
+
+
 def test_en_manual_la_valvula_se_queda_donde_la_deja_el_operador(planta):
     e = d.Entradas(conductividad=d.Lazo("man", 0.0, 0.0))
     muestras, s = d.avanzar(planta, d.estado_inicial(planta), e, 12)
@@ -129,6 +164,20 @@ def test_api_dinamica_continua_desde_el_estado(cliente):
     }).json()
     assert b["estado"]["t_h"] == pytest.approx(2.0)
     assert b["muestras"][0]["t_h"] > 1.0
+
+
+def test_api_dinamica_avisa_de_una_toma_imposible(cliente):
+    fuente = {"id": "caldera", "nombre": "Caldera", "caudal_disponible_m3_h": 10.0,
+              "calidad": {"t_c": 92.0}}
+    r = cliente.post("/api/simulador/dinamica", json={
+        "horas": 1, "fuentes": [fuente],
+        "tomas": [{"fuente_id": "caldera", "caudal_m3_h": 30.0, "tren": "T1"}],
+    })
+    assert r.status_code == 200
+    ultima = r.json()["muestras"][-1]
+    assert ultima["vecinos_m3_h"] == pytest.approx(9.7, abs=0.01)
+    textos = " ".join(a["texto"] for a in _alarmas_de_tomas(ultima))
+    assert "solo puede entregar" in textos and "enfriamiento" in textos
 
 
 def test_api_dinamica_rechaza_estado_incompleto(cliente):
