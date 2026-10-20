@@ -284,6 +284,12 @@
     <div class="pie-aliados">
       <span class="pie-etiqueta">Un reto de</span>
       <div class="pie-logos">
+        <!-- Cabot, la empresa del reto. Su logo va en landing/cabot.png (cualquier color: aqui se
+             pinta en blanco). Mientras no este, se ve el nombre. -->
+        <span class="pie-logo">
+          <img src="landing/cabot.png" alt="Cabot"
+            onerror="this.replaceWith(Object.assign(document.createElement('b'), {className: 'pie-logo-texto', textContent: 'Cabot'}))">
+        </span>
         <!-- El logo de Caribe Innova va en landing/caribe-innova.png (blanco, fondo transparente).
              Mientras no este, se ve el nombre. -->
         <span class="pie-logo">
