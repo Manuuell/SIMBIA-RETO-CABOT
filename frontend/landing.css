@@ -191,9 +191,12 @@ p { margin: 0; }
 
 /* Como lo atacamos: cuatro columnas separadas por hairlines, sin tarjetas. */
 .ataque { margin-top: clamp(3.5rem, 7vw, 6rem); }
-.ataque-cab { display: flex; align-items: baseline; gap: 10px 28px; flex-wrap: wrap; margin-bottom: 26px; }
+.ataque-cab {
+  display: grid; justify-items: center; gap: 10px; margin-bottom: 26px;
+  text-align: center;
+}
 .ataque-cab .kicker { margin: 0; }
-.ataque-cab h3 { font-size: clamp(1.5rem, 2.6vw, 2.1rem); letter-spacing: -.035em; max-width: 30ch; }
+.ataque-cab h3 { font-size: clamp(1.5rem, 2.6vw, 2.1rem); letter-spacing: -.035em; max-width: 34ch; }
 .ataque-pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--tinta); }
 .ataque-pasos li { padding: 26px 24px 8px 0; display: flex; flex-direction: column; gap: 8px; }
 .ataque-pasos li + li { padding-left: 24px; border-left: 1px solid var(--linea); }
