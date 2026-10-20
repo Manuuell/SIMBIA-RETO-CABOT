@@ -514,8 +514,9 @@ export function alAbrirPantalla(fn) { alNavegar = fn; }
 function saludo() {
   const h = new Date().getHours();
   const parte = h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
-  const s = estado.sesion || {};
-  let nombre = (s.nombre || s.usuario?.split("@")[0] || "").trim().split(/[\s._-]+/)[0] || "";
+  // Solo el nombre que se le puso a la cuenta: el usuario del correo
+  // ("estebanmanuel66") no es un nombre con el que saludar a nadie.
+  let nombre = (estado.sesion?.nombre || "").trim().split(/\s+/)[0] || "";
   if (nombre) nombre = nombre[0].toUpperCase() + nombre.slice(1);
   return nombre ? `${parte}, ${nombre}` : parte;
 }
