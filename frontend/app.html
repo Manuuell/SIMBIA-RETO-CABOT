@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="estilos.css?v=15">
+  <link rel="stylesheet" href="estilos.css?v=16">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -405,52 +405,59 @@
   <!-- ================================================================ asistente -->
   <section class="modulo" id="mod-asistente">
     <div class="asistente-app">
-      <header class="asistente-barra">
-        <div class="asistente-identidad">
-          <div class="asistente-avatar">
-            <div class="orbe" id="orbe" data-estado="reposo" aria-hidden="true">
-              <div class="orbe-anillo a1"></div><div class="orbe-anillo a2"></div><div class="orbe-anillo a3"></div>
-              <div class="orbe-halo"></div>
-              <div class="orbe-nucleo"></div>
-              <div class="orbe-barras"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="asistente-centro">
+        <header class="asistente-barra">
+          <div class="asistente-identidad">
+            <span class="orbe" data-orbe data-estado="reposo" aria-hidden="true"></span>
+            <div>
+              <h1>Asistente SIMBIA</h1>
+              <p class="orbe-estado" data-orbe-estado>Cargando…</p>
             </div>
           </div>
-          <div>
-            <h1>Asistente SIMBIA</h1>
-            <p class="orbe-estado" id="orbe-estado">Cargando…</p>
+          <div class="asistente-acciones">
+            <span id="asistente-chip"></span>
+            <button type="button" class="asis-icono" id="asistente-voz" aria-pressed="true" title="Leer las respuestas en voz alta" aria-label="Leer las respuestas en voz alta" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="ondas" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>
+            </button>
+            <button type="button" class="asis-icono" id="asistente-limpiar" title="Nueva conversación" aria-label="Nueva conversación">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
           </div>
+        </header>
+
+        <div class="asistente-inicio" id="asistente-inicio">
+          <h2 class="asistente-saludo" id="asistente-saludo">Hola</h2>
+          <p class="asistente-sub" id="asistente-sub">¿Qué analizamos hoy?</p>
+          <canvas class="asistente-orbe-grande" id="asistente-orbe" aria-hidden="true"></canvas>
+          <div class="asistente-rapidas" id="asistente-rapidas"></div>
         </div>
-        <div class="asistente-acciones">
-          <span id="asistente-chip"></span>
-          <label class="asistente-voz"><input type="checkbox" id="asistente-voz-auto" checked> Voz</label>
-          <button class="secundario pequeno" id="asistente-limpiar">＋ Nueva conversación</button>
-        </div>
-      </header>
+        <div class="conversacion" id="asistente-historial" aria-live="polite" hidden></div>
 
-      <div class="asistente-workspace">
-        <main class="asistente-chat">
-          <div class="conversacion" id="asistente-historial" aria-live="polite"></div>
-
-          <div class="asistente-composer-zona">
-            <form class="barra-pregunta" id="asistente-form">
-              <textarea id="asistente-entrada" rows="1" placeholder="Pregunta sobre prospectos, expedientes o documentos…" aria-label="Mensaje para el asistente"></textarea>
-              <div class="asistente-composer-pie">
-                <button type="button" class="secundario asistente-icono" id="asistente-mic" title="Dictar" aria-label="Dictar pregunta">🎤</button>
-                <span>Enter para enviar · Shift + Enter para nueva línea</span>
-                <button type="submit" id="asistente-enviar">Enviar ↑</button>
-              </div>
-            </form>
-          </div>
-        </main>
-
-        <aside class="asistente-contexto">
-          <div class="asistente-contexto-titulo">
-            <div><span class="asistente-contexto-punto"></span><h2>Contexto conectado</h2></div>
-            <p>Datos disponibles para esta conversación</p>
-          </div>
-          <div id="asistente-sabe"><p class="cargando">…</p></div>
-        </aside>
+        <form class="compositor" id="asistente-form">
+          <textarea id="asistente-entrada" rows="1" placeholder="Escribe un mensaje a SIMBIA…" aria-label="Mensaje para el asistente"></textarea>
+          <button type="button" class="compositor-boton" id="asistente-mic" title="Dictar" aria-label="Dictar la pregunta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+          </button>
+          <button type="submit" class="compositor-enviar" id="asistente-enviar" aria-label="Enviar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          </button>
+        </form>
       </div>
+
+      <aside class="asistente-lateral" aria-label="Lo que sabe y hace el asistente">
+        <section class="asis-tarjeta">
+          <h2>Actividad de la conversación</h2>
+          <ul class="asis-actividad" id="asistente-actividad"></ul>
+        </section>
+        <section class="asis-tarjeta">
+          <h2><span class="asis-punto"></span>Contexto conectado</h2>
+          <div id="asistente-sabe"><p class="cargando">…</p></div>
+        </section>
+        <section class="asis-tarjeta">
+          <h2>Lo que puede hacer</h2>
+          <ul class="asis-puede" id="asistente-puede"></ul>
+        </section>
+      </aside>
     </div>
   </section>
 

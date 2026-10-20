@@ -579,9 +579,17 @@ async function atenderPendientes() {
   global.simuladorPendientes = [];
   const lista = await cargarCandidatos();
   let alguno = false;
-  for (const id of pendientes) {
+  // Cada pendiente es una clave, o {id, caudal_m3_h, tren} si viene del asistente.
+  for (const p of pendientes) {
+    const id = typeof p === "string" ? p : p.id;
     const c = lista.find((x) => x.id === id);
-    if (c && agregar(c)) alguno = true;
+    if (!c) continue;
+    if (agregar(c, p.caudal_m3_h ?? null)) alguno = true;
+    else if (p.caudal_m3_h != null) { op.tomas[id] = { ...op.tomas[id], caudal: p.caudal_m3_h }; alguno = true; }
+    if (p.tren) { op.tomas[id] = { ...op.tomas[id], tren: p.tren }; alguno = true; }
+    // Nunca mas de lo que el vecino puede entregar con su tren.
+    const max = c.caudal_disponible_m3_h * tren(op.tomas[id].tren).recuperacion;
+    op.tomas[id].caudal = Math.min(op.tomas[id].caudal ?? 0, max);
   }
   if (alguno) { guardar(); pintarVecinos(); torre?.vecinos(vecinosVisibles()); }
 }

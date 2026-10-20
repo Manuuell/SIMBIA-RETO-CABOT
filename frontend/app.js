@@ -38,6 +38,7 @@ async function mostrar(id) {
   $("btn-cuenta")?.setAttribute("aria-expanded", "false");
   window.scrollTo({ top: 0 });
   actual = id;
+  document.body.dataset.modulo = id;
   try {
     if (!montados.has(id)) { montados.add(id); await mod.montar(); }
     await mod.mostrar?.();
@@ -107,6 +108,9 @@ async function arrancar() {
     return;
   }
   window.addEventListener("hashchange", enrutar);
+  // Quien cambia el enlace sin cambiar de modulo (el asistente abriendo otra
+  // empresa en Vecinos) pide que el modulo vuelva a leerlo.
+  window.addEventListener("simbia:mostrar", () => { if (actual) mostrar(actual); });
   enrutar();
 }
 
