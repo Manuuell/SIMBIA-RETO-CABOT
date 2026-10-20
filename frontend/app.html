@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="estilos.css?v=18">
+  <link rel="stylesheet" href="estilos.css?v=19">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -405,10 +405,10 @@
   <!-- ================================================================ asistente -->
   <section class="modulo" id="mod-asistente">
     <div class="asistente-app">
-      <div class="asistente-centro">
+      <div class="asistente-centro en-inicio">
         <header class="asistente-barra">
           <div class="asistente-identidad">
-            <span class="orbe" data-orbe data-estado="reposo" aria-hidden="true"></span>
+            <canvas class="orbe-mini" id="asistente-orbe-mini" aria-hidden="true"></canvas>
             <div>
               <h1>Asistente SIMBIA</h1>
               <p class="orbe-estado" data-orbe-estado>Cargando…</p>
@@ -778,7 +778,7 @@
 <!-- Asistente flotante: la misma conversacion, disponible en todo el panel. -->
 <section class="asis-flotante" id="asis-flotante" role="dialog" aria-label="Asistente SIMBIA" hidden>
   <header class="flot-cabecera">
-    <span class="orbe" data-orbe data-estado="reposo" aria-hidden="true"></span>
+    <canvas class="orbe-mini" id="flot-orbe" aria-hidden="true"></canvas>
     <div><b>SIMBIA</b><small data-orbe-estado>Lista para ayudarte</small></div>
     <a class="asis-icono" href="#asistente" id="flot-ampliar" title="Abrir en grande" aria-label="Abrir el asistente en grande">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>

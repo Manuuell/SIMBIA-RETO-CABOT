@@ -26,6 +26,9 @@ let cola = null;            // cola de fragmentos de voz de la respuesta actual
 let reconocimiento = null;
 let ctxAudio = null;        // un solo AudioContext para toda la sesion
 let orbeGrande = null;
+const orbes = [];           // los orbes de particulas: el grande y los de cabecera
+let aterrizar = null;       // termina en el acto un vuelo del orbe a medias
+const QUIETO = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let respondiendo = false;
 let alNavegar = null;       // lo que hay que hacer antes de que el asistente abra otra pantalla
 
@@ -118,7 +121,7 @@ function ponerEstado(nombre, texto) {
     if (nombre !== "hablando") o.style.setProperty("--amp", "1");
   });
   document.querySelectorAll("[data-orbe-estado]").forEach((e) => { e.textContent = texto || MENSAJE_ESTADO[nombre] || ""; });
-  orbeGrande?.estado(nombre);
+  orbes.forEach((o) => o.estado(nombre));
 }
 
 function ponerAmplitud(media, bandas) {
@@ -126,7 +129,7 @@ function ponerAmplitud(media, bandas) {
     o.style.setProperty("--amp", (1 + Math.min(media * 1.6, 0.45)).toFixed(3));
     bandas.forEach((b, i) => o.style.setProperty(`--b${i + 1}`, b.toFixed(3)));
   });
-  orbeGrande?.amplitud(media * 1.4);
+  orbes.forEach((o) => o.amplitud(media * 1.4));
 }
 
 function detenerAudio() {
@@ -138,7 +141,6 @@ function detenerAudio() {
     audio = null;
   }
   ponerAmplitud(0, [0.15, 0.15, 0.15, 0.15, 0.15]);
-  orbeGrande?.amplitud(0);
   if (estadoActual() === "hablando") ponerEstado("reposo");
 }
 
@@ -301,7 +303,10 @@ function htmlMensaje(m, i, escribiendo) {
 function pintarHistorial(escribiendo = false, forzarAbajo = false) {
   for (const v of Object.values(vistas)) {
     const vacio = !historial.length;
-    if (v.inicio) { v.inicio.hidden = !vacio; v.historial.hidden = vacio; }
+    if (v.inicio) {
+      v.inicio.hidden = !vacio; v.historial.hidden = vacio;
+      v.inicio.closest(".asistente-centro")?.classList.toggle("en-inicio", vacio);
+    }
     if (vacio) { v.historial.innerHTML = v.vacio ? v.vacio() : ""; continue; }
     const caja = v.historial;
     const pegado = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 90;
@@ -364,6 +369,8 @@ async function preguntar(texto, vista) {
   detenerAudio();
   if (vista?.entrada) { vista.entrada.value = ""; ajustar(vista.entrada); }
   const previo = historial.slice(-12).map(({ rol, contenido }) => ({ rol, contenido }));
+  // La primera pregunta en la pantalla grande: el orbe se encoge hasta la cabecera.
+  if (!historial.length && vista === vistas.pagina) volarOrbe(true);
   historial.push({ rol: "usuario", contenido: texto });
   const respuesta = { rol: "asistente", contenido: "", bloques: [], meta: null };
   historial.push(respuesta);
@@ -563,6 +570,54 @@ async function pintarSabe() {
 }
 
 // ---------------------------------------------------------------------------
+// Vuelo del orbe entre el inicio y la cabecera
+// ---------------------------------------------------------------------------
+
+/** El orbe grande se encoge hasta la cabecera al empezar la conversacion, y
+ *  vuelve a crecer desde ahi al empezar otra. Viaja como elemento fijo sobre
+ *  la pagina, porque dentro de su contenedor lo recortaria el desplazamiento;
+ *  como sigue siendo el mismo lienzo, gira durante todo el viaje. */
+function volarOrbe(haciaCabecera) {
+  aterrizar?.();
+  const lienzo = $("asistente-orbe"), mini = $("asistente-orbe-mini");
+  if (QUIETO || !lienzo || !mini || lienzo.hidden || document.body.dataset.modulo !== "asistente") return;
+  const grande = lienzo.getBoundingClientRect();
+  if (!grande.width) return;
+  // Donde queda el orbe pequeno, aunque ahora este plegado: al principio de su fila.
+  const fila = mini.parentElement.getBoundingClientRect();
+  const lado = 44;
+  const dx = fila.left + lado / 2 - (grande.left + grande.width / 2);
+  const dy = fila.top + fila.height / 2 - (grande.top + grande.height / 2);
+  const enCabecera = `translate(${dx}px, ${dy}px) scale(${lado / grande.width})`;
+
+  const hueco = document.createElement("div");
+  hueco.style.cssText = `width:${grande.width}px;height:${grande.height}px;flex:none;margin:4px 0`;
+  lienzo.replaceWith(hueco);
+  Object.assign(lienzo.style, {
+    position: "fixed", left: `${grande.left}px`, top: `${grande.top}px`, width: `${grande.width}px`,
+    height: `${grande.height}px`, margin: "0", zIndex: "45", pointerEvents: "none",
+  });
+  document.body.append(lienzo);
+  mini.style.opacity = "0";
+  const vuelo = lienzo.animate(
+    haciaCabecera
+      ? [{ transform: "none" }, { transform: enCabecera }]
+      : [{ transform: enCabecera, opacity: 0.5 }, { transform: "none", opacity: 1 }],
+    { duration: 700, easing: "cubic-bezier(.2,.75,.25,1)" },
+  );
+  aterrizar = () => {
+    aterrizar = null;
+    vuelo.onfinish = vuelo.oncancel = null;
+    vuelo.cancel();
+    lienzo.removeAttribute("style");
+    hueco.replaceWith(lienzo);
+    mini.style.opacity = "";
+    if (haciaCabecera) mini.animate([{ opacity: 0, transform: "scale(.7)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: "ease-out" });
+  };
+  vuelo.onfinish = vuelo.oncancel = () => aterrizar?.();
+}
+
+// ---------------------------------------------------------------------------
 // Flotante: la misma conversacion en cualquier pantalla del panel
 // ---------------------------------------------------------------------------
 
@@ -605,6 +660,7 @@ export async function iniciarFlotante() {
   rellenarOrbes();
   await cargarIA();
   if (!ia?.disponible) return;
+  try { orbes.push(crearOrbe($("flot-orbe"), { puntos: 170, radio: 0.36 })); } catch { /* sin canvas: queda el texto */ }
   montarVista("flotante", {
     historial: $("flot-historial"), form: $("flot-form"), entrada: $("flot-entrada"),
     enviar: $("flot-enviar"), mic: $("flot-mic"), vacio: vacioFlotante,
@@ -629,10 +685,12 @@ export async function iniciarFlotante() {
 }
 
 function nuevaConversacion() {
+  const habia = historial.length > 0;
   historial.length = 0;
   for (const k of Object.keys(cuenta)) cuenta[k] = 0;
   detenerAudio();
   pintarHistorial();
+  if (habia) volarOrbe(false);
   pintarActividad();
   ponerEstado(ia?.disponible ? "reposo" : "sin_ia", ia?.disponible ? undefined : ia?.motivo);
 }
@@ -657,7 +715,10 @@ export default {
       try { localStorage.setItem("simbia.asistente.voz", leerSolas ? "si" : "no"); } catch { /* sin almacenamiento */ }
       if (!leerSolas) detenerAudio();
     });
-    try { orbeGrande = crearOrbe($("asistente-orbe")); } catch { $("asistente-orbe").hidden = true; }
+    try {
+      orbeGrande = crearOrbe($("asistente-orbe"));
+      orbes.push(orbeGrande, crearOrbe($("asistente-orbe-mini"), { puntos: 170, radio: 0.36 }));
+    } catch { $("asistente-orbe").hidden = true; }
     pintarActividad();
     pintarPuede();
 

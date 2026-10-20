@@ -48,7 +48,7 @@ function esfera(n) {
   return puntos;
 }
 
-function hilos(puntos) {
+function hilos(puntos, umbral) {
   // Cada segundo punto con su vecino mas cercano: una red ligera, no una malla.
   const pares = [];
   for (let i = 0; i < puntos.length; i += 2) {
@@ -59,17 +59,20 @@ function hilos(puntos) {
       const d = dx * dx + dy * dy + dz * dz;
       if (d < dmin) { dmin = d; mejor = j; }
     }
-    if (dmin < 0.05) pares.push([i, mejor]);
+    if (dmin < umbral) pares.push([i, mejor]);
   }
   return pares;
 }
 
-export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
+/** `radio`: la esfera, en fraccion del lado del lienzo. Para el orbe pequeno
+ *  de una cabecera conviene menos puntos y algo mas de radio. */
+export function crearOrbe(lienzo, { puntos: n = 560, radio = 0.33 } = {}) {
   const ctx = lienzo.getContext("2d");
   const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ritmo = quieto ? 0.3 : 1;
   const puntos = esfera(n);
-  const pares = hilos(puntos);
+  // Con menos puntos estan mas separados: el umbral del vecino crece igual.
+  const pares = hilos(puntos, 0.05 * 560 / n);
   const orbitas = [
     { inclinacion: 0.42, giro: 0.2, radio: 1.2, velocidad: 0.35 },
     { inclinacion: 1.15, giro: 1.4, radio: 1.3, velocidad: -0.22 },
@@ -99,7 +102,10 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
     ampSuave += (amp - ampSuave) * 0.35;
     const vida = quieto ? 0 : actual.vida;
     const respira = 1 + Math.sin(t * 1.4) * 0.03 * vida;
-    const R = Math.min(ancho, alto) * 0.33 * actual.escala * respira * (1 + ampSuave * 0.3);
+    const R = Math.min(ancho, alto) * radio * actual.escala * respira * (1 + ampSuave * 0.3);
+    // Puntos, trazos y satelites se achican con la esfera: en una cabecera
+    // de 44 px los tamanos del orbe grande lo taparian todo.
+    const k = Math.min(1, Math.max(0.32, R / 110));
     const ay = angulo, ax = 0.35 + Math.sin(t * 0.45) * 0.22;
     const cy1 = Math.cos(ay), sy1 = Math.sin(ay), cx1 = Math.cos(ax), sx1 = Math.sin(ax);
     const base = actual.color;
@@ -121,7 +127,7 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); ctx.fill();
 
     // Orbitas, cada una con dos satelites que la recorren.
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = Math.max(0.6, 1.2 * k);
     orbitas.forEach((o, k) => {
       const fi = o.giro + angulo * o.velocidad * 1.6;
       const aplaste = Math.abs(Math.cos(o.inclinacion)) * 0.9 + 0.1;
@@ -137,13 +143,13 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
         const x = Math.cos(th) * R * o.radio, y = Math.sin(th) * R * o.radio * aplaste;
         const sx = cx + x * Math.cos(fi) - y * Math.sin(fi), sy = cy + x * Math.sin(fi) + y * Math.cos(fi);
         const color = mezclar(GRIS, SATELITES[k], base);
-        const brillo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 9);
+        const brillo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 9 * k);
         brillo.addColorStop(0, rgba(color, 0.55));
         brillo.addColorStop(1, rgba(color, 0));
         ctx.fillStyle = brillo;
-        ctx.beginPath(); ctx.arc(sx, sy, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, sy, 9 * k, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = rgba(color, 0.95);
-        ctx.beginPath(); ctx.arc(sx, sy, 2.8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, sy, Math.max(0.9, 2.8 * k), 0, Math.PI * 2); ctx.fill();
       }
     });
 
@@ -167,7 +173,7 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
       proy[i * 3 + 2] = (1.3 - z2) / 2.6;      // 1 delante, 0 detras
     }
 
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = Math.max(0.4, 0.8 * k);
     for (const [i, j] of pares) {
       const prof = (proy[i * 3 + 2] + proy[j * 3 + 2]) / 2;
       ctx.strokeStyle = rgba(mezclar(GRIS, AGUA, base), 0.1 + prof * 0.26);
@@ -183,7 +189,7 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
       const tono = p.tono < 0.55 ? AGUA : p.tono < 0.9 ? NARANJA : AMBAR;
       ctx.fillStyle = rgba(mezclar(GRIS, tono, base), 0.32 + prof * 0.68);
       ctx.beginPath();
-      ctx.arc(proy[i * 3], proy[i * 3 + 1], p.tam * (0.55 + prof * 0.75), 0, Math.PI * 2);
+      ctx.arc(proy[i * 3], proy[i * 3 + 1], Math.max(0.35, p.tam * k * (0.55 + prof * 0.75)), 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -192,7 +198,7 @@ export function crearOrbe(lienzo, { puntos: n = 560 } = {}) {
       for (let k = 0; k < 2; k++) {
         const f = ((t * 0.6 + k * 0.5) % 1);
         ctx.strokeStyle = rgba(NARANJA, 0.35 * (1 - f));
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.max(0.8, 1.5 * k);
         ctx.beginPath(); ctx.arc(cx, cy, R * (1.05 + f * 0.35), 0, Math.PI * 2); ctx.stroke();
       }
     }

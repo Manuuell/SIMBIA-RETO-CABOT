@@ -766,6 +766,11 @@ body[data-modulo="asistente"] main { padding-bottom: 20px; }
 }
 .asistente-identidad, .asistente-acciones { display: flex; align-items: center; gap: 10px; }
 .asistente-identidad h1 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
+/* El orbe pequeno de la cabecera: el grande vuela hasta aqui al empezar la
+   conversacion. En la pantalla de inicio no ocupa sitio. */
+.orbe-mini { width: 44px; height: 44px; flex: none; display: block; transition: width .35s ease, margin .35s ease, opacity .25s ease; }
+.asistente-centro.en-inicio .orbe-mini { width: 0; margin-right: -10px; opacity: 0; }
+.flot-cabecera .orbe-mini { width: 38px; height: 38px; }
 .orbe { position: relative; display: inline-block; flex: none; width: 34px; height: 34px; --amp: 1; --b1: .15; --b2: .15; --b3: .15; --b4: .15; --b5: .15; }
 .orbe-halo {
   position: absolute; inset: 1px; border-radius: 50%;
