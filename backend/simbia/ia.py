@@ -287,8 +287,10 @@ def conversar_con_herramientas(
     `ejecutar(llamada)` corre la herramienta y devuelve lo que se le contesta
     al modelo (texto, normalmente JSON). Este bucle lo llama entre "llamada" y
     "resultado", asi quien consume los eventos ve el paso empezar y acabar.
-    En la ultima ronda el modelo ya no puede pedir mas: responde con lo que
-    tiene.
+    Las herramientas van de una en una: si el modelo pidiera dos a la vez, la
+    segunda no podria usar lo que devuelve la primera (sugerir una mezcla y
+    abrirla en el gemelo). En la ultima ronda ya no puede pedir mas: responde
+    con lo que tiene.
     """
     p = proveedor()
     if p is None:
@@ -316,6 +318,7 @@ def _rondas_openai(p, instrucciones, mensajes, herramientas, ejecutar, max_token
         flujo = cliente.responses.create(
             model=p.modelo, instructions=instrucciones, input=entrada,
             tools=definiciones, tool_choice="none" if n == max_rondas else "auto",
+            parallel_tool_calls=False,
             max_output_tokens=max_tokens, stream=True,
             **({"previous_response_id": previa} if previa else {}),
             **_opciones_razonamiento(p),
@@ -358,7 +361,8 @@ def _rondas_anthropic(p, instrucciones, mensajes, herramientas, ejecutar, max_to
         inicio = time.monotonic()
         with cliente.messages.stream(
             model=p.modelo, max_tokens=max_tokens, system=instrucciones, messages=historia,
-            tools=definiciones, tool_choice={"type": "none" if n == max_rondas else "auto"},
+            tools=definiciones,
+            tool_choice={"type": "none"} if n == max_rondas else {"type": "auto", "disable_parallel_tool_use": True},
         ) as flujo:
             for evento in flujo:
                 if getattr(evento, "type", "") == "content_block_delta" and getattr(evento.delta, "type", "") == "text_delta":

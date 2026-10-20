@@ -110,6 +110,18 @@ def test_abrir_en_panel_arma_la_accion_en_el_servidor(mesa):
     assert not r.ok and r.accion is None and "Destino desconocido" in datos["error"]
 
 
+def test_abrir_el_gemelo_sin_empresas_carga_la_mezcla_sugerida(mesa):
+    r, _ = _correr(mesa, "abrir_en_panel", destino="gemelo")
+    assert r.accion == {"tipo": "gemelo", "tomas": []}        # sin sugerencia: el gemelo tal cual
+    r, datos = _correr(mesa, "sugerir_mezcla")
+    assert r.ok and datos["tomas"]
+    r, _ = _correr(mesa, "abrir_en_panel", destino="gemelo")
+    sugeridas = {t["empresa"] for t in datos["tomas"]}
+    assert {t["id"] for t in r.accion["tomas"]} == {p["clave"] for p in mesa.prospectos if p["nombre"] in sugeridas}
+    assert all(t["caudal_m3_h"] > 0 and t["tren"] for t in r.accion["tomas"])
+    assert r.paso.startswith("Abrió el gemelo con la mezcla sugerida (")
+
+
 def test_prefactibilidad_y_herramienta_desconocida(mesa):
     r, datos = _correr(mesa, "prefactibilidad")
     assert r.ok and datos["ahorro_pct"] == 0.38 and "38,0 %" in r.paso
@@ -167,6 +179,7 @@ def test_openai_ejecuta_la_herramienta_y_encadena_la_respuesta(monkeypatch):
     assert ejecutadas == [{"id": "c1", "nombre": "buscar_empresas", "argumentos": {"texto": "pl"}}]
     primera, segunda = llamadas_api
     assert primera["tool_choice"] == "auto" and "previous_response_id" not in primera
+    assert primera["parallel_tool_calls"] is False
     assert {t["name"] for t in primera["tools"]} == set(h.POR_NOMBRE)
     assert segunda["previous_response_id"] == "r1"
     assert segunda["input"] == [{"type": "function_call_output", "call_id": "c1", "output": '{"total": 0}'}]
@@ -212,9 +225,12 @@ def test_anthropic_ejecuta_la_herramienta_y_devuelve_el_resultado(monkeypatch):
             return iter([_ev("content_block_delta", delta=types.SimpleNamespace(type="text_delta", text=texto))])
         def get_final_message(self): return finales[self.n]
 
+    elecciones = []
+
     class Mensajes:
         def stream(self, **kw):
             historias.append([dict(m) for m in kw["messages"]])
+            elecciones.append(kw["tool_choice"])
             return Flujo(len(historias) - 1, kw)
 
     falso = types.ModuleType("anthropic")
@@ -228,3 +244,4 @@ def test_anthropic_ejecuta_la_herramienta_y_devuelve_el_resultado(monkeypatch):
     ultima = historias[1][-1]
     assert ultima["role"] == "user" and ultima["content"] == [
         {"type": "tool_result", "tool_use_id": "t1", "content": '{"ok": true}'}]
+    assert elecciones[0] == {"type": "auto", "disable_parallel_tool_use": True}

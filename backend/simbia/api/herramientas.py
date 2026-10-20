@@ -85,6 +85,9 @@ class Mesa:
         self.radio_km = radio_km
         self.kpis = kpis or {}
         self.resultados: dict[str, Resultado] = {}
+        #: La ultima mezcla de sugerir_mezcla, lista para abrirla en el gemelo.
+        self.mezcla_sugerida: list[dict[str, Any]] = []
+        self.nombres_sugeridos: list[str] = []
 
     @cached_property
     def prospectos(self) -> list[dict[str, Any]]:
@@ -309,6 +312,10 @@ def sugerir_mezcla(mesa: Mesa, empresas: list[str] | None = None) -> Resultado:
             f"Pidió la mezcla al optimizador · ninguna combinación cumple: {_corto(sug.motivo)}",
         )
     s = _resumen_simulacion(simular(mesa.escenario, sug.decision).as_dict())
+    mesa.mezcla_sugerida = [
+        {"id": t.fuente.id, "caudal_m3_h": round(t.caudal_m3_h, 2), "tren": t.tren} for t in sug.decision.tomas
+    ]
+    mesa.nombres_sugeridos = [t.fuente.nombre for t in sug.decision.tomas]
     tomas = [
         {"empresa": t.fuente.nombre, "caudal_m3_h": t.caudal_m3_h, "tren": t.tren,
          "tren_nombre": TRENES_POR_CODIGO[t.tren].nombre}
@@ -368,6 +375,13 @@ def abrir_en_panel(
         )
     if destino == "gemelo":
         pedidas = list(tomas or []) or ([{"empresa": empresa}] if empresa else [])
+        if not pedidas and mesa.mezcla_sugerida:
+            # "Abremela": sin empresas, la mezcla que se acaba de sugerir.
+            texto = f"el gemelo con la mezcla sugerida ({', '.join(mesa.nombres_sugeridos)})"
+            return Resultado(
+                {"abierto": texto}, f"Abrió {texto}",
+                accion={"tipo": "gemelo", "tomas": list(mesa.mezcla_sugerida)},
+            )
         cargar, nombres = [], []
         for t in pedidas[:MAX_TOMAS]:
             if not isinstance(t, dict):
@@ -456,7 +470,8 @@ DEFINICIONES: tuple[Herramienta, ...] = (
         "abrir_en_panel",
         "Abre una pantalla del panel en el navegador del usuario: la ficha de una empresa en "
         "Vecinos, el gemelo de la torre con unas empresas (y si se quiere, sus caudales y trenes) "
-        "ya cargadas, la lista de vecinos, el inicio o los criterios tecnicos. Solo cuando el "
+        "ya cargadas, la lista de vecinos, el inicio o los criterios tecnicos. Con destino gemelo "
+        "y sin empresas, carga la mezcla que acabas de pedir con sugerir_mezcla. Solo cuando el "
         "usuario pide ver, abrir o ir a algo.",
         {"type": "object", "properties": {
             "destino": {"type": "string", "enum": ["empresa", "gemelo", "vecinos", "inicio", "criterios"]},
