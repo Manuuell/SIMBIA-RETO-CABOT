@@ -619,9 +619,11 @@ export function crearTorre(contenedor, geo, {
     etTF.valor.textContent = `${num(m.t_fria_c)} °C`; alarma(etTF, tags.has("TI-105"));
     etEvap.valor.textContent = `${num(m.evaporacion_m3_h)} m³/h`;
     const porId = Object.fromEntries((m.tomas || []).map((t) => [t.fuente_id, t]));
+    const conAlarma = new Set((m.alarmas || []).map((a) => a.fuente_id).filter(Boolean));
     for (const et of etVecinos) {
       const t = porId[et.id];
       et.valor.textContent = `${et.nombre.slice(0, 18)} · ${num(t?.caudal_m3_h ?? 0)} m³/h`;
+      alarma(et, conAlarma.has(et.id));
     }
   }
 

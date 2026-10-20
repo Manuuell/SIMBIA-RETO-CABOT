@@ -157,9 +157,11 @@ function pintar() {
 
   const meta = 0.10;
   const ahorrado = (sim.estado.base_acumulada_m3 - sim.estado.cruda_acumulada_m3);
-  const tono = m.ahorro_pct >= meta ? "ok" : m.ahorro_pct < 0 ? "alerta" : "";
+  // Con un tren que no basta, el agua entra pero ese ahorro no se puede firmar.
+  const sinValidez = (m.tomas || []).some((t) => t.pedido_m3_h > 0 && !t.admisible);
+  const tono = sinValidez || m.ahorro_pct < 0 ? "alerta" : m.ahorro_pct >= meta ? "ok" : "";
   $("gem-kpis").innerHTML = `
-    <div><span>Reducción del consumo</span><b class="${tono}">${num(m.ahorro_pct * 100)} %</b><i>meta 10 %</i></div>
+    <div><span>Reducción del consumo</span><b class="${tono}">${num(m.ahorro_pct * 100)} %</b><i>${sinValidez ? "no vale: revisa los vecinos" : "meta 10 %"}</i></div>
     <div><span>Ciclos</span><b>${num(m.ciclos, 2)}</b><i>hoy ${num(r.base.ciclos, 1)}</i></div>
     <div><span>Agua cruda</span><b>${num(m.cruda_m3_h)} <small>m³/h</small></b><i>hoy ${num(r.base.reposicion_m3_h)}</i></div>
     <div><span>Purga</span><b>${num(m.purga_m3_h)} <small>m³/h</small></b><i>hoy ${num(r.base.purga_m3_h)}</i></div>
@@ -206,7 +208,17 @@ function pintarLecturas(m, r) {
   set("fp-cond-man", num(op.cond.out, 0));
   set("fp-niv-man", num(op.nivel.out, 0));
   const porId = Object.fromEntries((m.tomas || []).map((t) => [t.fuente_id, t]));
-  op.fuentes.forEach((f) => set(`fp-v-${f.id}`, num(porId[f.id]?.caudal_m3_h ?? op.tomas[f.id]?.caudal ?? 0, 1)));
+  op.fuentes.forEach((f) => {
+    const t = porId[f.id];
+    set(`fp-v-${f.id}`, num(t?.caudal_m3_h ?? op.tomas[f.id]?.caudal ?? 0, 1));
+    const aviso = document.getElementById(`fp-av-${f.id}`);
+    if (!aviso) return;
+    const textos = [];
+    if (t?.pedido_m3_h > 0 && !t.admisible) textos.push(`${tren(t.tren).nombre ?? t.tren} no basta: ${t.motivo}.`);
+    if (t?.pedido_m3_h > 0 && t.excede) textos.push(`Con este tren solo puede entregar ${num(t.maximo_m3_h)} m³/h.`);
+    aviso.textContent = textos.join(" ");
+    aviso.hidden = !textos.length;
+  });
 }
 
 function barra(id, pct) {
@@ -367,6 +379,7 @@ function pintarVecinos() {
           <button class="fp-quitar" aria-label="Quitar ${escapar(f.nombre)}">✕</button></div>
         <select class="fp-tren">${(ref?.trenes || []).map((x) => `<option value="${x.codigo}"${x.codigo === t.tren ? " selected" : ""}>${x.codigo} · ${escapar(x.nombre)}</option>`).join("")}</select>
         ${fila("Caudal", `fp-v-${f.id}`, "m³/h", 0.5)}
+        <p class="fp-aviso" id="fp-av-${escapar(f.id)}" role="status" hidden></p>
       </div>`;
     }).join("");
     op.fuentes.forEach((f) => {
@@ -378,7 +391,10 @@ function pintarVecinos() {
     caja.querySelectorAll(".fp-vecino").forEach((filaV) => {
       const id = filaV.dataset.id;
       filaV.querySelector(".fp-tren").addEventListener("change", (e) => {
-        op.tomas[id] = { ...(op.tomas[id] || { caudal: 0 }), tren: e.target.value };
+        // Un tren con menos recuperacion entrega menos: el caudal no pasa del nuevo maximo.
+        const f = op.fuentes.find((x) => x.id === id);
+        const max = f.caudal_disponible_m3_h * tren(e.target.value).recuperacion;
+        op.tomas[id] = { caudal: Math.min(op.tomas[id]?.caudal ?? 0, max), tren: e.target.value };
         guardar(); pintarVecinos();
       });
       filaV.querySelector(".fp-quitar").addEventListener("click", () => {
