@@ -556,6 +556,72 @@ async function pintarSabe() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Flotante: la misma conversacion en cualquier pantalla del panel
+// ---------------------------------------------------------------------------
+
+function rapidasFlotante() {
+  const modulo = moduloActual();
+  if (modulo === "simulador") return ["Sugiere la mejor mezcla y ábremela en el gemelo", "¿Qué pasa si tomo 15 m³/h de Dexton?"];
+  if (modulo === "prospeccion" && contextoClave) return ["¿Qué sabemos de la empresa en pantalla?", "Simula la torre con esta empresa"];
+  return RAPIDAS.slice(0, 3);
+}
+
+function vacioFlotante() {
+  return `<div class="flot-vacio">
+    <p class="flot-saludo">${escapar(saludo())}</p>
+    <p>Pregúntame por los vecinos, simula una mezcla o pídeme que te abra algo.</p>
+    <div class="flot-rapidas">${rapidasFlotante().map((s) => `<button type="button" data-pregunta="${escapar(s)}">${escapar(s)}</button>`).join("")}</div>
+  </div>`;
+}
+
+function abrirFlotante(enfocar = true) {
+  const panel = $("asis-flotante");
+  if (!panel || !vistas.flotante) return;
+  panel.hidden = false;
+  $("asis-lanzador").hidden = true;
+  $("asis-lanzador").setAttribute("aria-expanded", "true");
+  try { sessionStorage.setItem("simbia.asistente.flotante", "abierto"); } catch { /* sin almacenamiento */ }
+  pintarHistorial(false, true);
+  if (enfocar) $("flot-entrada").focus();
+}
+
+function cerrarFlotante() {
+  $("asis-flotante").hidden = true;
+  $("asis-lanzador").hidden = false;
+  $("asis-lanzador").setAttribute("aria-expanded", "false");
+  try { sessionStorage.setItem("simbia.asistente.flotante", "cerrado"); } catch { /* sin almacenamiento */ }
+}
+
+/** Se llama al arrancar el panel: el lanzador aparece si hay IA con la que hablar. */
+export async function iniciarFlotante() {
+  if (!$("asis-flotante")) return;
+  rellenarOrbes();
+  await cargarIA();
+  if (!ia?.disponible) return;
+  montarVista("flotante", {
+    historial: $("flot-historial"), form: $("flot-form"), entrada: $("flot-entrada"),
+    enviar: $("flot-enviar"), mic: $("flot-mic"), vacio: vacioFlotante,
+  });
+  $("asis-lanzador").hidden = false;
+  $("asis-lanzador").addEventListener("click", () => abrirFlotante());
+  $("flot-cerrar").addEventListener("click", () => { cerrarFlotante(); $("asis-lanzador").focus(); });
+  // "Abrir en grande" navega a #asistente con su enlace; la ventana se cierra.
+  $("flot-ampliar").addEventListener("click", cerrarFlotante);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !$("asis-flotante").hidden && $("asis-flotante").contains(document.activeElement)) cerrarFlotante();
+  });
+  // Si el asistente abre otra pantalla desde la suya, la conversacion sigue
+  // encima, en la ventana flotante.
+  alAbrirPantalla(() => { if (document.body.dataset.modulo === "asistente") abrirFlotante(false); });
+  // Al cambiar de pantalla, las sugerencias del flotante vacio cambian con ella.
+  window.addEventListener("hashchange", () => { if (!historial.length) pintarHistorial(); });
+  let abierto = false;
+  try { abierto = sessionStorage.getItem("simbia.asistente.flotante") === "abierto"; } catch { /* sin almacenamiento */ }
+  if (abierto) abrirFlotante(false);
+  ponerEstado("reposo");
+}
+
 function nuevaConversacion() {
   historial.length = 0;
   for (const k of Object.keys(cuenta)) cuenta[k] = 0;

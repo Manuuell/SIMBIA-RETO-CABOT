@@ -937,6 +937,39 @@ nav.modulos a.destacado.activo .n { background: var(--acento); }
 .asis-tarjeta .refs { margin: 8px 0 0; }
 .asis-tarjeta .refs li { padding: 6px 0; font-size: 11.5px; line-height: 1.45; overflow-wrap: anywhere; }
 
+/* Asistente flotante y su lanzador. */
+.asis-lanzador {
+  position: fixed; right: 22px; bottom: 22px; z-index: 39; display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px 7px 8px; border-radius: 999px; text-align: left; color: var(--texto);
+  background: var(--panel); border: 1px solid var(--borde); box-shadow: 0 12px 32px rgba(15,27,36,.16);
+}
+.asis-lanzador:hover { border-color: rgba(242,118,46,.55); filter: none; }
+.asis-lanzador-texto { display: grid; line-height: 1.25; }
+.asis-lanzador-texto b { font-size: 12.5px; }
+.asis-lanzador-texto small, .flot-cabecera small {
+  max-width: 200px; font-size: 10.5px; color: var(--texto-tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.asis-flotante {
+  position: fixed; right: 22px; bottom: 22px; z-index: 39; width: min(400px, calc(100vw - 32px)); height: min(620px, calc(100vh - 44px));
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden;
+  background: var(--fondo-2); border: 1px solid var(--borde); border-radius: 20px; box-shadow: 0 24px 60px rgba(15,27,36,.22);
+  animation: flot-entra .18s ease-out;
+}
+@keyframes flot-entra { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+.flot-cabecera { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--borde-suave); }
+.flot-cabecera > div { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.flot-cabecera b { font-size: 13px; }
+.flot-cabecera .asis-icono { width: 30px; height: 30px; text-decoration: none; }
+.flot-conversacion { max-height: none; padding: 16px 14px; gap: 14px; }
+.flot-conversacion .mensaje-burbuja { max-width: 86%; }
+.flot-compositor { width: auto; margin: 6px 10px 10px; }
+.flot-vacio { margin: auto 0; display: grid; gap: 8px; padding: 10px 4px; text-align: center; }
+.flot-saludo { margin: 0; font-family: var(--f-titulo); font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.flot-vacio p { margin: 0; font-size: 12.5px; color: var(--texto-tenue); line-height: 1.5; }
+.flot-rapidas { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 6px; }
+/* En su propia pantalla el asistente ya esta entero. */
+body[data-modulo="asistente"] .asis-lanzador, body[data-modulo="asistente"] .asis-flotante { display: none !important; }
+
 @media (max-width: 1100px) {
   .asistente-app { grid-template-columns: 1fr; }
   .asistente-lateral { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
@@ -951,8 +984,14 @@ nav.modulos a.destacado.activo .n { background: var(--acento); }
   .mensaje-burbuja { max-width: 88%; }
 }
 
+@media (max-width: 700px) {
+  .asis-flotante { left: 8px; right: 8px; bottom: 8px; width: auto; height: min(80vh, 620px); }
+  .asis-lanzador { right: 12px; bottom: 12px; }
+  .asis-lanzador-texto small { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .orbe-nucleo, .orbe-anillo, .cursor-respuesta, .paso.en_curso .paso-icono { animation: none !important; }
+  .orbe-nucleo, .orbe-anillo, .cursor-respuesta, .paso.en_curso .paso-icono, .asis-flotante { animation: none !important; }
 }
 
 .empresas-lista { max-height: calc(100vh - 260px); overflow: auto; padding-right: 2px; }

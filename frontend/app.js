@@ -7,7 +7,7 @@
  */
 
 import { $, estado, pedir, escapar } from "./comun.js";
-import asistente from "./modulos/asistente.js";
+import asistente, { iniciarFlotante } from "./modulos/asistente.js";
 import inicio from "./modulos/inicio.js";
 import prospeccion from "./modulos/prospeccion.js";
 import embudo from "./modulos/embudo.js";
@@ -112,6 +112,7 @@ async function arrancar() {
   // empresa en Vecinos) pide que el modulo vuelva a leerlo.
   window.addEventListener("simbia:mostrar", () => { if (actual) mostrar(actual); });
   enrutar();
+  iniciarFlotante();
 }
 
 arrancar();

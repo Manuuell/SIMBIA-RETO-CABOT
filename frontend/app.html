@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="estilos.css?v=16">
+  <link rel="stylesheet" href="estilos.css?v=17">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -775,6 +775,34 @@
 </aside>
 
 
-<script type="module" src="app.js?v=12"></script>
+<!-- Asistente flotante: la misma conversacion, disponible en todo el panel. -->
+<section class="asis-flotante" id="asis-flotante" role="dialog" aria-label="Asistente SIMBIA" hidden>
+  <header class="flot-cabecera">
+    <span class="orbe" data-orbe data-estado="reposo" aria-hidden="true"></span>
+    <div><b>SIMBIA</b><small data-orbe-estado>Lista para ayudarte</small></div>
+    <a class="asis-icono" href="#asistente" id="flot-ampliar" title="Abrir en grande" aria-label="Abrir el asistente en grande">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
+    </a>
+    <button type="button" class="asis-icono" id="flot-cerrar" title="Cerrar" aria-label="Cerrar el asistente">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </header>
+  <div class="conversacion flot-conversacion" id="flot-historial" aria-live="polite"></div>
+  <form class="compositor flot-compositor" id="flot-form">
+    <textarea id="flot-entrada" rows="1" placeholder="Pregunta o pide algo…" aria-label="Mensaje para el asistente"></textarea>
+    <button type="button" class="compositor-boton" id="flot-mic" title="Dictar" aria-label="Dictar la pregunta">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+    </button>
+    <button type="submit" class="compositor-enviar" id="flot-enviar" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+    </button>
+  </form>
+</section>
+<button type="button" class="asis-lanzador" id="asis-lanzador" aria-controls="asis-flotante" aria-expanded="false" hidden>
+  <span class="orbe" data-orbe data-estado="reposo" aria-hidden="true"></span>
+  <span class="asis-lanzador-texto"><b>Pregúntale a SIMBIA</b><small data-orbe-estado>Lista para ayudarte</small></span>
+</button>
+
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
