@@ -14,6 +14,7 @@
 
 import { $, anotar, chip, escapar, estado, pedir } from "../comun.js";
 import { crearOrbe } from "../orbe.js";
+import { crearConversacion, hayConversacion } from "../voz.js";
 
 const historial = [];       // [{rol, contenido, bloques?, meta?}]
 const vistas = {};          // nombre -> {historial, form, entrada, enviar, mic, inicio?}
@@ -28,6 +29,8 @@ let ctxAudio = null;        // un solo AudioContext para toda la sesion
 let orbeGrande = null;
 const orbes = [];           // los orbes de particulas: el grande y los de cabecera
 let aterrizar = null;       // termina en el acto un vuelo del orbe a medias
+let conv = null;            // modo conversacion por voz (voz.js)
+let vistaConv = null;       // la vista donde se ve lo que se va dictando
 const QUIETO = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // Radio de la esfera en fraccion del lienzo. El pequeno tiene un lienzo mayor
 // que su hueco de cabecera (44 px + 9 por lado) para que nada se corte.
@@ -202,7 +205,11 @@ function reproducirElemento(elemento) {
       ponerAmplitud(suma / voz.length / 255, bandas);
       audio.raf = requestAnimationFrame(animar);
     };
-    elemento.addEventListener("playing", () => { ponerEstado("hablando"); animar(); }, { once: true });
+    elemento.addEventListener("playing", () => {
+      ponerEstado("hablando", conv?.activa() ? "Hablando · interrúmpeme cuando quieras" : undefined);
+      conv?.hablando();
+      animar();
+    }, { once: true });
     elemento.addEventListener("ended", () => { try { fuente.disconnect(); analizador.disconnect(); } catch { /* nada */ } resolver(); }, { once: true });
     elemento.addEventListener("error", () => rechazar(new Error("no se pudo reproducir el audio")), { once: true });
     ctx.resume().then(() => elemento.play()).catch(rechazar);
@@ -230,7 +237,9 @@ function nuevaCola() {
       anotar(`Voz: ${escapar(e.message)}`, "alerta");
     } finally {
       c.corriendo = false;
+      const interrumpida = c.cancelada;
       if (cola === c) { cola = null; detenerAudio(); }
+      if (!interrumpida && conv?.activa()) conv.escuchar();
     }
   };
   return c;
@@ -370,6 +379,8 @@ async function preguntar(texto, vista) {
   if (!ia?.disponible) return;
   respondiendo = true;
   detenerAudio();
+  // Una pregunta escrita en pleno modo conversacion: se deja de dictar mientras responde.
+  if (conv?.estado() === "escuchando") conv.esperar();
   if (vista?.entrada) { vista.entrada.value = ""; ajustar(vista.entrada); }
   const previo = historial.slice(-12).map(({ rol, contenido }) => ({ rol, contenido }));
   // La primera pregunta en la pantalla grande: el orbe se encoge hasta la cabecera.
@@ -383,7 +394,8 @@ async function preguntar(texto, vista) {
 
   // Si hay voz, cada frase completa se manda a leer sin esperar al final.
   let leido = 0, abierto = null, rondas = 0, contexto = null;
-  if (leerSolas && ia.voz) { detenerAudio(); cola = nuevaCola(); }
+  // En modo conversacion la respuesta siempre se oye.
+  if (ia.voz && (leerSolas || conv?.activa())) { detenerAudio(); cola = nuevaCola(); }
   const colaLocal = cola;
   const enviarFrases = (final) => {
     if (!colaLocal || colaLocal.cancelada) return;
@@ -445,6 +457,9 @@ async function preguntar(texto, vista) {
     bloquear(false);
     pintarHistorial();
     vista?.entrada?.focus();
+    // Sin nada que leer (sin voz, o respuesta vacia), se vuelve a escuchar ya;
+    // si hay voz, lo hace la cola al terminar de sonar.
+    if (conv?.estado() === "esperando" && (!colaLocal || !colaLocal.fragmentos.length || colaLocal.cancelada)) conv.escuchar();
   }
 }
 
@@ -473,6 +488,72 @@ function montarDictado(v) {
     reconocimiento.start();
   });
 }
+
+// ---------------------------------------------------------------------------
+// Modo conversacion: escuchar, responder en voz alta y volver a escuchar
+// ---------------------------------------------------------------------------
+
+function nivelVozAsistente() {
+  if (!audio) return 0;
+  const datos = new Float32Array(audio.analizador.fftSize);
+  audio.analizador.getFloatTimeDomainData(datos);
+  let suma = 0;
+  for (const v of datos) suma += v * v;
+  return Math.sqrt(suma / datos.length);
+}
+
+function marcarConversacion(activa) {
+  document.querySelectorAll("[data-conversar]").forEach((b) => {
+    b.setAttribute("aria-pressed", String(activa));
+    b.classList.toggle("activo", activa);
+    b.title = activa ? "Terminar la conversación por voz" : "Conversar por voz";
+  });
+  for (const v of Object.values(vistas)) {
+    v.entrada.placeholder = activa ? "Te escucho… habla cuando quieras" : (v.entrada.dataset.placeholder ??= v.entrada.placeholder);
+  }
+}
+
+async function alternarConversacion(v) {
+  if (conv?.activa()) { conv.terminar(); return; }
+  await cargarIA();
+  if (!ia?.disponible) return;
+  for (const x of Object.values(vistas)) x.entrada.dataset.placeholder ??= x.entrada.placeholder;
+  vistaConv = v;
+  detenerAudio();
+  conv ??= crearConversacion({
+    contextoAudio,
+    alTexto: (texto) => { if (vistaConv) { vistaConv.entrada.value = texto; ajustar(vistaConv.entrada); } },
+    alTurno: (texto) => preguntar(texto, vistaConv),
+    alEstado: (e) => {
+      marcarConversacion(e !== "inactiva");
+      if (e === "escuchando") ponerEstado("escuchando", "Te escucho… habla cuando quieras");
+      else if (e === "inactiva" && estadoActual() === "escuchando") ponerEstado("reposo");
+    },
+    alInterrumpir: detenerAudio,
+    alNivel: (n) => {
+      const b = Math.max(0.15, Math.min(n * 14, 1));
+      ponerAmplitud(Math.min(n * 6, 0.45), [b, b, b, b, b]);
+    },
+    nivelSalida: nivelVozAsistente,
+    alError: (mensaje) => { anotar(`Voz: ${escapar(mensaje)}`, "alerta"); ponerEstado("reposo", mensaje); },
+  });
+  try {
+    await conv.empezar();
+  } catch (e) {
+    anotar(`Voz: ${escapar(e.message)}`, "alerta");
+    ponerEstado("reposo", e.message);
+  }
+}
+
+// Esc corta la conversacion. Si se cambia de pantalla, lo dictado pasa a la
+// ventana flotante si esta abierta; si no, la conversacion termina.
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && conv?.activa()) conv.terminar(); });
+window.addEventListener("hashchange", () => setTimeout(() => {
+  if (!conv?.activa()) return;
+  if (document.body.dataset.modulo === "asistente" && vistas.pagina) vistaConv = vistas.pagina;
+  else if (vistas.flotante && !$("asis-flotante").hidden) vistaConv = vistas.flotante;
+  else conv.terminar();
+}, 0));
 
 // ---------------------------------------------------------------------------
 // Vistas
@@ -512,6 +593,10 @@ export function montarVista(nombre, v) {
   v.historial.addEventListener("click", alPulsarEnHistorial);
   v.historial.addEventListener("toggle", alDesplegar, true);
   montarDictado(v);
+  if (v.conversar) {
+    if (hayConversacion()) v.conversar.addEventListener("click", () => alternarConversacion(v));
+    else v.conversar.hidden = true;
+  }
   pintarHistorial();
 }
 
@@ -652,6 +737,7 @@ function abrirFlotante(enfocar = true) {
 }
 
 function cerrarFlotante() {
+  if (conv?.activa() && vistaConv === vistas.flotante) conv.terminar();
   $("asis-flotante").hidden = true;
   $("asis-lanzador").hidden = false;
   $("asis-lanzador").setAttribute("aria-expanded", "false");
@@ -667,7 +753,7 @@ export async function iniciarFlotante() {
   try { orbes.push(crearOrbe($("flot-orbe"), { puntos: 170, radio: RADIO_MINI })); } catch { /* sin canvas: queda el texto */ }
   montarVista("flotante", {
     historial: $("flot-historial"), form: $("flot-form"), entrada: $("flot-entrada"),
-    enviar: $("flot-enviar"), mic: $("flot-mic"), vacio: vacioFlotante,
+    enviar: $("flot-enviar"), mic: $("flot-mic"), conversar: $("flot-conversar"), vacio: vacioFlotante,
   });
   $("asis-lanzador").hidden = false;
   $("asis-lanzador").addEventListener("click", () => abrirFlotante());
@@ -706,6 +792,7 @@ export default {
     montarVista("pagina", {
       historial: $("asistente-historial"), inicio: $("asistente-inicio"), form: $("asistente-form"),
       entrada: $("asistente-entrada"), enviar: $("asistente-enviar"), mic: $("asistente-mic"),
+      conversar: $("asistente-conversar"),
     });
     $("asistente-rapidas").innerHTML = RAPIDAS.map((s) => `<button type="button" data-pregunta="${escapar(s)}">${escapar(s)}</button>`).join("");
     $("asistente-rapidas").addEventListener("click", (ev) => {

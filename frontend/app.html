@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="estilos.css?v=20">
+  <link rel="stylesheet" href="estilos.css?v=21">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -438,6 +438,9 @@
 
         <form class="compositor" id="asistente-form">
           <textarea id="asistente-entrada" rows="1" placeholder="Escribe un mensaje a SIMBIA…" aria-label="Mensaje para el asistente"></textarea>
+          <button type="button" class="compositor-boton" id="asistente-conversar" data-conversar aria-pressed="false" title="Conversar por voz" aria-label="Conversar por voz">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>
+          </button>
           <button type="button" class="compositor-boton" id="asistente-mic" title="Dictar" aria-label="Dictar la pregunta">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
           </button>
@@ -793,6 +796,9 @@
   <div class="conversacion flot-conversacion" id="flot-historial" aria-live="polite"></div>
   <form class="compositor flot-compositor" id="flot-form">
     <textarea id="flot-entrada" rows="1" placeholder="Pregunta o pide algo…" aria-label="Mensaje para el asistente"></textarea>
+    <button type="button" class="compositor-boton" id="flot-conversar" data-conversar aria-pressed="false" title="Conversar por voz" aria-label="Conversar por voz">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>
+    </button>
     <button type="button" class="compositor-boton" id="flot-mic" title="Dictar" aria-label="Dictar la pregunta">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
     </button>

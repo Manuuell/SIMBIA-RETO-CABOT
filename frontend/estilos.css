@@ -928,6 +928,10 @@ body[data-modulo="asistente"] main { padding-bottom: 20px; }
 .compositor-boton { background: transparent; border-color: transparent; color: var(--texto-tenue); }
 .compositor-boton:hover { color: var(--texto); background: var(--panel-alto); filter: none; }
 .compositor-boton.grabando { color: #fff; background: var(--alerta); }
+/* Modo conversacion activo: el boton late mientras el microfono sigue abierto. */
+.compositor-boton.activo { color: #fff; background: var(--acento); animation: conversar-pulso 1.8s ease-in-out infinite; }
+.compositor-boton.activo:hover { color: #fff; background: var(--acento-texto); }
+@keyframes conversar-pulso { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,118,46,.35); } 50% { box-shadow: 0 0 0 7px rgba(242,118,46,0); } }
 .compositor-enviar { background: var(--tinta); border-color: var(--tinta); color: #fff; }
 .compositor-enviar:disabled { opacity: .35; }
 
@@ -1007,7 +1011,7 @@ body[data-modulo="asistente"] .asis-lanzador, body[data-modulo="asistente"] .asi
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .orbe-nucleo, .orbe-anillo, .cursor-respuesta, .paso.en_curso .paso-icono, .asis-flotante { animation: none !important; }
+  .orbe-nucleo, .orbe-anillo, .cursor-respuesta, .paso.en_curso .paso-icono, .asis-flotante, .compositor-boton.activo { animation: none !important; }
 }
 
 .empresas-lista { max-height: calc(100vh - 260px); overflow: auto; padding-right: 2px; }
