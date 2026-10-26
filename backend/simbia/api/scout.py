@@ -83,6 +83,9 @@ def _barrido(
                 "total": len(lista), "origen": origen, "fecha_dato": fecha,
                 "cruzados": cruzados,
             },
+            # Los permisos completos: las referencias solo guardan su
+            # identificador, y el dossier quiere la fecha y el titular.
+            "lista_permisos": lista,
         })
         _cache[clave] = almacen.aplicar_fichas(puntuar_todos(enriquecidos))
         _optimos.clear()
@@ -103,6 +106,19 @@ def _ficha_json(f: almacen.Ficha) -> dict[str, Any]:
         except HTTPException:
             doc["analizado"] = False
     return d
+
+
+def _permisos_json(p: Prospecto, indice: dict[str, permisos.Permiso]) -> list[dict[str, str]]:
+    """Los permisos de vertimiento del prospecto, tal como constan en VITAL.
+
+    Titular, autoridad, tramite y fecha de cada uno: el titular es lo que deja
+    comprobar a simple vista que el cruce por razon social es el bueno.
+    """
+    return [
+        {**indice[r.identificador].as_dict(), "url": indice[r.identificador].url}
+        for r in p.referencias
+        if r.fuente == permisos.FUENTE and r.identificador in indice
+    ]
 
 
 def _prospecto_json(p: Prospecto) -> dict[str, Any]:
@@ -188,11 +204,13 @@ def barrido(
     b = _ultimo_barrido.get("b")
 
     fichas, _ = almacen.vincular_fichas(prospectos)
+    indice = {x.expediente or x.radicado: x for x in _ultimo_barrido.get("lista_permisos", ())}
     salida = []
     for p in prospectos:
         d = _prospecto_json(p)
         ficha = fichas.get(d["clave"])
         d["ficha"] = _ficha_json(ficha) if ficha else None
+        d["permisos"] = _permisos_json(p, indice)
         salida.append(d)
 
     viables = [p for p in prospectos if (p.puntaje or 0) > 0]

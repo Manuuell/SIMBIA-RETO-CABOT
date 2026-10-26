@@ -968,6 +968,19 @@ def test_el_barrido_cuenta_como_se_consultaron_los_permisos(cliente):
         assert (f["origen"] == "cache") == bool(f["fecha_dato"]) or f["origen"] != "cache"
 
 
+def test_cada_prospecto_trae_sus_permisos_con_lo_que_dice_vital(cliente):
+    """El dossier enseña el permiso entero, no solo su numero: titular,
+    autoridad y fecha salen del mismo registro de VITAL que dio la referencia."""
+    d = cliente.get("/api/scout/barrido").json()
+    for p in d["prospectos"]:
+        refs = {r["identificador"] for r in p["referencias"] if r["fuente"] == "vital"}
+        for x in p["permisos"]:
+            assert (x["expediente"] or x["radicado"]) in refs
+            assert x["titular"] and x["autoridad"] and x["url"].startswith("https://")
+        if not refs:
+            assert p["permisos"] == []
+
+
 def test_el_modo_se_puede_elegir_por_peticion(cliente, monkeypatch):
     """Desde el dashboard se pide 'consulta ahora' sin reiniciar el servidor.
 
