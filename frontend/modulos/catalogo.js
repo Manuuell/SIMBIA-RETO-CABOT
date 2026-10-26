@@ -11,15 +11,14 @@
  *   4. Simbiosis       la quimica de la torre decide quien sirve (se colorean)
  *
  * Las pausas entre etapas son solo para poder leerlas; «Ver ya» las salta y
- * con movimiento reducido no existen. Se analiza una vez por sesion del
- * navegador: al volver a Vecinos el catalogo ya esta.
+ * con movimiento reducido no existen. Cada vez que se entra a Vecinos se
+ * empieza aqui (prospeccion.js decide cuando).
  */
 
 import { $, cargarBarrido, escapar, estado, fechaCorta, fmt, nombreAutoridad, permisosDe } from "../comun.js";
 import { colorPuntaje } from "../mapa.js";
 
 const NS = "http://www.w3.org/2000/svg";
-const CLAVE_SESION = "simbia.vecinos.analizado";
 const W = 440, C = W / 2, R = W / 2 - 22;
 const MS = { barrido: 1700, ciiu: 1500, vital: 1300, permiso: 260, simbiosis: 1500, cierre: 900 };
 
@@ -33,6 +32,7 @@ const ETAPAS = [
 const reducido = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let esperas = [];
 let saltar = false;
+let corriendo = false;
 
 function pausa(ms) {
   if (saltar || reducido()) return Promise.resolve();
@@ -42,13 +42,8 @@ function pausa(ms) {
   });
 }
 
-export function yaAnalizado() {
-  try { return sessionStorage.getItem(CLAVE_SESION) === "1"; } catch { return false; }
-}
-
-export function marcarAnalizado() {
-  try { sessionStorage.setItem(CLAVE_SESION, "1"); } catch { /* sin almacenamiento: se repite al recargar */ }
-}
+/** Si hay un recorrido a medias: volver a la seccion no debe pisarlo. */
+export const enCurso = () => corriendo;
 
 /** Cache local, red o ejemplo: de donde salio el dato, dicho para personas. */
 function procedencia(origen, fecha) {
@@ -227,7 +222,7 @@ export function pintarArranque() {
 /** Corre el analisis y el recorrido. `alTerminar` muestra el catalogo. */
 export async function analizar(alTerminar) {
   const boton = $("btn-analizar-vecinos"), saltarBtn = $("btn-saltar-analisis");
-  saltar = false; esperas = [];
+  saltar = false; esperas = []; corriendo = true;
   boton.disabled = true; boton.textContent = "Analizando…";
   saltarBtn.hidden = false;
   saltarBtn.onclick = () => { saltar = true; esperas.splice(0).forEach((f) => f()); };
@@ -245,6 +240,7 @@ export async function analizar(alTerminar) {
     boton.disabled = false; boton.textContent = "Reintentar";
     saltarBtn.hidden = true;
     $("vec-analisis").classList.remove("en-curso");
+    corriendo = false;
     return;
   }
 
@@ -296,7 +292,7 @@ export async function analizar(alTerminar) {
   boton.textContent = "Catálogo listo";
   saltarBtn.hidden = true;
   await pausa(MS.cierre);
-  marcarAnalizado();
+  corriendo = false;
   $("vec-analisis").classList.remove("en-curso");
   alTerminar(b);
 }

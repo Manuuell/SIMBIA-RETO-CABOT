@@ -1,9 +1,8 @@
 /* Vecinos: toda la prospeccion en una pagina.
  *
- * Empieza sin datos, con el boton «Analizar empresas» (catalogo.js): el
- * catalogo aparece cuando termina el recorrido, y en el resto de la sesion
- * ya no se pregunta. Quien llega a una empresa concreta (asistente, enlace)
- * va directo a ella.
+ * Cada vez que se entra empieza sin datos, con el boton «Analizar empresas»
+ * (catalogo.js): el catalogo aparece cuando termina el recorrido. Quien llega
+ * a una empresa concreta (asistente, enlace) va directo a ella.
  *
  * A la izquierda, la lista (o el mapa) de empresas con su buscador y filtros;
  * a la derecha, el dossier de la elegida (empresas.js). Lo que antes eran
@@ -19,7 +18,7 @@ import {
   $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, nombreAutoridad, permisosDe, sello, tienePermiso,
 } from "../comun.js";
 import { colorPuntaje, dibujarMapa } from "../mapa.js";
-import { analizar, marcarAnalizado, pintarArranque, yaAnalizado } from "./catalogo.js";
+import { analizar, enCurso, pintarArranque } from "./catalogo.js";
 import datos from "./datos.js";
 import vital, { buscarTexto } from "./vital.js";
 import { montarDossier, refrescarDossier, seleccionada, seleccionar as abrirDossier } from "./empresas.js";
@@ -217,7 +216,6 @@ function reanalizar() {
 /** Quien viene a por una empresa concreta no pasa por el boton. */
 function saltarAnalisis() {
   if (!$("vec-catalogo").hidden) return;
-  marcarAnalizado();
   mostrarCatalogo();
 }
 
@@ -318,6 +316,9 @@ async function atenderEnlace() {
   }
 }
 
+// La primera entrada ya pinta el arranque en montar(), antes de cargar nada.
+let recienMontado = false;
+
 export default {
   id: "prospeccion",
   async montar() {
@@ -325,12 +326,17 @@ export default {
     montarPanel();
     pintarAyudaPuntaje();
     bus.on("barrido", pintarTodo);
-    if (yaAnalizado()) mostrarCatalogo(); else mostrarArranque();
+    mostrarArranque();
+    recienMontado = true;
     await montarDossier();
     if (!estado.barrido) await cargarBarrido();
     pintarTodo();
   },
   async mostrar() {
+    // Cada entrada a Vecinos empieza por «Analizar empresas», salvo que haya
+    // un recorrido a medias o el enlace pida una empresa (atenderEnlace).
+    if (!recienMontado && !enCurso()) mostrarArranque();
+    recienMontado = false;
     await refrescarDossier();
     await atenderEnlace();
   },
