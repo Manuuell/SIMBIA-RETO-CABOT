@@ -121,7 +121,7 @@ export function nombreAutoridad(a) {
 }
 
 /** El detalle de un tramite en el VITAL antiguo, o el buscador si faltan sus ids. */
-function urlTramite(t) {
+export function urlTramite(t) {
   if (!(t.radicado && t.sol_id && t.solicitante_id)) return "https://vital-publico.minambiente.gov.co/buscador";
   const q = new URLSearchParams({ NumSilpa: t.radicado, Origen: t.sistema || "VITAL", TarSolId: t.sol_id, Solicitante: t.solicitante_id, TipoConsulta: "Todos" });
   return `https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx?${q}`;

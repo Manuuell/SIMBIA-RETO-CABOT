@@ -13,7 +13,7 @@
 
 import {
   $, anotar, barraConfianza, bus, cargarBarrido, chip, copiar, escapar, estado, fechaCorta,
-  fmt, kpi, nombreAutoridad, pedir, permisosDe, sello, textoSolicitud,
+  fmt, kpi, nombreAutoridad, pedir, permisosDe, sello, textoSolicitud, urlTramite,
 } from "../comun.js";
 import { abrirPanel } from "./prospectos.js";
 import { fijarEmpresaEnPantalla } from "./asistente.js";
@@ -115,14 +115,34 @@ function tarjetaPermiso(t) {
       ${dato("Radicado", t.radicado !== (t.expediente || t.identificador) ? t.radicado : "")}
       <div class="ancho"><dt>Titular en VITAL</dt><dd>${escapar(t.titular || "—")}</dd></div>
     </dl>
-    ${documentosPermiso(t)}
+    ${documentosPermiso(t.docs || t)}
   </article>`;
+}
+
+/** De donde salen los documentos de un permiso. Los de EPA Cartagena llegan
+ * por su sistema (SILAMC), que no publica archivos en el VITAL antiguo; su
+ * copia en VITAL, la gemela que marca el servidor, si los tiene. */
+function fuenteDocumentos(e, t) {
+  if (t.sistema === "VITAL") return t;
+  const g = (enVital[e.clave]?.expedientes || []).find((x) => x.gemelo_de === t.identificador
+    && x.representativo?.origen === "VITAL" && x.representativo.sol_id && x.representativo.solicitante_id);
+  if (!g) return t;
+  const r = g.representativo;
+  const copia = { identificador: t.identificador, radicado: r.radicado, sistema: r.origen, sol_id: r.sol_id, solicitante_id: r.solicitante_id, copia: true };
+  return { ...copia, url: urlTramite(copia) };
+}
+
+/** Lo que VITAL tiene a su nombre y no esta ya en el dossier, ni es copia de un permiso suyo. */
+function otrosTramites(e, permisos) {
+  const ya = new Set(permisos.map((t) => t.identificador));
+  return (enVital[e.clave]?.expedientes || []).filter((g) => !g.gemelo_de && !ya.has(g.expediente || g.radicado));
 }
 
 function documentosPermiso(t) {
   const puede = t.radicado && t.sol_id && t.solicitante_id;
   const d = detallesTramite[t.radicado];
   const portal = t.url ? `<a class="vec-permiso-portal" href="${escapar(t.url)}" target="_blank" rel="noopener">Abrir en VITAL ↗</a>` : "";
+  const copia = t.copia ? `<p class="pie" style="margin:0 0 6px">Los archivos están en su registro de VITAL, radicado <code>${escapar(t.radicado)}</code>.</p>` : "";
   let docs = "";
   if (!puede) {
     docs = `<div class="vec-permiso-acciones"><span class="pie" style="margin:0">Este trámite no enlaza con sus documentos.</span>
@@ -145,7 +165,7 @@ function documentosPermiso(t) {
           </td></tr>`).join("")}</tbody></table>` : `<p class="pie">${escapar(c.incidencia || "Carpeta vacia.")}</p>`}`).join("")}
       <p class="pie"><a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></p>`;
   }
-  return `<div class="vec-permiso-docs">${docs}</div>`;
+  return `<div class="vec-permiso-docs">${copia}${docs}</div>`;
 }
 
 function bloqueDocumentos(e) {
@@ -177,12 +197,11 @@ function bloqueEnVital(e, vinculados) {
   if (!v) return `<p class="cargando">Buscando "${escapar(e.nombre)}" en VITAL…</p>`;
   if (v.error) return `<p class="pie" style="color:var(--aviso)">${escapar(v.error)}</p>`;
   if (v.origen === "sin dato") return `<p class="pie">${escapar(v.incidencia)} <button class="secundario pequeno btn-vital-vivo">Consultar en vivo</button></p>`;
-  const ya = new Set(vinculados.map((t) => t.identificador));
-  const grupos = v.expedientes.filter((g) => !ya.has(g.expediente || g.radicado));
+  const grupos = otrosTramites(e, vinculados);
   if (!v.expedientes.length) return `<p class="pie">Nada a nombre de "${escapar(e.nombre)}" (${v.total} resultado(s) para "${escapar(v.consulta)}", ninguno con titular parecido). Prueba en el <a href="#vital?q=${encodeURIComponent(v.consulta)}">Buscador VITAL</a> por si tramita con otra razon social.</p>`;
   if (!grupos.length) return `<p class="pie">Todo lo que hay a su nombre ya esta vinculado.</p>`;
   const mostrar = verTodoVital ? grupos : grupos.slice(0, 10);
-  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "consulta disponible" : "consultado ahora"}), en ${v.expedientes.length} expediente(s) o grupo(s). Vincula los que correspondan; una licencia ambiental incluye el permiso de vertimiento.</p>
+  return `<p class="pie" style="margin:0 0 6px">${v.coincidentes} tramite(s) con titular parecido a "${escapar(e.nombre)}" (${v.origen === "cache" ? "consulta disponible" : "consultado ahora"}), en ${v.expedientes.length} expediente(s) o grupo(s). Vincula los que correspondan: pasan al dossier con sus documentos y entran en «Analizar expediente con IA». Una licencia ambiental incluye el permiso de vertimiento.</p>
     <table><tbody>${mostrar.map((g, i) => `<tr>
       <td>${g.expediente ? `<code>${escapar(g.expediente)}</code>` : `<span class="sub" style="display:inline">sin expediente</span>`}<span class="sub">${escapar(g.titular)}</span></td>
       <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}
@@ -417,7 +436,7 @@ function pintarDossier() {
   if (!e) { caja.innerHTML = `<div class="vec-vacio">Elige una empresa de la lista para ver su dossier.</div>`; return; }
   const f = e.ficha, c = e.calidad, ix = e.indices || {};
   const plan = e.notas.split(" | ").find((t) => t.startsWith("Plan:") || t.startsWith("No viable")) || "";
-  const tramites = permisosDe(e);
+  const tramites = permisosDe(e).map((t) => ({ ...t, docs: fuenteDocumentos(e, t) }));
   const primero = tramites[0];
 
   caja.innerHTML = `
@@ -499,11 +518,8 @@ function pintarDossier() {
   caja.querySelector(".btn-analizar")?.addEventListener("click", (ev) => analizarExpedientes([e.clave], ev.target));
   caja.querySelector(".btn-vital-vivo")?.addEventListener("click", () => { delete enVital[e.clave]; pintarDossier(); cargarEnVital(e, "vivo"); });
   caja.querySelector(".btn-vital-todos")?.addEventListener("click", () => { verTodoVital = !verTodoVital; pintarDossier(); });
-  caja.querySelectorAll(".btn-vincular-grupo").forEach((b) => b.addEventListener("click", () => {
-    const ya = new Set(tramites.map((t) => t.identificador));
-    const grupos = enVital[e.clave].expedientes.filter((g) => !ya.has(g.expediente || g.radicado));
-    vincularGrupo(e, grupos[Number(b.dataset.i)], b);
-  }));
+  caja.querySelectorAll(".btn-vincular-grupo").forEach((b) => b.addEventListener("click", () =>
+    vincularGrupo(e, otrosTramites(e, tramites)[Number(b.dataset.i)], b)));
   if (!enVital[e.clave]) cargarEnVital(e);
   caja.querySelectorAll(".btn-revisar").forEach((b) => b.addEventListener("click", () => abrirRevision(e, b.dataset.ruta)));
   caja.querySelector(".btn-quitar")?.addEventListener("click", async () => {
@@ -528,10 +544,8 @@ function pintarDossier() {
     try { await navigator.clipboard.writeText(caja.querySelector(".txt-solicitud").value); ev.target.textContent = "Copiada"; }
     catch { ev.target.textContent = "No se pudo copiar"; }
   });
-  caja.querySelectorAll(".btn-docs").forEach((b) => b.addEventListener("click", () => {
-    const t = tramites.find((x) => x.radicado === b.dataset.radicado);
-    cargarDetalleTramite(t);
-  }));
+  caja.querySelectorAll(".btn-docs").forEach((b) => b.addEventListener("click", () =>
+    cargarDetalleTramite(tramites.map((t) => t.docs).find((x) => x.radicado === b.dataset.radicado))));
   caja.querySelectorAll(".btn-guardar-doc").forEach((b) => b.addEventListener("click", () => guardarDocumento(e, b)));
   caja.querySelectorAll(".btn-leer").forEach((b) => b.addEventListener("click", () => leerDocumento(e, b.dataset.ruta)));
   caja.querySelectorAll(".btn-resumir").forEach((b) => b.addEventListener("click", () => resumirDocumento(b.dataset.ruta)));
