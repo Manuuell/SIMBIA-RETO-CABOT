@@ -12,8 +12,8 @@
  */
 
 import {
-  $, anotar, barraConfianza, bus, cargarBarrido, chip, escapar, estado, fechaCorta,
-  fmt, kpi, pedir, sello, textoSolicitud, tienePermiso,
+  $, anotar, barraConfianza, bus, cargarBarrido, chip, copiar, escapar, estado, fechaCorta,
+  fmt, kpi, nombreAutoridad, pedir, permisosDe, sello, textoSolicitud,
 } from "../comun.js";
 import { abrirPanel } from "./prospectos.js";
 import { fijarEmpresaEnPantalla } from "./asistente.js";
@@ -28,6 +28,9 @@ const analisis = {};         // ruta -> analisis completo del documento
 let trabajos = {};           // clave -> trabajo del lote (progreso)
 const enVital = {};          // clave -> lo que VITAL tiene de la empresa, por nombre
 let verTodoVital = false;
+let verTodosPermisos = false;
+let otrosTramitesAbierto = false;
+const MAX_PERMISOS = 3;
 let sondeo = null;
 
 const FICHA_VACIA = { estado: "detectado", expedientes: [], documentos: [], historial: [], en_cartera: false };
@@ -64,39 +67,68 @@ async function seguir(clave, nombre) {
 // Dossier
 // ---------------------------------------------------------------------------
 
-function tramitesDe(e) {
-  /* Expedientes automaticos (referencias 'vital' del cruce) y manuales (ficha),
-   * unificados por identificador. Los ids del VITAL antiguo salen de la URL de
-   * la referencia o del expediente vinculado. */
-  const vistos = new Map();
-  for (const r of e.referencias || []) {
-    if (r.fuente !== "vital") continue;
-    const u = r.url && r.url.includes("NumSilpa=") ? new URL(r.url).searchParams : null;
-    vistos.set(r.identificador, {
-      identificador: r.identificador, descripcion: r.descripcion, url: r.url, origen: "cruce automatico",
-      radicado: u?.get("NumSilpa") || "", sistema: u?.get("Origen") || "", sol_id: u?.get("TarSolId") || "", solicitante_id: u?.get("Solicitante") || "",
-    });
-  }
-  for (const x of e.ficha.expedientes || []) {
-    const id = x.expediente || x.radicado;
-    vistos.set(id, {
-      ...(vistos.get(id) || {}), identificador: id,
-      descripcion: `${x.tramite_legible || x.tramite} ante ${(x.autoridad || "").trim()}${x.radicado ? " · radicado " + x.radicado : ""}`,
-      origen: "vinculado a mano", titular: x.titular, fecha: x.fecha,
-      radicado: x.radicado || "", sistema: x.origen || "VITAL", sol_id: x.sol_id || "", solicitante_id: x.solicitante_id || "",
-    });
-  }
-  return [...vistos.values()];
+/* Permisos de vertimiento: lo que prueba que la corriente existe y el numero
+ * con el que se pide su caracterizacion. Van arriba del dossier, cada uno
+ * con su autoridad, expediente, fecha y el titular tal como consta en VITAL
+ * (que es lo que deja ver si el cruce por razon social es el bueno). */
+function bloquePermisos(e, permisos) {
+  const hay = permisos.length > 0;
+  const visibles = verTodosPermisos ? permisos : permisos.slice(0, MAX_PERMISOS);
+  return `<section class="tarjeta vec-permisos ${hay ? "con" : "sin"}">
+    <div class="vec-permisos-cab">
+      <span class="vec-permisos-icono" aria-hidden="true"></span>
+      <div>
+        <h3>${hay ? `Permiso de vertimiento ${chip(permisos.length === 1 ? "consta en VITAL" : `${permisos.length} trámites en VITAL`, "ok")}`
+                  : "Sin permiso de vertimiento localizado"}</h3>
+        <p class="pie">${hay
+          ? "Prueba que la corriente existe y está regulada. Con el número de expediente se pide su caracterización por derecho de petición."
+          : "Sin permiso no hay prueba de que la corriente exista ni número con el que pedir su caracterización. Búscalo a su nombre aquí abajo o en el buscador de VITAL."}</p>
+      </div>
+      ${hay ? `<button class="secundario pequeno btn-solicitud">Redactar solicitud</button>` : ""}
+    </div>
+    ${hay ? `<div class="vec-permisos-lista">${visibles.map((t) => tarjetaPermiso(t)).join("")}</div>` : ""}
+    ${permisos.length > MAX_PERMISOS ? `<button class="secundario pequeno btn-permisos-todos">${verTodosPermisos ? "Mostrar menos" : `Mostrar los ${permisos.length} trámites`}</button>` : ""}
+    <div class="caja-solicitud" hidden>
+      <textarea rows="12" readonly class="txt-solicitud"></textarea>
+      <div class="acciones"><button class="pequeno btn-copiar-solicitud">Copiar solicitud</button><span class="pie" style="margin:0">Rellena los corchetes antes de enviarla.</span></div>
+    </div>
+    <details class="vec-permisos-otros"${!hay || otrosTramitesAbierto ? " open" : ""}>
+      <summary>${hay ? "Otros trámites en VITAL a nombre de la empresa" : `Buscar en VITAL a nombre de ${escapar(e.nombre)}`}</summary>
+      <div id="bloque-vital">${bloqueEnVital(e, permisos)}</div>
+    </details>
+  </section>`;
 }
 
-function bloqueTramite(e, t) {
+function tarjetaPermiso(t) {
+  const dato = (titulo, valor, copiable = false) => `<div><dt>${titulo}</dt><dd>${valor ? `<code>${escapar(valor)}</code>${copiable
+    ? ` <button class="vec-copiar" data-copiar="${escapar(valor)}" title="Copiar" aria-label="Copiar ${titulo.toLowerCase()}">Copiar</button>` : ""}` : "—"}</dd></div>`;
+  return `<article class="vec-permiso">
+    <div class="vec-permiso-cab">
+      <div class="vec-permiso-autoridad">
+        <b>${escapar(nombreAutoridad(t.autoridad) || "Autoridad ambiental")}</b>
+        <span>${escapar(t.tramite || "Vertimiento")}${t.fecha ? ` · radicado el ${fechaCorta(t.fecha)}` : ""}</span>
+      </div>
+      ${chip(t.origen, t.origen === "vinculado a mano" ? "azul" : "neutra")}
+    </div>
+    <dl class="vec-permiso-datos">
+      ${dato("Expediente", t.expediente || t.identificador, true)}
+      ${dato("Radicado", t.radicado !== (t.expediente || t.identificador) ? t.radicado : "")}
+      <div class="ancho"><dt>Titular en VITAL</dt><dd>${escapar(t.titular || "—")}</dd></div>
+    </dl>
+    ${documentosPermiso(t)}
+  </article>`;
+}
+
+function documentosPermiso(t) {
   const puede = t.radicado && t.sol_id && t.solicitante_id;
   const d = detallesTramite[t.radicado];
+  const portal = t.url ? `<a class="vec-permiso-portal" href="${escapar(t.url)}" target="_blank" rel="noopener">Abrir en VITAL ↗</a>` : "";
   let docs = "";
   if (!puede) {
-    docs = `<p class="pie">Este tramite no enlaza con sus documentos. <a href="#vital?q=${encodeURIComponent(t.radicado || t.identificador)}">Buscarlo en VITAL</a> para llegar a sus documentos.</p>`;
+    docs = `<div class="vec-permiso-acciones"><span class="pie" style="margin:0">Este trámite no enlaza con sus documentos.</span>
+      <a href="#vital?q=${encodeURIComponent(t.radicado || t.identificador)}">Buscarlo en VITAL</a>${portal}</div>`;
   } else if (!d) {
-    docs = `<div class="acciones" style="margin-top:6px"><button class="secundario pequeno btn-docs" data-radicado="${escapar(t.radicado)}">Ver documentos del tramite</button></div>`;
+    docs = `<div class="vec-permiso-acciones"><button class="secundario pequeno btn-docs" data-radicado="${escapar(t.radicado)}">Ver documentos del trámite</button>${portal}</div>`;
   } else if (d.cargando) {
     docs = `<p class="cargando">Abriendo el expediente en el portal de VITAL…</p>`;
   } else if (d.origen_dato === "sin dato") {
@@ -113,11 +145,7 @@ function bloqueTramite(e, t) {
           </td></tr>`).join("")}</tbody></table>` : `<p class="pie">${escapar(c.incidencia || "Carpeta vacia.")}</p>`}`).join("")}
       <p class="pie"><a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></p>`;
   }
-  return `<div class="tramite">
-    <div><code>${escapar(t.identificador)}</code> ${chip(t.origen, t.origen === "vinculado a mano" ? "azul" : "neutra")}
-      <span class="sub" style="display:inline"> ${escapar(t.descripcion)}</span></div>
-    ${docs}
-  </div>`;
+  return `<div class="vec-permiso-docs">${docs}</div>`;
 }
 
 function bloqueDocumentos(e) {
@@ -389,7 +417,7 @@ function pintarDossier() {
   if (!e) { caja.innerHTML = `<div class="vec-vacio">Elige una empresa de la lista para ver su dossier.</div>`; return; }
   const f = e.ficha, c = e.calidad, ix = e.indices || {};
   const plan = e.notas.split(" | ").find((t) => t.startsWith("Plan:") || t.startsWith("No viable")) || "";
-  const tramites = tramitesDe(e);
+  const tramites = permisosDe(e);
   const primero = tramites[0];
 
   caja.innerHTML = `
@@ -398,7 +426,7 @@ function pintarDossier() {
         <h2 style="font-size:20px;font-weight:660">${escapar(e.nombre)}</h2>
         <p class="sub" style="margin:2px 0 8px">${escapar(e.sector)} · ${escapar(e.corriente)} · ${e.distancia_conduccion_km.toFixed(1)} km de conduccion</p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${chip(f.estado, "ok")} ${sello(e.metodo_calidad)} ${barraConfianza(e)}
-          ${tienePermiso(e) ? chip("expediente localizado", "azul") : chip("sin expediente", "aviso")}</div>
+          ${primero ? chip(`permiso ${escapar(nombreAutoridad(primero.autoridad))}`, "azul") : chip("sin permiso localizado", "aviso")}</div>
       </div>
       <div class="acciones-cab">
         <button class="pequeno btn-simulador" title="Llevar este vecino al simulador de la torre">Añadir al simulador</button>
@@ -415,6 +443,8 @@ function pintarDossier() {
       ${kpi("Confianza", e.confianza.toFixed(2), e.confianza_etiqueta)}
       ${kpi("Etapa", `<span style="font-size:18px;text-transform:capitalize">${escapar(f.estado)}</span>`, f.responsable ? "resp. " + escapar(f.responsable) : "sin responsable")}
     </div>
+
+    ${bloquePermisos(e, tramites)}
 
     <div class="rejilla dos">
       <div class="tarjeta">
@@ -449,20 +479,6 @@ function pintarDossier() {
     ${bloqueTrabajo(e)}
 
     <div class="tarjeta bloque" style="margin-top:14px">
-      <h3>Expedientes y tramites <span class="nota">${tramites.length ? `${tramites.length} en VITAL` : "ninguno localizado"}</span>
-        ${primero ? `<button class="secundario pequeno btn-solicitud" style="margin-left:auto">Redactar solicitud</button>` : ""}</h3>
-      ${tramites.length ? tramites.map((t) => bloqueTramite(e, t)).join("") : `<p class="pie">Ningun tramite vinculado todavia.</p>`}
-      <div class="seccion" style="margin-top:10px">
-        <h4 style="margin:10px 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-tenue)">En VITAL a nombre de la empresa</h4>
-        <div id="bloque-vital">${bloqueEnVital(e, tramites)}</div>
-      </div>
-      <div class="caja-solicitud" hidden style="margin-top:10px">
-        <textarea rows="12" readonly class="txt-solicitud"></textarea>
-        <div class="acciones"><button class="pequeno btn-copiar-solicitud">Copiar solicitud</button><span class="pie" style="margin:0">Rellena los corchetes antes de enviarla.</span></div>
-      </div>
-    </div>
-
-    <div class="tarjeta bloque">
       <h3>Documentos guardados <span class="nota">junto al resto de la evidencia de la empresa</span></h3>
       ${bloqueDocumentos(e)}
     </div>
@@ -498,9 +514,16 @@ function pintarDossier() {
   });
   caja.querySelector(".btn-solicitud")?.addEventListener("click", () => {
     const box = caja.querySelector(".caja-solicitud"); box.hidden = !box.hidden;
-    const aut = (primero.descripcion.split(" ante ")[1] || "").split(/ - | · /)[0];
-    box.querySelector(".txt-solicitud").value = textoSolicitud({ empresa: e.nombre, autoridad: aut, expediente: primero.identificador });
+    box.querySelector(".txt-solicitud").value = textoSolicitud({
+      empresa: e.nombre, autoridad: nombreAutoridad(primero.autoridad), expediente: primero.expediente || primero.identificador,
+    });
   });
+  caja.querySelector(".btn-permisos-todos")?.addEventListener("click", () => { verTodosPermisos = !verTodosPermisos; pintarDossier(); });
+  caja.querySelector(".vec-permisos-otros")?.addEventListener("toggle", (ev) => { if (tramites.length) otrosTramitesAbierto = ev.target.open; });
+  caja.querySelectorAll(".vec-copiar").forEach((b) => b.addEventListener("click", async () => {
+    b.textContent = (await copiar(b.dataset.copiar)) ? "Copiado" : "No se pudo";
+    setTimeout(() => { b.textContent = "Copiar"; }, 1600);
+  }));
   caja.querySelector(".btn-copiar-solicitud")?.addEventListener("click", async (ev) => {
     try { await navigator.clipboard.writeText(caja.querySelector(".txt-solicitud").value); ev.target.textContent = "Copiada"; }
     catch { ev.target.textContent = "No se pudo copiar"; }

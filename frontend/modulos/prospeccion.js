@@ -10,7 +10,9 @@
  * #empresas abre la cartera y #prospectos la lista completa.
  */
 
-import { $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, sello, tienePermiso } from "../comun.js";
+import {
+  $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, nombreAutoridad, permisosDe, sello, tienePermiso,
+} from "../comun.js";
 import { colorPuntaje, dibujarMapa } from "../mapa.js";
 import datos from "./datos.js";
 import vital, { buscarTexto } from "./vital.js";
@@ -80,7 +82,7 @@ function pintarKpis(b) {
   $("prospectos-kpis").innerHTML = [
     kpi("Empresas detectadas", r.detectados, `${fmt.num(r.caudal_total_m3_h)} m³/h de rechazo estimado`),
     kpi("Con simbiosis viable", r.viables, "mantienen los ciclos con algún tratamiento"),
-    kpi("Con expediente en VITAL", conExp, "trámite de vertimiento localizado"),
+    kpi("Con permiso de vertimiento", conExp, "trámite localizado en VITAL"),
     kpi("Confianza suficiente", r.promovibles, `≥ ${estado.config.umbral_promocion} · media ${r.confianza_media.toFixed(2)}`),
     kpi("En cartera", cartera.length, `${fmt.num(cartera.reduce((s, p) => s + p.caudal_m3_h, 0))} m³/h en seguimiento`),
   ].join("");
@@ -100,13 +102,15 @@ function pintarPestanas(b) {
 function itemLista(p, activa) {
   const etapa = etapaDe(p);
   const docs = p.ficha?.documentos?.length || 0;
+  const permiso = permisosDe(p)[0];
   const punt = p.puntaje == null ? "—" : Math.round(p.puntaje);
   return `<button class="vec-item${activa ? " activa" : ""}" data-clave="${p.clave}">
     <span class="vec-punt" style="--tono:${colorPuntaje(p.puntaje)}" title="Puntaje de simbiosis">${punt}</span>
     <span class="vec-item-cuerpo">
       <span class="vec-item-nombre">${escapar(p.nombre)}${enCartera(p) ? ' <i class="vec-estrella" title="En cartera">★</i>' : ""}</span>
       <span class="vec-item-sub">${escapar(p.sector)} · ${fmt.num(p.caudal_m3_h, 1)} m³/h · ${fmt.num(p.distancia_conduccion_km, 1)} km</span>
-      <span class="vec-item-chips">${sello(p.metodo_calidad)}${tienePermiso(p) ? chip("expediente", "azul") : ""}${
+      <span class="vec-item-chips">${sello(p.metodo_calidad)}${permiso
+        ? `<span class="chip azul vec-chip-permiso" title="Permiso de vertimiento en VITAL">permiso ${escapar(nombreAutoridad(permiso.autoridad))}</span>` : ""}${
         etapa !== "detectado" ? chip(etapa, etapa === "descartado" ? "alerta" : "ok") : ""}${
         docs ? chip(`${docs} doc.`, "neutra") : ""}</span>
     </span>

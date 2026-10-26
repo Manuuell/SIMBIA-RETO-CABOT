@@ -1565,3 +1565,66 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
   .cuenta-avatar-grande { width: 60px; height: 60px; font-size: 24px; }
   .cuenta-seguridad { grid-column: 1 / -1; padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--borde); }
 }
+
+/* ==========================================================================
+   Vecinos: el permiso de vertimiento en el dossier
+   ========================================================================== */
+
+.vec-permisos { margin-bottom: 14px; display: grid; gap: 12px; }
+.vec-permisos.con { border-color: rgba(42,114,176,.35); box-shadow: inset 4px 0 0 var(--azul), var(--sombra); }
+.vec-permisos.sin { border-style: dashed; box-shadow: none; background: var(--fondo-2); }
+.vec-permisos-cab { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.vec-permisos-cab h3 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vec-permisos-cab .pie { margin: 3px 0 0; max-width: 680px; font-size: 12px; line-height: 1.5; }
+.vec-permisos-icono {
+  width: 38px; height: 38px; border-radius: 11px; background: rgba(42,114,176,.1); position: relative;
+}
+.vec-permisos-icono::before {
+  content: ""; position: absolute; left: 12px; top: 9px; width: 14px; height: 18px; border-radius: 3px;
+  border: 2px solid var(--azul);
+  background: linear-gradient(var(--azul), var(--azul)) 3px 5px / 6px 2px no-repeat,
+              linear-gradient(var(--azul), var(--azul)) 3px 9px / 6px 2px no-repeat;
+}
+.vec-permisos.sin .vec-permisos-icono { background: rgba(151,103,8,.1); }
+.vec-permisos.sin .vec-permisos-icono::before { border-color: var(--aviso); background: none; border-style: dashed; }
+
+.vec-permisos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.vec-permiso {
+  border: 1px solid var(--borde); border-radius: 12px; padding: 13px 14px; background: var(--fondo-2);
+  display: grid; gap: 10px; align-content: start; min-width: 0;
+}
+.vec-permiso-cab { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.vec-permiso-autoridad { display: grid; gap: 1px; min-width: 0; }
+.vec-permiso-autoridad b { font-family: var(--f-titulo); font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--tinta); }
+.vec-permiso-autoridad span { font-size: 12px; color: var(--texto-tenue); }
+.vec-permiso-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0; }
+.vec-permiso-datos > div { min-width: 0; }
+.vec-permiso-datos .ancho { grid-column: 1 / -1; }
+.vec-permiso-datos dt { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--texto-tenue); margin-bottom: 2px; }
+.vec-permiso-datos dd { margin: 0; font-size: 12.5px; color: var(--texto); overflow-wrap: anywhere; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vec-permiso-datos code { font-size: 12.5px; color: var(--tinta); font-weight: 600; overflow-wrap: anywhere; }
+button.vec-copiar {
+  background: transparent; color: var(--azul); border: 0; padding: 0; font-size: 11px; font-weight: 600; border-radius: 4px;
+}
+button.vec-copiar:hover { background: transparent; text-decoration: underline; }
+.vec-permiso-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.vec-permiso-portal { margin-left: auto; font-size: 12px; font-weight: 600; text-decoration: none; }
+.vec-permiso-portal:hover { text-decoration: underline; }
+.vec-permiso-docs { border-top: 1px solid var(--borde-suave); padding-top: 9px; font-size: 12px; }
+.vec-permiso-docs table { width: 100%; }
+.vec-permisos > .btn-permisos-todos { justify-self: start; }
+.vec-permisos .caja-solicitud textarea { width: 100%; }
+.vec-permisos-otros { border-top: 1px solid var(--borde-suave); padding-top: 10px; }
+.vec-permisos-otros summary {
+  cursor: pointer; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; color: var(--texto-tenue);
+}
+.vec-permisos-otros[open] summary { margin-bottom: 8px; }
+.vec-chip-permiso { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 700px) {
+  .vec-permisos-cab { grid-template-columns: 32px minmax(0, 1fr); }
+  .vec-permisos-cab > button { grid-column: 1 / -1; justify-self: start; }
+  .vec-permisos-icono { width: 32px; height: 32px; }
+  .vec-permisos-icono::before { left: 9px; top: 6px; }
+  .vec-permisos-lista { grid-template-columns: 1fr; }
+}

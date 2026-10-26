@@ -43,7 +43,10 @@ export function barraConfianza(p) {
 
 export function fechaCorta(iso) {
   if (!iso) return "";
-  const d = new Date(iso);
+  // Una fecha sin hora es un dia del calendario, no la medianoche UTC: leida
+  // como UTC, en Colombia se mostraria el dia anterior.
+  const dia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  const d = dia ? new Date(+dia[1], dia[2] - 1, +dia[3]) : new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return d.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -109,6 +112,57 @@ export const prospectoPorClave = (clave) =>
   (estado.barrido?.prospectos || []).find((p) => p.clave === clave);
 
 export const tienePermiso = (p) => (p.referencias || []).some((r) => r.fuente === "vital");
+
+/** "EPA- CARTAGENA" -> "EPA Cartagena": las siglas se quedan, los nombres no gritan. */
+export function nombreAutoridad(a) {
+  return String(a || "").replace(/\s*-\s*/g, " ").trim().split(/\s+/)
+    .map((w) => w.length > 4 && w === w.toUpperCase() && w !== "CARDIQUE" ? w[0] + w.slice(1).toLowerCase() : w)
+    .join(" ");
+}
+
+/** El detalle de un tramite en el VITAL antiguo, o el buscador si faltan sus ids. */
+function urlTramite(t) {
+  if (!(t.radicado && t.sol_id && t.solicitante_id)) return "https://vital-publico.minambiente.gov.co/buscador";
+  const q = new URLSearchParams({ NumSilpa: t.radicado, Origen: t.sistema || "VITAL", TarSolId: t.sol_id, Solicitante: t.solicitante_id, TipoConsulta: "Todos" });
+  return `https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx?${q}`;
+}
+
+/** Los permisos de vertimiento de un prospecto, del mas reciente al mas antiguo.
+ *
+ * Une los que cruzo el barrido con VITAL (`p.permisos`, con titular y fecha)
+ * y los que alguien vinculo a mano desde el buscador (la ficha). Las
+ * referencias de caches antiguas, sin registro completo, aportan lo que
+ * digan su descripcion y su URL. */
+export function permisosDe(p) {
+  const vistos = new Map();
+  for (const x of p.permisos || []) {
+    vistos.set(x.expediente || x.radicado, {
+      identificador: x.expediente || x.radicado, expediente: x.expediente, radicado: x.radicado,
+      autoridad: x.autoridad, tramite: x.tramite, titular: x.titular, fecha: x.fecha, url: x.url,
+      origen: "cruce automático", sistema: x.origen_sistema, sol_id: x.sol_id, solicitante_id: x.solicitante_id,
+    });
+  }
+  for (const r of p.referencias || []) {
+    if (r.fuente !== "vital" || vistos.has(r.identificador)) continue;
+    const u = r.url && r.url.includes("NumSilpa=") ? new URL(r.url).searchParams : null;
+    const [tramite, resto = ""] = (r.descripcion || "").split(" ante ");
+    vistos.set(r.identificador, {
+      identificador: r.identificador, expediente: r.identificador, radicado: u?.get("NumSilpa") || "",
+      autoridad: resto.split(" - radicado")[0].split(" (")[0], tramite, titular: "", fecha: "", url: r.url,
+      origen: "cruce automático", sistema: u?.get("Origen") || "", sol_id: u?.get("TarSolId") || "", solicitante_id: u?.get("Solicitante") || "",
+    });
+  }
+  for (const x of p.ficha?.expedientes || []) {
+    const id = x.expediente || x.radicado;
+    const t = {
+      ...(vistos.get(id) || {}), identificador: id, expediente: x.expediente || "", radicado: x.radicado || "",
+      autoridad: x.autoridad, tramite: x.tramite_legible || x.tramite, titular: x.titular, fecha: x.fecha,
+      origen: "vinculado a mano", sistema: x.origen || "VITAL", sol_id: x.sol_id || "", solicitante_id: x.solicitante_id || "",
+    };
+    vistos.set(id, { ...t, url: urlTramite(t) });
+  }
+  return [...vistos.values()].sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")));
+}
 
 // ---------------------------------------------------------------------------
 // Bitacora: la lista de lo que hizo el sistema, para el modulo de datos.
