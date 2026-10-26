@@ -891,27 +891,27 @@ body[data-modulo="asistente"] main { padding-bottom: 20px; }
 
 /* Pasos: lo que hizo el asistente con sus herramientas. */
 .pasos { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 3px; }
-.paso { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; align-items: start; font-size: 12px; line-height: 1.5; color: var(--texto-tenue); }
+.pasos .paso { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; align-items: start; font-size: 12px; line-height: 1.5; color: var(--texto-tenue); }
 .paso-icono {
   width: 14px; height: 14px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center;
   font-size: 9px; font-weight: 700; color: #fff; background: var(--ok);
 }
-.paso.error .paso-icono { background: var(--alerta); }
-.paso.en_curso .paso-icono { background: transparent; border: 2px solid rgba(242,118,46,.25); border-top-color: var(--acento); animation: girar-paso .8s linear infinite; }
+.pasos .paso.error .paso-icono { background: var(--alerta); }
+.pasos .paso.en_curso .paso-icono { background: transparent; border: 2px solid rgba(242,118,46,.25); border-top-color: var(--acento); animation: girar-paso .8s linear infinite; }
 @keyframes girar-paso { to { transform: rotate(360deg); } }
-.paso.en_curso { color: var(--texto-2); }
-.paso.error { color: var(--alerta); }
-.paso summary { cursor: pointer; list-style: none; }
-.paso summary::-webkit-details-marker { display: none; }
-.paso summary::after { content: "⌄"; margin-left: 6px; font-size: 11px; color: var(--texto-tenue); display: inline-block; transition: transform .15s; }
-.paso details[open] summary::after { transform: rotate(180deg); }
-.paso summary:hover { color: var(--texto-2); }
-.paso dl {
+.pasos .paso.en_curso { color: var(--texto-2); }
+.pasos .paso.error { color: var(--alerta); }
+.pasos .paso summary { cursor: pointer; list-style: none; }
+.pasos .paso summary::-webkit-details-marker { display: none; }
+.pasos .paso summary::after { content: "⌄"; margin-left: 6px; font-size: 11px; color: var(--texto-tenue); display: inline-block; transition: transform .15s; }
+.pasos .paso details[open] summary::after { transform: rotate(180deg); }
+.pasos .paso summary:hover { color: var(--texto-2); }
+.pasos .paso dl {
   margin: 6px 0 4px; padding: 8px 10px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px;
   background: var(--panel-alto); border: 1px solid var(--borde-suave); border-radius: 10px; font-size: 11.5px;
 }
-.paso dt { color: var(--texto-tenue); }
-.paso dd { margin: 0; color: var(--texto-2); overflow-wrap: anywhere; }
+.pasos .paso dt { color: var(--texto-tenue); }
+.pasos .paso dd { margin: 0; color: var(--texto-2); overflow-wrap: anywhere; }
 
 /* Compositor: una pastilla con texto, dictado y enviar. */
 .compositor {
