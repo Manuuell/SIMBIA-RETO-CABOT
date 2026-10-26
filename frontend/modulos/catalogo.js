@@ -45,11 +45,11 @@ function pausa(ms) {
 /** Si hay un recorrido a medias: volver a la seccion no debe pisarlo. */
 export const enCurso = () => corriendo;
 
-/** Cache local, red o ejemplo: de donde salio el dato, dicho para personas. */
+/** Cuando se consulto la fuente, dicho para personas: la fecha, no el mecanismo. */
 function procedencia(origen, fecha) {
-  const cuando = fecha ? ` del ${fechaCorta(fecha)}` : "";
-  return { cache: `caché local${cuando}`, red: "consultado ahora", fixture: "datos de ejemplo", "sin dato": "sin dato" }[origen]
-    || origen || "";
+  if (origen === "red") return "consultado ahora";
+  if (origen === "fixture") return "datos de ejemplo";
+  return fecha ? `consulta del ${fechaCorta(fecha)}` : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -248,8 +248,9 @@ export async function analizar(alTerminar) {
   const osm = (b.fuentes || []).find((f) => f.fuente === "osm") || {};
   colocarPuntos(svg, b.prospectos);
   fase(svg, "osm");
+  const cuandoOsm = procedencia(osm.origen, osm.fecha_dato);
   contar(etapa("osm", "activa",
-    `${num(osm.registros ?? 0)} registros con polígono · ${escapar(procedencia(osm.origen, osm.fecha_dato))}`));
+    `${num(osm.registros ?? 0)} registros con polígono${cuandoOsm ? ` · ${escapar(cuandoOsm)}` : ""}`));
   await pausa(MS.barrido);
   etapa("osm", "hecha");
 
