@@ -1143,10 +1143,14 @@ body[data-modulo="asistente"] .asis-lanzador, body[data-modulo="asistente"] .asi
 
 .vec-estado {
   margin: -10px 0 14px; font-size: 12px; color: var(--texto-tenue);
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
 }
 .vec-estado b { color: var(--texto-2); font-weight: 600; }
-.vec-sep { margin: 0 10px; opacity: .5; }
+.vec-fuente { display: inline-flex; align-items: center; gap: 6px; }
+.vec-fuente::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--texto-tenue); opacity: .55; }
+.vec-fuente.osm::before { background: var(--agua); opacity: 1; }
+.vec-fuente.vital::before { background: var(--azul); opacity: 1; }
+.vec-estado [data-reanalizar] { margin-left: auto; }
 
 .vec-kpis { margin-bottom: 16px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
 .vec-kpis .kpi { padding: 12px 14px; }
@@ -1567,6 +1571,142 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 }
 
 /* ==========================================================================
+   Vecinos: «Analizar empresas» y el catalogo armado a la vista
+   ========================================================================== */
+
+.vec-analisis {
+  display: block; padding: 0; overflow: hidden; border-radius: 22px; margin-bottom: 18px;
+}
+.vec-arranque { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); min-height: 520px; }
+.vec-arranque-texto { padding: 30px 32px 28px; display: flex; flex-direction: column; gap: 14px; }
+.vec-antetitulo { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--acento-texto); }
+.vec-arranque-texto h2 { font-size: clamp(22px, 2.3vw, 28px); font-weight: 800; letter-spacing: -.03em; max-width: 520px; }
+.vec-arranque-intro { margin: 0; color: var(--texto-2); font-size: 14px; line-height: 1.6; max-width: 560px; }
+
+/* Etapas: un recorrido vertical; la linea une los numeros. */
+.vec-etapas { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 0; }
+.vec-etapa { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 14px; padding-bottom: 16px; }
+.vec-etapa:not(:last-child)::before {
+  content: ""; position: absolute; left: 14px; top: 30px; bottom: 2px; width: 2px; border-radius: 2px;
+  background: var(--borde-suave); transition: background .4s;
+}
+.vec-etapa.hecha:not(:last-child)::before { background: var(--tinta); }
+.vec-etapa-n {
+  position: relative; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12.5px; font-weight: 700; color: var(--texto-tenue); background: var(--panel-alto);
+  border: 1.5px solid var(--borde); transition: background .3s, color .3s, border-color .3s;
+}
+.vec-etapa.activa .vec-etapa-n { color: var(--acento-texto); border-color: transparent; background: #fff4ec; }
+.vec-etapa.activa .vec-etapa-n::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 50%;
+  border: 2px solid rgba(242,118,46,.25); border-top-color: var(--acento); animation: gira .9s linear infinite;
+}
+.vec-etapa.hecha .vec-etapa-n { background: var(--tinta); border-color: var(--tinta); color: #fff; }
+.vec-etapa.hecha .vec-etapa-n span { display: none; }
+.vec-etapa.hecha .vec-etapa-n::before { content: "✓"; font-size: 13px; }
+.vec-etapa.error .vec-etapa-n { background: rgba(201,55,46,.1); border-color: var(--alerta); color: var(--alerta); }
+.vec-etapa-cuerpo { display: grid; gap: 1px; min-width: 0; padding-top: 4px; }
+.vec-etapa-titulo { font-size: 14px; font-weight: 650; color: var(--texto); }
+.vec-etapa-que { font-size: 12.5px; color: var(--texto-tenue); }
+.vec-etapa:not(.activa):not(.hecha) .vec-etapa-titulo { color: var(--texto-2); }
+.vec-etapa-cifra { font-size: 13px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.vec-etapa-cifra:not(:empty) { margin-top: 4px; animation: cuenta-aparece .35s ease both; }
+.vec-etapa-cifra b { color: var(--tinta); font-weight: 750; font-size: 15px; }
+.vec-etapa-nota { display: block; font-size: 11.5px; color: var(--texto-tenue); margin-top: 2px; }
+.vec-etapa-fallo { color: var(--alerta); }
+
+/* Los permisos cruzados, uno a uno, bajo la etapa de VITAL. */
+.vec-etapa-permisos {
+  list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+.vec-etapa-permisos li {
+  display: flex; align-items: baseline; gap: 6px; font-size: 12px; color: var(--azul); min-width: 0;
+  padding: 4px 9px 4px 24px; border-radius: 8px; background: rgba(42,114,176,.07); position: relative;
+  animation: permiso-entra .4s cubic-bezier(.2,.8,.2,1) var(--retraso, 0ms) both;
+}
+.vec-etapa-permisos li::before {
+  content: ""; position: absolute; left: 8px; top: 6px; width: 9px; height: 11px; border-radius: 2px;
+  border: 1.5px solid var(--azul); background: linear-gradient(var(--azul), var(--azul)) 2px 4px / 4px 1.5px no-repeat;
+}
+.vec-etapa-permisos b { color: var(--tinta); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.vec-etapa-permisos span { flex: none; font-weight: 600; font-size: 11px; }
+@keyframes permiso-entra { from { opacity: 0; transform: translateX(-8px); } }
+
+.vec-arranque-acciones { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+.vec-arranque-acciones .pie { margin: 0; }
+button.vec-analizar { padding: 13px 26px; font-size: 14.5px; box-shadow: 0 6px 18px rgba(15,27,36,.18); }
+button.vec-analizar:not(:disabled):hover { background: #22323e; transform: translateY(-1px); }
+button.vec-analizar:disabled { opacity: .85; }
+
+/* Radar: el unico panel oscuro, como las franjas de tinta de la portada. */
+.vec-radar {
+  background: radial-gradient(circle at 50% 50%, #18303d 0%, #0f1b24 70%);
+  display: grid; place-items: center; padding: 18px; position: relative;
+}
+.vec-radar svg.radar { width: 100%; max-width: 460px; height: auto; overflow: visible; }
+.radar-anillo { fill: none; stroke: rgba(255,255,255,.12); stroke-width: 1; }
+.radar-km { fill: rgba(255,255,255,.38); font-size: 10px; font-family: inherit; }
+.radar-eje { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+.radar-haz { transform-origin: 220px 220px; animation: radar-gira 6s linear infinite; opacity: .55; transition: opacity .6s; }
+.radar-haz path { fill: var(--acento); }
+.radar-haz line { stroke: var(--acento); stroke-width: 1.5; stroke-opacity: .9; }
+.radar[data-fase="buscando"] .radar-haz { animation-duration: 1.4s; opacity: .9; }
+.radar[data-fase="osm"] .radar-haz { animation: radar-barre 1.7s linear 1 both; opacity: .95; }
+.radar[data-fase="ciiu"] .radar-haz, .radar[data-fase="vital"] .radar-haz, .radar[data-fase="simbiosis"] .radar-haz { opacity: 0; }
+@keyframes radar-gira { to { transform: rotate(360deg); } }
+@keyframes radar-barre { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.radar-planta circle { fill: rgba(255,255,255,.08); stroke: #fff; stroke-width: 1.4; }
+.radar-planta path { fill: #fff; }
+.radar-planta text {
+  fill: rgba(255,255,255,.9); font-size: 11px; font-weight: 600; font-family: inherit;
+  paint-order: stroke; stroke: #0f1b24; stroke-width: 4px; stroke-linejoin: round;
+}
+
+/* Cada empresa: aparece cuando el haz la alcanza, crece con su caudal,
+   se marca si tiene permiso y se colorea con su puntaje. */
+.radar-punto { opacity: 0; }
+.radar[data-fase] .radar-punto { animation: radar-aparece .45s ease-out var(--retraso, 0ms) both; }
+.radar[data-fase="buscando"] .radar-punto { animation: none; }
+@keyframes radar-aparece { 0% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 1; } }
+.radar-cuerpo {
+  fill: #c9d4da; fill-opacity: .9; stroke: #c9d4da; stroke-width: 1.4;
+  transform: scale(var(--s0, .2)); transform-box: fill-box; transform-origin: center;
+  transition: transform .8s cubic-bezier(.2,.8,.2,1), fill .7s, fill-opacity .7s, stroke .7s, opacity .7s;
+}
+.radar:is([data-fase="ciiu"], [data-fase="vital"], [data-fase="simbiosis"]) .radar-cuerpo { transform: scale(1); fill-opacity: .28; }
+.radar:is([data-fase="ciiu"], [data-fase="vital"]) [data-inferido="1"] .radar-cuerpo { stroke-dasharray: 3 2.5; }
+.radar[data-fase="simbiosis"] .radar-cuerpo { fill: var(--tono); stroke: var(--tono); fill-opacity: .7; }
+.radar[data-fase="simbiosis"] [data-viable="0"] .radar-cuerpo { fill: #6f8290; stroke: #6f8290; fill-opacity: .25; opacity: .6; }
+.radar-permiso { fill: none; stroke: #6cb6ff; stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.radar:is([data-fase="vital"], [data-fase="simbiosis"]) [data-permiso="1"] .radar-permiso { opacity: 1; animation: radar-ping .9s ease-out both; }
+.radar[data-fase="simbiosis"] [data-permiso="1"] .radar-permiso { animation: none; opacity: .85; }
+@keyframes radar-ping { 0% { transform: scale(2.2); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.radar-etiquetas g { opacity: 0; }
+.radar-etiquetas text {
+  fill: #fff; font-size: 12px; font-weight: 650; font-family: inherit;
+  paint-order: stroke; stroke: #0f1b24; stroke-width: 4px; stroke-linejoin: round;
+}
+.radar-etiquetas line { stroke: rgba(255,255,255,.45); stroke-width: 1; }
+.radar[data-fase="simbiosis"] .radar-etiquetas g { animation: cuenta-aparece .5s ease var(--retraso, 0ms) both; opacity: 1; }
+
+/* El catalogo entra cuando termina el recorrido. */
+.vec-catalogo.entra { animation: catalogo-entra .55s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes catalogo-entra { from { opacity: 0; transform: translateY(14px); } }
+
+@media (max-width: 980px) {
+  .vec-arranque { grid-template-columns: 1fr; min-height: 0; }
+  .vec-radar { padding: 14px; }
+  .vec-radar svg.radar { max-width: 340px; }
+  .vec-arranque-texto { padding: 22px 20px; }
+}
+@media (max-width: 520px) {
+  .vec-radar svg.radar { max-width: 280px; }
+  .vec-etapa-permisos { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
    Vecinos: el permiso de vertimiento en el dossier
    ========================================================================== */
 
@@ -1627,4 +1767,11 @@ button.vec-copiar:hover { background: transparent; text-decoration: underline; }
   .vec-permisos-icono { width: 32px; height: 32px; }
   .vec-permisos-icono::before { left: 9px; top: 6px; }
   .vec-permisos-lista { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-haz, .radar[data-fase] .radar-punto, .radar-permiso, .vec-etapa-permisos li, .vec-catalogo.entra,
+  .radar[data-fase="simbiosis"] .radar-etiquetas g, .vec-etapa.activa .vec-etapa-n::after { animation: none !important; }
+  .radar[data-fase] .radar-punto { opacity: 1; }
+  .radar-cuerpo { transition: none; }
 }

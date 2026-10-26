@@ -1,5 +1,10 @@
 /* Vecinos: toda la prospeccion en una pagina.
  *
+ * Empieza sin datos, con el boton «Analizar empresas» (catalogo.js): el
+ * catalogo aparece cuando termina el recorrido, y en el resto de la sesion
+ * ya no se pregunta. Quien llega a una empresa concreta (asistente, enlace)
+ * va directo a ella.
+ *
  * A la izquierda, la lista (o el mapa) de empresas con su buscador y filtros;
  * a la derecha, el dossier de la elegida (empresas.js). Lo que antes eran
  * pantallas propias vive ahora en paneles laterales que se abren desde la
@@ -14,6 +19,7 @@ import {
   $, bus, cargarBarrido, chip, escapar, estado, fechaCorta, fmt, kpi, nombreAutoridad, permisosDe, sello, tienePermiso,
 } from "../comun.js";
 import { colorPuntaje, dibujarMapa } from "../mapa.js";
+import { analizar, marcarAnalizado, pintarArranque, yaAnalizado } from "./catalogo.js";
 import datos from "./datos.js";
 import vital, { buscarTexto } from "./vital.js";
 import { montarDossier, refrescarDossier, seleccionada, seleccionar as abrirDossier } from "./empresas.js";
@@ -68,11 +74,12 @@ function pintarEstado(b) {
   const osm = (b.fuentes || []).find((x) => x.fuente === "osm");
   const pv = b.permisos || {};
   const partes = [
-    osm ? `OpenStreetMap <b>${fmt.num(osm.registros)}</b> registros${osm.fecha_dato ? ` · ${fechaCorta(osm.fecha_dato)}` : ""}` : "",
-    pv.total != null ? `VITAL <b>${fmt.num(pv.total)}</b> permisos de vertimiento${pv.fecha_dato ? ` · ${fechaCorta(pv.fecha_dato)}` : ""}` : "",
-    `radio <b>${b.radio_km} km</b> alrededor de la planta`,
+    osm ? `<span class="vec-fuente osm">OpenStreetMap <b>${fmt.num(osm.registros)}</b> registros${osm.fecha_dato ? ` · ${fechaCorta(osm.fecha_dato)}` : ""}</span>` : "",
+    pv.total != null ? `<span class="vec-fuente vital">VITAL <b>${fmt.num(pv.total)}</b> permisos de vertimiento${pv.fecha_dato ? ` · ${fechaCorta(pv.fecha_dato)}` : ""}</span>` : "",
+    `<span class="vec-fuente">radio <b>${b.radio_km} km</b> alrededor de la planta</span>`,
   ].filter(Boolean);
-  $("vec-estado").innerHTML = partes.map((x) => `<span>${x}</span>`).join('<span class="vec-sep">·</span>');
+  $("vec-estado").innerHTML = partes.join("")
+    + `<button class="secundario pequeno" data-reanalizar title="Repite el análisis: OpenStreetMap, actividad, VITAL y simbiosis">Analizar de nuevo</button>`;
 }
 
 function pintarKpis(b) {
@@ -165,7 +172,7 @@ function seleccionar(clave) {
   document.querySelectorAll("#vec-lista .vec-item").forEach((x) =>
     x.classList.toggle("activa", x.dataset.clave === clave));
   // En pantallas estrechas el dossier queda debajo: se lleva la vista a el.
-  if (window.matchMedia("(max-width: 1100px)").matches) {
+  if (!$("vec-catalogo").hidden && window.matchMedia("(max-width: 1100px)").matches) {
     $("empresa-dossier").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
@@ -180,6 +187,38 @@ function pintarTodo() {
     const primera = filtrados()[0];
     if (primera) seleccionar(primera.clave);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Antes y despues de analizar
+// ---------------------------------------------------------------------------
+
+function mostrarCatalogo({ entrada = false } = {}) {
+  $("vec-analisis").hidden = true;
+  const cat = $("vec-catalogo");
+  cat.hidden = false;
+  if (entrada) { cat.classList.remove("entra"); void cat.offsetWidth; cat.classList.add("entra"); }
+  pintarTodo();
+}
+
+function mostrarArranque() {
+  $("vec-catalogo").hidden = true;
+  $("vec-analisis").hidden = false;
+  pintarArranque();
+  $("btn-analizar-vecinos").addEventListener("click", () => analizar(() => mostrarCatalogo({ entrada: true })));
+}
+
+function reanalizar() {
+  mostrarArranque();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  analizar(() => mostrarCatalogo({ entrada: true }));
+}
+
+/** Quien viene a por una empresa concreta no pasa por el boton. */
+function saltarAnalisis() {
+  if (!$("vec-catalogo").hidden) return;
+  marcarAnalizado();
+  mostrarCatalogo();
 }
 
 function pintarAyudaPuntaje() {
@@ -240,7 +279,8 @@ function conectar() {
     const tr = e.target.closest("tr[data-clave]");
     if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrirPanel(tr.dataset.clave); }
   });
-  bus.on("vecinos:dossier", (clave) => { cambiarModo("dossier"); seleccionar(clave); });
+  bus.on("vecinos:dossier", (clave) => { saltarAnalisis(); cambiarModo("dossier"); seleccionar(clave); });
+  $("vec-estado").addEventListener("click", (e) => { if (e.target.closest("[data-reanalizar]")) reanalizar(); });
   $("vec-lista").addEventListener("click", (e) => {
     if (e.target.closest("[data-limpiar]")) {
       vista.texto = ""; $("vec-buscar").value = "";
@@ -267,6 +307,7 @@ async function atenderEnlace() {
   const q = new URLSearchParams(qs || "");
   if (ruta === "empresas") vista.pestana = "cartera";
   if (ruta === "prospectos") vista.pestana = "todas";
+  if (ruta === "empresas" || ruta === "prospectos" || q.get("empresa")) saltarAnalisis();
   if (ruta !== "prospeccion") history.replaceState(null, "", "#prospeccion");
   if (q.get("empresa")) seleccionar(q.get("empresa"));
   pintarLista();
@@ -284,6 +325,7 @@ export default {
     montarPanel();
     pintarAyudaPuntaje();
     bus.on("barrido", pintarTodo);
+    if (yaAnalizado()) mostrarCatalogo(); else mostrarArranque();
     await montarDossier();
     if (!estado.barrido) await cargarBarrido();
     pintarTodo();
