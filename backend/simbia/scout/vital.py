@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -309,6 +310,33 @@ UMBRAL_TITULAR = 0.88
 def _es_licencia(tramite: str) -> bool:
     t = tramite.lower()
     return "licencia" in t
+
+
+def marcar_gemelos(grupos: list[dict[str, Any]], permisos: dict[str, set[str]]) -> None:
+    """Marca con `gemelo_de` los grupos que son el mismo tramite que un permiso conocido.
+
+    EPA Cartagena tramita en su propio sistema (SILAMC) y VITAL publica cada
+    tramite dos veces: el registro de SILAMC, que es el que encuentra el cruce
+    de permisos y no tiene documentos en el VITAL antiguo, y su copia en VITAL
+    con el expediente y el radicado intercambiados, que es la que trae los
+    archivos. El mismo par de numeros, en el orden que sea, es el mismo tramite.
+
+    `permisos`: identificador del permiso -> sus numeros (expediente, radicado).
+    Los numeros se comparan sueltos: un campo puede traer varios, separados
+    por "--" (crudo) o por " / " (ya limpio por `_expediente`).
+    """
+    def sueltos(valores) -> set[str]:
+        return {n.strip() for v in valores for n in re.split(r"--|/", v or "") if n.strip()}
+
+    for g in grupos:
+        r = g.get("representativo") or {}
+        numeros = sueltos((r.get("expediente"), r.get("radicado")))
+        if not numeros:
+            continue
+        for identificador, suyos in permisos.items():
+            if numeros == sueltos(suyos):
+                g["gemelo_de"] = identificador
+                break
 
 
 def buscar_por_empresa(nombre: str, modo: Modo | None = None, paginas: int = 2) -> dict[str, Any]:

@@ -58,6 +58,25 @@ def test_los_registros_se_limpian_y_se_reconoce_el_vertimiento():
     assert vital.interpretar(FILA_SILAMC).expediente == "1070090096221824005"
 
 
+def test_la_copia_en_vital_de_un_permiso_de_silamc_es_su_gemela():
+    """El permiso que trae el cruce viene de SILAMC y no tiene documentos; su
+    copia en VITAL, con los numeros intercambiados, si. Se reconoce como el
+    mismo tramite y no como otro, aunque un campo traiga el ' -- ' crudo."""
+    silamc = vital.interpretar(FILA_SILAMC)
+    grupos = [
+        {"expediente": "VDA-00020-24", "representativo": vital.interpretar(FILA_VITAL).as_dict()},
+        {"expediente": "COR-00032-18", "representativo": {"expediente": "COR-00032-18", "radicado": "3400"}},
+        {"expediente": "", "representativo": {}},
+    ]
+    vital.marcar_gemelos(grupos, {silamc.expediente: {silamc.expediente, silamc.radicado}})
+    assert grupos[0]["gemelo_de"] == "1070090096221824005"
+    assert "gemelo_de" not in grupos[1] and "gemelo_de" not in grupos[2]
+
+    crudo = [{"representativo": {"expediente": "VDA-00020-24", "radicado": "1070090096221824005"}}]
+    vital.marcar_gemelos(crudo, {"x": {" -- VDA-00020-24", "1070090096221824005"}})
+    assert crudo[0]["gemelo_de"] == "x"
+
+
 def test_varios_expedientes_en_una_celda_se_separan():
     r = vital.interpretar({**FILA_OTRA, "expediente": " -- PDA2877-00-2026 -- VDI3978-00-2026"})
     assert r.expediente == "PDA2877-00-2026 / VDI3978-00-2026"

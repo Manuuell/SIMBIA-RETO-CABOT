@@ -108,6 +108,39 @@ def _ficha_json(f: almacen.Ficha) -> dict[str, Any]:
     return d
 
 
+def _indice_permisos() -> dict[str, permisos.Permiso]:
+    """Los permisos del ultimo barrido, por el identificador de su referencia."""
+    return {x.expediente or x.radicado: x for x in _ultimo_barrido.get("lista_permisos", ())}
+
+
+def _numeros_permisos(p: Prospecto, ficha: almacen.Ficha | None) -> dict[str, set[str]]:
+    """Identificador de cada permiso conocido del prospecto -> su expediente y radicado."""
+    numeros = {
+        x["expediente"] or x["radicado"]: {x["expediente"], x["radicado"]} - {""}
+        for x in _permisos_json(p, _indice_permisos())
+    }
+    for e in (ficha.expedientes if ficha else []):
+        identificador = e.get("expediente") or e.get("radicado")
+        if identificador:
+            numeros[identificador] = {e.get("expediente") or "", e.get("radicado") or ""} - {""}
+    return numeros
+
+
+def _tramites_gemelos(p: Prospecto, ficha: almacen.Ficha | None) -> list[documentos.Tramite]:
+    """Las copias en VITAL de los permisos conocidos: son las que traen los archivos."""
+    v = vital.buscar_por_empresa(p.nombre, Modo.CACHE)
+    vital.marcar_gemelos(v["expedientes"], _numeros_permisos(p, ficha))
+    salida = []
+    for g in v["expedientes"]:
+        r = g.get("representativo") or {}
+        if g.get("gemelo_de") and r.get("radicado") and r.get("sol_id") and r.get("solicitante_id"):
+            salida.append(documentos.Tramite(
+                radicado=r["radicado"], origen=r.get("origen") or "VITAL",
+                sol_id=r["sol_id"], solicitante_id=r["solicitante_id"],
+            ))
+    return salida
+
+
 def _permisos_json(p: Prospecto, indice: dict[str, permisos.Permiso]) -> list[dict[str, str]]:
     """Los permisos de vertimiento del prospecto, tal como constan en VITAL.
 
@@ -204,7 +237,7 @@ def barrido(
     b = _ultimo_barrido.get("b")
 
     fichas, _ = almacen.vincular_fichas(prospectos)
-    indice = {x.expediente or x.radicado: x for x in _ultimo_barrido.get("lista_permisos", ())}
+    indice = _indice_permisos()
     salida = []
     for p in prospectos:
         d = _prospecto_json(p)
@@ -742,7 +775,16 @@ def expediente_analizar(a: AnalizarExpedientes) -> dict[str, Any]:
         def tarea(t, p=p, f=f, clave=clave, tramites=tramites):
             def guardar(doc):
                 almacen.anotar_documento(clave, doc, nombre=p.nombre, lat=p.lat, lon=p.lon)
-            lote.analizar_empresa(t, tramites, EXPEDIENTES, guardar, al_terminar=_invalidar)
+            # Los permisos de EPA Cartagena llegan por SILAMC, sin archivos: los
+            # documentos estan en su copia en VITAL. Se buscan aqui, en el hilo
+            # de la cola, porque pueden necesitar red.
+            try:
+                gemelos = _tramites_gemelos(p, f)
+            except Exception as exc:                        # noqa: BLE001
+                gemelos = []
+                t.anotar(f"No se pudieron buscar las copias en VITAL de sus permisos: {type(exc).__name__}: {exc}", "aviso")
+            unicos = {x.radicado: x for x in tramites + gemelos}
+            lote.analizar_empresa(t, list(unicos.values()), EXPEDIENTES, guardar, al_terminar=_invalidar)
 
         encolados.append(lote.COLA.encolar(clave, p.nombre, tarea).as_dict())
     return {"encolados": encolados}
@@ -797,7 +839,11 @@ def vital_por_empresa(clave: str, radio_km: float = RADIO_BUSQUEDA_KM, modo: str
     if p is None:
         raise HTTPException(422, "El prospecto no esta en el barrido actual")
     m = _resolver_modo(modo) if modo else Modo.CACHE
-    return {"empresa": p.nombre, **vital.buscar_por_empresa(p.nombre, m)}
+    v = vital.buscar_por_empresa(p.nombre, m)
+    # Las copias de sus permisos no son «otros tramites»: el dossier las une
+    # a su permiso y saca de ellas los documentos.
+    vital.marcar_gemelos(v["expedientes"], _numeros_permisos(p, almacen.cargar_fichas().get(clave)))
+    return {"empresa": p.nombre, **v}
 
 
 class VinculoExpediente(BaseModel):
