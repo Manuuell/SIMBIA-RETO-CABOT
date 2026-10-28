@@ -543,10 +543,19 @@ def sugerir(
     # Por debajo de TOMA_MINIMA no se tiende una tuberia: el optimizador las
     # deja por redondeo y en pantalla solo confunden.
     tomas = tuple(
-        Toma(codigos[cod], round(total, 2), tren)
+        # Al reunir varios trenes en uno puede bajar la recuperación. Mantener
+        # el total anterior pediría más alimentación de la que tiene la fuente.
+        Toma(codigos[cod], min(total, codigos[cod].caudal_disponible_m3_h
+                              * TRENES_POR_CODIGO[tren].recuperacion
+                              * oferente(codigos[cod]).disponibilidad), tren)
         for cod, (tren, _, total) in por_fuente.items()
         if total >= TOMA_MINIMA_M3_H
     )
     reposicion = sol.balance.reposicion_m3_h if sol.balance else 0.0
     acido = sol.acido_kg_h * 1000.0 / reposicion if reposicion else 0.0
-    return Sugerencia(Decision(tomas, round(acido, 1)), modo, motivo)
+    decision = Decision(tomas, round(acido, 1))
+    comprobacion = simular(esc, decision)
+    if not comprobacion.factible:
+        return Sugerencia(None, "inviable", comprobacion.motivo)
+    modo = "meta" if comprobacion.cumple_meta else "economico"
+    return Sugerencia(decision, modo, motivo)
