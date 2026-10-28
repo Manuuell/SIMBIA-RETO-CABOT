@@ -95,5 +95,7 @@ En local no hay clave de IA. Lo que se hizo en las fases 2 y 3:
 - **Extensión:** a veces se pasa de los 4 puntos (con Abocol dio 6).
 - **Voz:**
   - Firefox no tiene reconocimiento de voz: allí el botón de conversación no aparece.
-  - La interrupción depende de la cancelación de eco del navegador. Con altavoces muy altos y sin cascos, la propia voz del asistente podría contarse como interrupción. El umbral sube con el volumen de la respuesta (`voz.js`, `medir`), pero no se ha probado con un micrófono real en Safari.
+  - Una subida del micrófono mientras habla ya no corta la respuesta: la pausa y escucha. Si llegan palabras es una interrupción (se descarta la respuesta, se aborta si aún se estaba generando y lo dicho se envía como pregunta nueva); si no, era su propio eco y sigue 0,3 s antes de donde iba (`voz.js`, estado `confirmando`). El umbral se compara contra el pico reciente de la voz del asistente, no contra el instante.
+  - La voz se pide por fragmentos enteros a `POST /api/asistente/voz` (el primero, una frase corta) y suena por Web Audio: un fragmento que falla se reintenta una vez y, si no, se salta sin dejar muda el resto. Nunca hay más de dos síntesis en curso.
+  - Probado con micrófono, reconocedor y proveedor simulados en Chrome; falta probarlo con un micrófono real en Safari y con altavoces bluetooth.
 - **Logos de la portada:** faltan los archivos `frontend/landing/caribe-innova.png` y `frontend/landing/cabot.png`. Mientras no estén, la franja "Un reto de" muestra los nombres en texto.
