@@ -245,14 +245,11 @@ def test_un_fallo_del_proveedor_en_streaming_se_reporta_como_evento(cliente, con
     assert tramas[0]["delta"] == "Empiezo" and "ConnectionError" in tramas[-1]["error"]
 
 
-def test_la_voz_se_prepara_y_se_sirve_en_streaming(cliente, con_openai, monkeypatch):
-    monkeypatch.setattr(ia, "sintetizar_voz_stream", lambda texto: iter([b"ID3", b"mp3", texto.encode()[:3]]))
-    r = cliente.post("/api/asistente/voz/preparar", json={"texto": "Hola mundo"})
-    assert r.status_code == 200
-    url = r.json()["url"]
-    assert url.startswith("/api/asistente/voz/") and url.endswith(".mp3")
-    r = cliente.get(url)
-    assert r.status_code == 200 and r.headers["content-type"].startswith("audio/mpeg")
-    assert r.headers["x-accel-buffering"] == "no" and r.content == b"ID3mp3Hol"
-    assert cliente.get("/api/asistente/voz/no-existe.mp3").status_code == 404
-    assert cliente.post("/api/asistente/voz/preparar", json={"texto": "   "}).status_code == 422
+def test_un_fallo_de_la_voz_llega_como_error_y_no_como_audio(cliente, con_openai, monkeypatch):
+    def caido(texto):
+        raise ConnectionError("limite de peticiones")
+    monkeypatch.setattr(ia, "sintetizar_voz", caido)
+    r = cliente.post("/api/asistente/voz", json={"texto": "Hola mundo"})
+    assert r.status_code == 502 and "ConnectionError" in r.json()["detail"]
+    monkeypatch.setattr(ia, "sintetizar_voz", lambda texto: b"")
+    assert cliente.post("/api/asistente/voz", json={"texto": "Hola mundo"}).status_code == 502

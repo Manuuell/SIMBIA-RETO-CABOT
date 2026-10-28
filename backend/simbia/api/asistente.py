@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import json
-import secrets
 import time
 
 from fastapi import APIRouter, HTTPException
@@ -211,59 +210,14 @@ class TextoVoz(BaseModel):
     texto: str = Field(min_length=1, max_length=20_000)
 
 
-# Textos pendientes de leer: id -> (texto, caduca). La reproduccion en el
-# navegador necesita una URL GET para sonar mientras descarga; el texto se
-# deja aqui un momento en vez de meterlo en la URL.
-_voces: dict[str, tuple[str, float]] = {}
-VOZ_TTL_S = 600
-VOZ_MAX = 200
-
-
-def _limpiar_voces() -> None:
-    ahora = time.time()
-    for k in [k for k, (_, caduca) in _voces.items() if caduca < ahora]:
-        _voces.pop(k, None)
-    while len(_voces) > VOZ_MAX:
-        _voces.pop(next(iter(_voces)), None)
-
-
-@router.post("/voz/preparar")
-def voz_preparar(t: TextoVoz) -> dict[str, Any]:
-    """Registra un texto y devuelve la URL desde la que suena en streaming."""
-    p = _exigir_ia()
-    if not p.tiene_voz:
-        raise HTTPException(503, "La voz necesita OpenAI (OPENAI_API_KEY)")
-    if not t.texto.strip():
-        raise HTTPException(422, "Nada que leer")
-    _limpiar_voces()
-    id_ = secrets.token_urlsafe(12)
-    _voces[id_] = (t.texto, time.time() + VOZ_TTL_S)
-    return {"id": id_, "url": f"/api/asistente/voz/{id_}.mp3"}
-
-
-@router.get("/voz/{id_}.mp3")
-def voz_stream(id_: str):
-    """El MP3 por trozos segun se genera: el navegador reproduce mientras llega."""
-    p = _exigir_ia()
-    if not p.tiene_voz:
-        raise HTTPException(503, "La voz necesita OpenAI (OPENAI_API_KEY)")
-    entrada = _voces.get(id_)
-    if entrada is None or entrada[1] < time.time():
-        raise HTTPException(404, "Ese texto ya no esta disponible; vuelve a pedir la voz")
-    texto = entrada[0]
-
-    def generar():
-        try:
-            yield from ia.sintetizar_voz_stream(texto)
-        except Exception:                               # noqa: BLE001
-            return
-
-    return StreamingResponse(generar(), media_type="audio/mpeg", headers=SIN_BUFFER)
-
-
 @router.post("/voz")
 def voz(t: TextoVoz):
-    """El texto leido en voz alta, como MP3."""
+    """El texto leido en voz alta, como MP3 entero.
+
+    El asistente lo pide por fragmentos de una o pocas frases. Entero, y no en
+    streaming, para que un fallo del proveedor llegue como error y no como un
+    audio cortado o vacio que el navegador no sabe distinguir.
+    """
     p = _exigir_ia()
     if not p.tiene_voz:
         raise HTTPException(503, "La voz necesita OpenAI (OPENAI_API_KEY)")
@@ -273,6 +227,8 @@ def voz(t: TextoVoz):
         raise HTTPException(422, str(exc))
     except Exception as exc:                            # noqa: BLE001
         raise HTTPException(502, f"El proveedor de voz no respondio: {type(exc).__name__}: {exc}")
+    if not audio:
+        raise HTTPException(502, "El proveedor de voz devolvio un audio vacio")
     return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
 
 

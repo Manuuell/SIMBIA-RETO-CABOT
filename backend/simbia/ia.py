@@ -415,22 +415,3 @@ def sintetizar_voz(texto: str) -> bytes:
         instructions=INSTRUCCION_VOZ,
     )
     return r.content
-
-
-def sintetizar_voz_stream(texto: str):
-    """El MP3 por trozos, segun el proveedor lo genera.
-
-    El primer sonido llega en torno a un segundo aunque el texto sea largo:
-    el navegador reproduce mientras el resto se sigue generando.
-    """
-    p = proveedor()
-    if p is None or not p.tiene_voz:
-        raise RuntimeError("La voz necesita OpenAI (OPENAI_API_KEY)")
-    texto = _texto_voz(texto)
-    from openai import OpenAI
-    with OpenAI().audio.speech.with_streaming_response.create(
-        model=p.modelo_voz, voice=p.voz, input=texto, response_format="mp3",
-        instructions=INSTRUCCION_VOZ,
-    ) as r:
-        for trozo in r.iter_bytes(8192):
-            yield trozo
