@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SIMBIA · Video en bucle</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="Video en bucle de SIMBIA: problema, solución e impacto; la plataforma en acción; la falla crítica y el reporte ESG en 3D.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="video.css?v=2">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+
+<!-- El video es un escenario fijo de 1280x720 que se escala entero para caber
+     en la pantalla, como un video de verdad. -->
+<div class="marco" id="marco">
+  <div class="escenario" id="escenario">
+
+    <div class="escena3d" id="escena3d" aria-hidden="true"></div>
+
+    <!-- ============================================================ 1 -->
+    <section class="seg" id="seg-propuesta" aria-label="Problema, solución e impacto">
+
+      <div class="titulo" id="p-titulo">
+        <svg class="ondas" viewBox="0 0 1280 720" aria-hidden="true" preserveAspectRatio="none">
+          <path d="M-40 520 C 200 470 380 580 640 530 S 1080 470 1320 520"/>
+          <path d="M-40 560 C 220 510 420 620 660 570 S 1100 510 1320 560"/>
+          <path d="M-40 600 C 240 550 440 660 680 610 S 1120 550 1320 600"/>
+        </svg>
+        <div class="titulo-marca"><span class="chevron grande" aria-hidden="true"></span><h1>SIMBIA</h1></div>
+        <p>Gestión inteligente y eficiente del agua en la industria</p>
+      </div>
+
+      <div class="marca-fija"><span class="chevron" aria-hidden="true"></span><b>SIMBIA</b></div>
+
+      <div class="acto" id="p-problema">
+        <div class="col-texto">
+          <p class="antetitulo"><i>1</i>El problema</p>
+          <h2>El agua industrial se gestiona a ciegas</h2>
+          <div class="punto"><b>Datos dispersos</b><span>La calidad y el caudal de cada fuente no están unificados ni son confiables.</span></div>
+          <div class="punto"><b>Rechazo sin destino</b><span>Las corrientes que una empresa descarta no llegan a quien podría aprovecharlas.</span></div>
+          <div class="punto"><b>Sin control en tiempo real</b><span>Ahorro, cumplimiento normativo y metas ESG se miden tarde y a mano.</span></div>
+          <div class="chips"><span class="chip aviso">Res. 0631/2015 · Res. 1256/2021: más trazabilidad y reúso</span></div>
+        </div>
+        <div class="col-visual"><svg class="ilustracion" id="svg-problema" viewBox="0 0 600 460"></svg></div>
+      </div>
+
+      <div class="acto solucion" id="p-solucion">
+        <div class="col-texto">
+          <p class="antetitulo"><i>2</i>La solución</p>
+          <h2>Plataforma que conecta oferta y demanda</h2>
+          <div class="punto"><b>Caracteriza</b><span>Fichas técnicas, muestreo y datos en tiempo real de cada fuente.</span></div>
+          <div class="punto"><b>Optimiza</b><span>Algoritmos de mezcla que cumplen requisitos técnicos, legales y económicos.</span></div>
+          <div class="punto"><b>Conecta y formaliza</b><span>Portal georreferenciado y cierre contractual digital con operadores.</span></div>
+          <div class="chips"><span class="chip">Mercado Digital Hídrico: Crecimiento anual del 12.8%</span></div>
+        </div>
+        <div class="col-visual"><svg class="ilustracion" id="svg-solucion" viewBox="0 0 600 460"></svg></div>
+      </div>
+
+      <div class="acto impacto" id="p-impacto">
+        <div class="col-texto">
+          <p class="antetitulo"><i>3</i>Resultados e impacto</p>
+          <h2>Ahorro medible desde el primer piloto</h2>
+          <div class="cifras">
+            <div class="cifra"><big id="c1">0</big><span>m³/h de agua cruda gestionados (571,2 m³/día base)</span></div>
+            <div class="cifra"><big id="c2">0</big><span>m³/día de ahorro neto asegurado (Meta 10%)</span></div>
+            <div class="cifra"><big id="c3">0</big><span>m³/año ahorrados. Potencial optimizado de 15%.</span></div>
+          </div>
+          <div class="chips">
+            <span class="chip">Cumplimiento Normativo</span>
+            <span class="chip">Metas ESG 2030</span>
+            <span class="chip">Escalable al Clúster</span>
+          </div>
+        </div>
+        <div class="col-visual">
+          <div class="grafico">
+            <p class="grafico-titulo">Reducción diaria de extracción (m³/día)</p>
+            <div class="barras">
+              <div class="barra-col"><b>571,2</b><i id="b1"></i><span>Hoy</span></div>
+              <div class="barra-col simbia"><b>514,1</b><i id="b2"></i><span>Con SIMBIA</span></div>
+            </div>
+            <p class="grafico-fuente">Fuentes: Modelo Base SIMBIA Cabot; Minambiente Res. 1256.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="cierre" id="p-cierre">
+        <span class="chevron grande" aria-hidden="true"></span>
+        <p>Del agua que se descarta<br><em>al agua que se aprovecha.</em></p>
+      </div>
+    </section>
+
+    <!-- ============================================================ 2 -->
+    <section class="seg" id="seg-plataforma" aria-label="SIMBIA en acción">
+      <div class="tablero" id="d-tablero">
+        <header class="tablero-cab">
+          <div class="tablero-marca"><span class="chevron" aria-hidden="true"></span><b>SIMBIA</b></div>
+          <span class="en-vivo"><i aria-hidden="true"></i>En vivo · Mamonal, Cartagena</span>
+        </header>
+        <div class="tarjetas">
+          <div class="tarjeta"><small>Agua cruda actual</small><p><big id="n1">0</big> <i>m³/h</i></p></div>
+          <div class="tarjeta anillo-tarjeta"><small>Meta diaria de ahorro</small>
+            <svg class="anillo" viewBox="0 0 36 36"><circle class="pista" cx="18" cy="18" r="15.9" pathLength="100"/><circle class="valor" id="r1" cx="18" cy="18" r="15.9" pathLength="100"/></svg></div>
+          <div class="tarjeta"><small>CO₂ evitado <i>(ejemplo)</i></small><p><big id="n3">0</big> <i>t</i></p></div>
+          <div class="tarjeta"><small>Consumo, últimas 24 h</small>
+            <svg class="chispa" viewBox="0 0 120 40" preserveAspectRatio="none"><path class="area" d="M0 30 L15 24 L30 28 L45 16 L60 20 L75 10 L90 14 L105 6 L120 9 L120 40 L0 40 Z"/><polyline points="0,30 15,24 30,28 45,16 60,20 75,10 90,14 105,6 120,9"/></svg></div>
+        </div>
+        <div class="mapa">
+          <svg viewBox="0 0 600 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <g id="d-pan">
+              <path class="bahia" d="M-40 -20 L130 -20 C 110 40 150 70 120 120 C 95 160 130 200 90 250 L-40 250 Z"/>
+              <g class="curvas">
+                <ellipse cx="300" cy="115" rx="330" ry="110"/><ellipse cx="300" cy="115" rx="270" ry="88"/>
+                <ellipse cx="320" cy="110" rx="210" ry="68"/><ellipse cx="340" cy="105" rx="140" ry="46"/>
+                <ellipse cx="350" cy="100" rx="70" ry="24"/>
+              </g>
+              <g class="empresas">
+                <circle cx="150" cy="90" r="4"/><circle cx="230" cy="150" r="4"/><circle cx="300" cy="80" r="5"/>
+                <circle cx="380" cy="160" r="4"/><circle cx="470" cy="95" r="4"/><circle cx="540" cy="140" r="4"/>
+              </g>
+              <circle class="onda" id="d-w1" cx="410" cy="120" r="4"/>
+              <circle class="onda dos" id="d-w2" cx="410" cy="120" r="4"/>
+              <circle class="origen" id="d-or" cx="410" cy="120" r="6"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="capa alerta" id="d-alerta">
+        <p class="alerta-cab"><i aria-hidden="true"></i>NUEVA ALERTA: Oportunidad Hídrica</p>
+        <p class="alerta-datos">
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z"/></svg>32 °C</span>
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z"/></svg>Corriente de rechazo disponible</span>
+        </p>
+        <p class="alerta-nota">Empresa vecina · 9,5 m³/h <i>(dato de ejemplo)</i></p>
+        <div class="botones">
+          <span class="boton-falso">Ignorar</span>
+          <span class="boton-falso principal" id="d-b1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>Simular Mezcla</span>
+        </div>
+      </div>
+
+      <div class="capa simulacion" id="d-sim">
+        <div class="columnas" id="d-cols"><span class="escaner" aria-hidden="true"></span>
+          <div><h4>Empresa A</h4>
+            <div class="fila">Temperatura <b>32 °C</b><em>✔</em></div><div class="fila">pH <b>7,4</b><em>✔</em></div>
+            <div class="fila">Conductividad <b>1.850 µS/cm</b><em>✔</em></div><div class="fila">Caudal <b>9,5 m³/h</b><em>✔</em></div></div>
+          <div><h4>Cabot</h4>
+            <div class="fila">Tolerancia térmica <b>≤ 35 °C</b></div><div class="fila">pH <b>6,5–8,5</b></div>
+            <div class="fila">Conductividad <b>≤ 2.000</b></div><div class="fila">Requerido <b>23,8 m³/h</b></div></div>
+        </div>
+        <div class="compatibilidad">
+          <div class="anillo-grande"><svg class="anillo" viewBox="0 0 36 36"><circle class="pista" cx="18" cy="18" r="15.9" pathLength="100"/><circle class="valor" id="r2" cx="18" cy="18" r="15.9" pathLength="100"/></svg><b id="p2">0%</b></div>
+          <p>Compatibilidad Técnica <i>(ejemplo)</i></p>
+          <span class="boton-falso verde" id="d-b2">Aprobar y Gestionar Contrato</span>
+        </div>
+      </div>
+
+      <div class="capa contrato" id="d-contrato">
+        <p class="kicker">Contrato digital</p>
+        <h3>Acuerdo de Suministro (WaaS)</h3>
+        <p>Entre Empresa A (generadora) y Cabot Colombiana. Volumen, calidad y condiciones de entrega monitoreadas por SIMBIA.</p>
+        <p>Referencia normativa: <b>Resolución 1256 de 2021</b>.</p>
+        <div class="firmas">
+          <div id="d-g1"><svg viewBox="0 0 100 30"><path d="M3 22 C12 2 20 28 28 12 S44 4 50 18 S70 26 96 8"/></svg>Firma Empresa A</div>
+          <div id="d-g2"><svg viewBox="0 0 100 30"><path d="M3 18 C14 28 20 2 34 14 S52 28 62 10 S84 6 97 20"/></svg>Firma Cabot</div>
+        </div>
+      </div>
+
+      <div class="capa meta" id="d-meta">
+        <div class="anillo-grande"><svg class="anillo" viewBox="0 0 36 36"><circle class="pista" cx="18" cy="18" r="15.9" pathLength="100"/><circle class="valor" id="r3" cx="18" cy="18" r="15.9" pathLength="100"/></svg><b id="p3">0</b></div>
+        <h3>m³/día · Meta cumplida al 100%</h3>
+      </div>
+      <div class="gotas" id="d-gotas" aria-hidden="true"></div>
+
+      <svg class="cursor" id="d-cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z"/></svg>
+    </section>
+
+    <!-- ============================================================ 3 -->
+    <section class="seg seg-3d" id="seg-falla" aria-label="Falla crítica">
+      <div class="pildora"><span class="chevron" aria-hidden="true"></span><b>SIMBIA</b><span>Gemelo digital · Cabot Colombiana</span></div>
+      <aside class="panel">
+        <p class="kicker">Cuadro de mando</p>
+        <p class="estado" id="f-estado">Operación normal</p>
+        <ol class="secuencia" id="f-pasos">
+          <li>⚠ ALERTA: Conductividad 3.900 µS/cm</li>
+          <li>Cerrando válvula de Fuente A…</li>
+          <li>Recuperación Intramuros 10% → 12%</li>
+          <li>Flujo asegurado</li>
+        </ol>
+        <p class="nota-rec">Recuperación Intramuros: <b id="f-rp">10%</b> del caudal</p>
+      </aside>
+    </section>
+
+    <!-- ============================================================ 4 -->
+    <section class="seg seg-3d" id="seg-esg" aria-label="Reporte ESG">
+      <div class="pildora"><span class="chevron" aria-hidden="true"></span><b>SIMBIA</b><span>Gemelo digital · Cabot Colombiana</span></div>
+      <aside class="panel">
+        <p class="kicker">Reporte ESG</p>
+        <p class="esg-dato"><small>Agua Ahorrada</small><b>20.850 <i>m³/año</i></b></p>
+        <span class="boton-falso naranja latiendo">Iniciar Piloto con Cabot <span aria-hidden="true">→</span></span>
+      </aside>
+    </section>
+
+    <div class="vineta" id="vineta" aria-hidden="true"></div>
+    <p class="subtitulo" id="subtitulo" aria-live="polite"></p>
+    <div class="progreso" aria-hidden="true"><i id="progreso"></i></div>
+  </div>
+</div>
+
+<a class="volver-panel" id="volver" href="/app#inicio">← Volver al panel</a>
+
+<nav class="mandos" id="mandos" aria-label="Controles del video">
+  <button type="button" id="b-musica" aria-pressed="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Música
+  </button>
+  <button type="button" id="b-voz" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>Voz
+  </button>
+  <button type="button" id="b-pausa" aria-label="Pausar">
+    <svg class="i-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+    <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M7 4v16l13-8L7 4Z"/></svg>
+  </button>
+  <button type="button" id="b-reiniciar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reiniciar
+  </button>
+  <button type="button" id="b-pantalla">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Pantalla completa
+  </button>
+</nav>
+
+<button type="button" class="portada" id="portada">
+  <span class="portada-marca"><span class="chevron grande" aria-hidden="true"></span><b>SIMBIA</b></span>
+  <span class="portada-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8L7 4Z"/></svg></span>
+  <span class="portada-texto">Toca para iniciar el video en bucle</span>
+</button>
+
+<script type="module" src="video.js?v=2"></script>
+</body>
+</html>
