@@ -22,10 +22,15 @@ let ia = null;
 let iaPendiente = null;
 let contextoClave = "";
 let leerSolas = leerPreferenciaVoz();
-let audio = null;           // reproduccion en curso: {elemento, fuente, analizador, raf}
+let sonando = null;         // fragmento en curso: {buffer, fuente, inicio, posicion, terminar}
 let cola = null;            // cola de fragmentos de voz de la respuesta actual
 let reconocimiento = null;
 let ctxAudio = null;        // un solo AudioContext para toda la sesion
+let salidaVoz = null;       // analizador por el que pasa todo lo que dice el asistente
+let animacion = 0;
+let avisoSonido = false;
+let turno = 0;              // cada pregunta abre uno; lo que acaba de uno viejo no toca la conversacion
+let enCurso = null;         // la respuesta que se esta generando: {controlador, hecho}
 let orbeGrande = null;
 const orbes = [];           // los orbes de particulas: el grande y los de cabecera
 let aterrizar = null;       // termina en el acto un vuelo del orbe a medias
@@ -138,16 +143,39 @@ function ponerAmplitud(media, bandas) {
   orbes.forEach((o) => o.amplitud(media * 1.4));
 }
 
+const REPOSO_BANDAS = [0.15, 0.15, 0.15, 0.15, 0.15];
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
 function detenerAudio() {
   if (cola) { cola.cancelada = true; cola = null; }
-  if (audio) {
-    cancelAnimationFrame(audio.raf);
-    audio.elemento.pause();
-    try { audio.fuente.disconnect(); audio.analizador.disconnect(); } catch { /* ya desconectado */ }
-    audio = null;
+  if (sonando) {
+    const s = sonando;
+    sonando = null;
+    soltarFuente(s);
+    s.terminar();
   }
-  ponerAmplitud(0, [0.15, 0.15, 0.15, 0.15, 0.15]);
+  cancelAnimationFrame(animacion);
+  animacion = 0;
+  ponerAmplitud(0, REPOSO_BANDAS);
   if (estadoActual() === "hablando") ponerEstado("reposo");
+}
+
+// ---------------------------------------------------------------------------
+// Voz: cada fragmento se sintetiza entero, se decodifica y suena por Web Audio
+// ---------------------------------------------------------------------------
+//
+// Asi un fallo se ve (codigo HTTP, audio vacio) y se reintenta o se salta sin
+// dejar muda el resto de la respuesta; el fragmento se puede pausar y retomar
+// donde iba (cuando parece que le hablan encima), y nunca se piden mas de dos
+// voces a la vez.
+
+/** Lo que se lee: sin marcas de Markdown y con cada linea terminada en pausa. */
+export function textoParaVoz(texto) {
+  return (texto || "").split("\n")
+    .map((l) => l.replace(VINETA, "").replace(/[*#`]+/g, "").trim())
+    .filter(Boolean)
+    .map((l) => (/[.!?…:;,]$/.test(l) ? l : `${l}.`))
+    .join(" ");
 }
 
 /** Parte un texto en fragmentos de unas pocas frases, para leerlo por trozos. */
@@ -169,77 +197,190 @@ function contextoAudio() {
   return ctxAudio;
 }
 
-async function prepararFragmento(texto) {
-  const r = await fetch("/api/asistente/voz/preparar", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto }),
-  });
-  if (!r.ok) throw new Error((await r.json()).detail || `${r.status}`);
-  const { url } = await r.json();
-  // preload=auto: el navegador empieza a descargar (y el servidor a generar)
-  // antes de que toque reproducirlo. Asi el siguiente fragmento entra sin hueco.
-  const elemento = new Audio(url);
-  elemento.preload = "auto";
-  return elemento;
+/** Despierta el audio dentro de un gesto del usuario: Safari solo lo deja ahi. */
+function despertarAudio() {
+  try { contextoAudio().resume?.().catch(() => {}); } catch { /* sin Web Audio */ }
 }
 
-function reproducirElemento(elemento) {
-  return new Promise((resolver, rechazar) => {
+/** Si el navegador tiene el audio en pausa, lo intenta despertar y, si no puede, lo dice. */
+async function asegurarSonido() {
+  const ctx = contextoAudio();
+  if (ctx.state === "running") return;
+  // Sin permiso, resume() puede quedarse pendiente para siempre: no se le espera.
+  await Promise.race([ctx.resume().catch(() => {}), esperar(300)]);
+  if (ctx.state === "running" || avisoSonido) return;
+  avisoSonido = true;
+  anotar("El navegador tiene el sonido en pausa: toca cualquier parte de la página para oír la respuesta", "aviso");
+  const despertar = () => { avisoSonido = false; ctx.resume().catch(() => {}); };
+  document.addEventListener("pointerdown", despertar, { once: true });
+  document.addEventListener("keydown", despertar, { once: true });
+}
+
+function analizadorSalida() {
+  if (!salidaVoz) {
     const ctx = contextoAudio();
-    const fuente = ctx.createMediaElementSource(elemento);
-    const analizador = ctx.createAnalyser(); analizador.fftSize = 256; analizador.smoothingTimeConstant = 0.7;
-    fuente.connect(analizador); analizador.connect(ctx.destination);
-    audio = { elemento, fuente, analizador, raf: 0 };
-    const datos = new Uint8Array(analizador.frequencyBinCount);
-    const animar = () => {
-      if (!audio || audio.elemento !== elemento) return;
-      analizador.getByteFrequencyData(datos);
-      // La voz humana vive en los bins bajos: se pondera esa banda.
-      const voz = datos.subarray(2, 40);
-      let suma = 0; for (const v of voz) suma += v;
-      const tramo = Math.floor(voz.length / 5);
-      const bandas = [];
-      for (let i = 0; i < 5; i++) {
-        let pico = 0; for (let j = i * tramo; j < (i + 1) * tramo; j++) pico = Math.max(pico, voz[j]);
-        bandas.push(Math.max(0.15, Math.min(pico / 255 * 1.3, 1)));
-      }
-      ponerAmplitud(suma / voz.length / 255, bandas);
-      audio.raf = requestAnimationFrame(animar);
-    };
-    elemento.addEventListener("playing", () => {
-      ponerEstado("hablando", conv?.activa() ? "Hablando · interrúmpeme cuando quieras" : undefined);
-      conv?.hablando();
-      animar();
-    }, { once: true });
-    elemento.addEventListener("ended", () => { try { fuente.disconnect(); analizador.disconnect(); } catch { /* nada */ } resolver(); }, { once: true });
-    elemento.addEventListener("error", () => rechazar(new Error("no se pudo reproducir el audio")), { once: true });
-    ctx.resume().then(() => elemento.play()).catch(rechazar);
+    salidaVoz = ctx.createAnalyser();
+    salidaVoz.fftSize = 256;
+    salidaVoz.smoothingTimeConstant = 0.7;
+    salidaVoz.connect(ctx.destination);
+  }
+  return salidaVoz;
+}
+
+/** Un fragmento en audio, ya decodificado. Un fallo suelto se reintenta una vez. */
+async function sintetizar(texto) {
+  let ultimo = null;
+  for (let intento = 0; intento < 2; intento++) {
+    if (intento) await esperar(500);
+    try {
+      const r = await fetch("/api/asistente/voz", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
+      const datos = await r.arrayBuffer();
+      if (!datos.byteLength) throw new Error("el audio llegó vacío");
+      return await contextoAudio().decodeAudioData(datos);
+    } catch (e) {
+      ultimo = e;
+    }
+  }
+  throw ultimo;
+}
+
+const frecuencias = new Uint8Array(128);
+const ondaSalida = new Float32Array(256);
+
+function animar() {
+  if (!sonando?.fuente || !salidaVoz) {
+    animacion = 0;
+    ponerAmplitud(0, REPOSO_BANDAS);
+    return;
+  }
+  salidaVoz.getByteFrequencyData(frecuencias);
+  // La voz humana vive en los bins bajos: se pondera esa banda.
+  const voz = frecuencias.subarray(2, 40);
+  let suma = 0; for (const v of voz) suma += v;
+  const tramo = Math.floor(voz.length / 5);
+  const bandas = [];
+  for (let i = 0; i < 5; i++) {
+    let pico = 0; for (let j = i * tramo; j < (i + 1) * tramo; j++) pico = Math.max(pico, voz[j]);
+    bandas.push(Math.max(0.15, Math.min(pico / 255 * 1.3, 1)));
+  }
+  ponerAmplitud(suma / voz.length / 255, bandas);
+  animacion = requestAnimationFrame(animar);
+}
+
+function soltarFuente(s) {
+  const f = s.fuente;
+  if (!f) return;
+  s.fuente = null;
+  f.onended = null;
+  try { f.stop(); } catch { /* ya parada */ }
+  f.disconnect();
+}
+
+function arrancarFuente(s) {
+  const ctx = contextoAudio();
+  const fuente = ctx.createBufferSource();
+  fuente.buffer = s.buffer;
+  fuente.connect(analizadorSalida());
+  fuente.onended = () => {
+    if (sonando !== s || s.fuente !== fuente) return;
+    soltarFuente(s);
+    sonando = null;
+    s.terminar();
+  };
+  s.fuente = fuente;
+  s.inicio = ctx.currentTime - s.posicion;
+  fuente.start(0, s.posicion);
+  ponerEstado("hablando", conv?.activa() ? "Hablando · interrúmpeme cuando quieras" : undefined);
+  conv?.hablando();
+  if (!animacion) animar();
+}
+
+/** Suena un fragmento; la promesa se cumple al acabar o al cortarlo. */
+function sonar(buffer) {
+  return new Promise((terminar) => {
+    sonando = { buffer, fuente: null, inicio: 0, posicion: 0, terminar };
+    arrancarFuente(sonando);
   });
 }
 
-/** Lee una lista de fragmentos en orden; `cola.anadir` acepta mas mientras suena. */
-function nuevaCola() {
-  const c = { fragmentos: [], preparados: [], cancelada: false, cerrada: false, corriendo: false };
-  c.anadir = (texto) => { if (!c.cancelada) { c.fragmentos.push(texto); c.preparados.push(prepararFragmento(texto).catch((e) => e)); c.correr(); } };
+/** Parece que le hablan encima: calla sin perder el sitio. */
+function pausarVoz() {
+  if (cola) cola.pausada = true;
+  const s = sonando;
+  if (!s?.fuente) return;
+  // Al volver se repite un poco: lo que sono mientras le hablaban no se oyo bien.
+  s.posicion = Math.max(0, contextoAudio().currentTime - s.inicio - 0.3);
+  soltarFuente(s);
+}
+
+/** No era nadie: sigue donde iba. */
+function reanudarVoz() {
+  if (cola) cola.pausada = false;
+  const s = sonando;
+  if (!s || s.fuente) return;
+  if (s.posicion >= s.buffer.duration - 0.05) { sonando = null; s.terminar(); return; }
+  arrancarFuente(s);
+}
+
+function nivelVozAsistente() {
+  if (!salidaVoz || !sonando?.fuente) return 0;
+  salidaVoz.getFloatTimeDomainData(ondaSalida);
+  let suma = 0;
+  for (const v of ondaSalida) suma += v * v;
+  return Math.sqrt(suma / ondaSalida.length);
+}
+
+/** Al acabar de leer la respuesta de `deTurno`, la conversacion vuelve a escuchar. */
+function volverAEscuchar(deTurno) {
+  if (!conv?.activa() || deTurno !== turno) return;
+  if (conv.estado() === "hablando" || conv.estado() === "esperando") conv.escuchar();
+}
+
+/**
+ * Lee fragmentos en orden; `cola.anadir` acepta mas mientras suena. Se
+ * sintetiza el que toca y el siguiente, no todos a la vez: diez voces en
+ * paralelo topan con el limite del proveedor y alguna llega rota.
+ */
+function nuevaCola(alTerminar) {
+  const c = { textos: [], pedidos: [], actual: 0, cancelada: false, cerrada: false, corriendo: false, pausada: false };
+  const pedirVoz = (i) => (c.pedidos[i] ??= sintetizar(c.textos[i]).catch((e) => e));
+  c.anadir = (texto) => {
+    const limpio = textoParaVoz(texto);
+    if (c.cancelada || !limpio) return;
+    c.textos.push(limpio);
+    if (c.textos.length - 1 <= c.actual + 1) pedirVoz(c.textos.length - 1);
+    c.correr();
+  };
   c.cerrar = () => { c.cerrada = true; };
   c.correr = async () => {
     if (c.corriendo) return;
     c.corriendo = true;
-    let i = 0;
+    let fallos = 0;
     try {
-      while (!c.cancelada && (i < c.preparados.length || !c.cerrada)) {
-        if (i >= c.preparados.length) { await new Promise((r) => setTimeout(r, 120)); continue; }
-        const elemento = await c.preparados[i++];
+      while (!c.cancelada && (c.actual < c.textos.length || !c.cerrada)) {
+        if (c.actual >= c.textos.length) { await esperar(100); continue; }
+        const i = c.actual;
+        if (i + 1 < c.textos.length) pedirVoz(i + 1);
+        const buffer = await pedirVoz(i);
         if (c.cancelada) break;
-        if (elemento instanceof Error) throw elemento;
-        await reproducirElemento(elemento);
+        if (buffer instanceof Error) {
+          // Un trozo que no llega se salta: el resto de la respuesta se sigue oyendo.
+          if (fallos++ === 0) anotar(`Voz: no pude leer parte de la respuesta (${escapar(buffer.message)})`, "aviso");
+        } else {
+          await asegurarSonido();
+          while (c.pausada && !c.cancelada) await esperar(100);
+          if (c.cancelada) break;
+          await sonar(buffer);
+        }
+        c.actual = i + 1;
       }
-    } catch (e) {
-      anotar(`Voz: ${escapar(e.message)}`, "alerta");
     } finally {
       c.corriendo = false;
-      const interrumpida = c.cancelada;
       if (cola === c) { cola = null; detenerAudio(); }
-      if (!interrumpida && conv?.activa()) conv.escuchar();
+      if (!c.cancelada) alTerminar?.();
     }
   };
   return c;
@@ -247,10 +388,12 @@ function nuevaCola() {
 
 function hablar(texto) {
   detenerAudio();
+  despertarAudio();
   if (!ia?.voz) return;
-  cola = nuevaCola();
-  fragmentarParaVoz(texto).forEach((t) => cola.anadir(t));
-  cola.cerrar();
+  const deTurno = turno;
+  cola = nuevaCola(() => volverAEscuchar(deTurno));
+  fragmentarParaVoz(texto).forEach((t) => cola?.anadir(t));
+  cola?.cerrar();
 }
 
 // ---------------------------------------------------------------------------
@@ -372,12 +515,28 @@ function bloquear(si) {
   for (const v of Object.values(vistas)) v.enviar.disabled = si;
 }
 
-async function preguntar(texto, vista) {
+/** El orbe ya dice algo mas importante que el progreso de la respuesta. */
+const orbeOcupado = () => ["hablando", "escuchando"].includes(estadoActual());
+
+async function preguntar(texto, vista, { desdeVoz = false } = {}) {
   texto = (texto || "").trim();
-  if (!texto || respondiendo) return;
+  if (!texto) return;
+  despertarAudio();
+  if (respondiendo) {
+    // Solo la voz llega con una respuesta en marcha (el boton de enviar esta
+    // bloqueado): quien habla encima manda, se deja la anterior y se atiende esto.
+    if (!desdeVoz || !enCurso) return;
+    turno++;
+    enCurso.controlador.abort();
+    await enCurso.hecho;
+  }
   await cargarIA();
   if (!ia?.disponible) return;
   respondiendo = true;
+  const miTurno = ++turno;
+  const controlador = new AbortController();
+  let terminado = null;
+  enCurso = { controlador, hecho: new Promise((r) => { terminado = r; }) };
   detenerAudio();
   // Una pregunta escrita en pleno modo conversacion: se deja de dictar mientras responde.
   if (conv?.estado() === "escuchando") conv.esperar();
@@ -395,19 +554,24 @@ async function preguntar(texto, vista) {
   // Si hay voz, cada frase completa se manda a leer sin esperar al final.
   let leido = 0, abierto = null, rondas = 0, contexto = null;
   // En modo conversacion la respuesta siempre se oye.
-  if (ia.voz && (leerSolas || conv?.activa())) { detenerAudio(); cola = nuevaCola(); }
+  if (ia.voz && (leerSolas || conv?.activa())) cola = nuevaCola(() => volverAEscuchar(miTurno));
   const colaLocal = cola;
   const enviarFrases = (final) => {
     if (!colaLocal || colaLocal.cancelada) return;
     const pendiente = respuesta.contenido.slice(leido);
     if (final) { if (pendiente.trim()) colaLocal.anadir(pendiente.trim()); leido = respuesta.contenido.length; return; }
-    const corte = Math.max(pendiente.lastIndexOf(". "), pendiente.lastIndexOf("? "), pendiente.lastIndexOf("! "), pendiente.lastIndexOf("\n"));
-    if (corte >= 60) { colaLocal.anadir(pendiente.slice(0, corte + 1).trim()); leido += corte + 1; }
+    // El primer trozo, una sola frase corta: suena cuanto antes. Los demas, de
+    // varias frases, se sintetizan mientras suena el anterior.
+    const fronteras = [...pendiente.matchAll(/[.!?…](?=\s)|\n/g)].map((m) => m.index);
+    const corte = colaLocal.textos.length
+      ? fronteras.filter((i) => i >= 80).pop()
+      : fronteras.find((i) => i >= 25);
+    if (corte !== undefined) { colaLocal.anadir(pendiente.slice(0, corte + 1).trim()); leido += corte + 1; }
   };
 
   try {
     const r = await fetch("/api/asistente/preguntar/stream", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: controlador.signal,
       body: JSON.stringify({ mensaje: texto, historial: previo, modulo: moduloActual(), clave: contextoClave, radio_km: estado.radio }),
     });
     if (r.status === 401) { location.replace("/acceso"); return; }
@@ -428,7 +592,7 @@ async function preguntar(texto, vista) {
           if (!abierto) { abierto = { tipo: "texto", texto: "" }; respuesta.bloques.push(abierto); }
           abierto.texto += d.delta;
           respuesta.contenido += d.delta;
-          if (estadoActual() !== "hablando") ponerEstado("reposo", "Respondiendo…");
+          if (!orbeOcupado()) ponerEstado("reposo", "Respondiendo…");
           enviarFrases(false);
         }
         if (d.paso) { abierto = null; registrarPaso(respuesta, d.paso); }
@@ -441,25 +605,34 @@ async function preguntar(texto, vista) {
     respuesta.contenido = respuesta.contenido.trim();
     enviarFrases(true);
     colaLocal?.cerrar();
-    if (estadoActual() !== "hablando") ponerEstado("reposo", "Respondido. ¿Algo más?");
+    if (!orbeOcupado()) ponerEstado("reposo", "Respondido. ¿Algo más?");
     if (contexto?.documentos_sin_resumen) anotar(`${contexto.documentos_sin_resumen} documento(s) sin resumen: el asistente no los conoce`, "aviso");
     pintarSabe();
   } catch (e) {
     colaLocal?.cerrar();
-    const aviso = `No pude responder: ${e.message}`;
-    respuesta.bloques.push({ tipo: "texto", texto: aviso });
-    respuesta.contenido = (respuesta.contenido ? `${respuesta.contenido}\n\n` : "") + aviso;
-    ponerEstado("reposo", "Algo falló. Inténtalo de nuevo.");
+    if (controlador.signal.aborted) {
+      // Le hablaron encima: lo dicho hasta aqui queda, y el modelo sabe que se corto.
+      respuesta.bloques.push({ tipo: "texto", texto: "(Interrumpida)" });
+      respuesta.contenido = `${respuesta.contenido.trim()}\n\n(Interrumpida)`.trim();
+    } else {
+      const aviso = `No pude responder: ${e.message}`;
+      respuesta.bloques.push({ tipo: "texto", texto: aviso });
+      respuesta.contenido = (respuesta.contenido ? `${respuesta.contenido}\n\n` : "") + aviso;
+      ponerEstado("reposo", "Algo falló. Inténtalo de nuevo.");
+    }
   } finally {
     respondiendo = false;
+    if (enCurso?.controlador === controlador) enCurso = null;
     // Un paso que quedo a medias (se corto la conexion) no puede seguir girando.
     for (const b of respuesta.bloques) if (b.tipo === "paso" && b.estado === "en_curso") b.estado = "error";
     bloquear(false);
     pintarHistorial();
-    vista?.entrada?.focus();
+    if (!conv?.activa()) vista?.entrada?.focus();
     // Sin nada que leer (sin voz, o respuesta vacia), se vuelve a escuchar ya;
-    // si hay voz, lo hace la cola al terminar de sonar.
-    if (conv?.estado() === "esperando" && (!colaLocal || !colaLocal.fragmentos.length || colaLocal.cancelada)) conv.escuchar();
+    // si hay voz, lo hace la cola al terminar de sonar. Si ya hay otra
+    // pregunta en marcha, la conversacion es suya.
+    if (miTurno === turno && conv?.estado() === "esperando" && (!colaLocal || !colaLocal.textos.length || colaLocal.cancelada)) conv.escuchar();
+    terminado();
   }
 }
 
@@ -493,15 +666,6 @@ function montarDictado(v) {
 // Modo conversacion: escuchar, responder en voz alta y volver a escuchar
 // ---------------------------------------------------------------------------
 
-function nivelVozAsistente() {
-  if (!audio) return 0;
-  const datos = new Float32Array(audio.analizador.fftSize);
-  audio.analizador.getFloatTimeDomainData(datos);
-  let suma = 0;
-  for (const v of datos) suma += v * v;
-  return Math.sqrt(suma / datos.length);
-}
-
 function marcarConversacion(activa) {
   document.querySelectorAll("[data-conversar]").forEach((b) => {
     b.setAttribute("aria-pressed", String(activa));
@@ -515,6 +679,8 @@ function marcarConversacion(activa) {
 
 async function alternarConversacion(v) {
   if (conv?.activa()) { conv.terminar(); return; }
+  // Dentro del clic, antes de esperar nada: es cuando el navegador deja sonar.
+  despertarAudio();
   await cargarIA();
   if (!ia?.disponible) return;
   for (const x of Object.values(vistas)) x.entrada.dataset.placeholder ??= x.entrada.placeholder;
@@ -523,12 +689,15 @@ async function alternarConversacion(v) {
   conv ??= crearConversacion({
     contextoAudio,
     alTexto: (texto) => { if (vistaConv) { vistaConv.entrada.value = texto; ajustar(vistaConv.entrada); } },
-    alTurno: (texto) => preguntar(texto, vistaConv),
+    alTurno: (texto) => preguntar(texto, vistaConv, { desdeVoz: true }),
     alEstado: (e) => {
       marcarConversacion(e !== "inactiva");
       if (e === "escuchando") ponerEstado("escuchando", "Te escucho… habla cuando quieras");
+      else if (e === "confirmando") ponerEstado("escuchando", "¿Me dices algo? Te escucho…");
       else if (e === "inactiva" && estadoActual() === "escuchando") ponerEstado("reposo");
     },
+    alPausar: pausarVoz,
+    alReanudar: reanudarVoz,
     alInterrumpir: detenerAudio,
     alNivel: (n) => {
       const b = Math.max(0.15, Math.min(n * 14, 1));
@@ -778,7 +947,11 @@ function nuevaConversacion() {
   const habia = historial.length > 0;
   historial.length = 0;
   for (const k of Object.keys(cuenta)) cuenta[k] = 0;
+  turno++;
+  enCurso?.controlador.abort();
   detenerAudio();
+  // Lo que estaba diciendo o pensando ya no cuenta: la conversacion vuelve a escuchar.
+  if (conv?.activa() && conv.estado() !== "escuchando") conv.escuchar();
   pintarHistorial();
   if (habia) volarOrbe(false);
   pintarActividad();
@@ -804,7 +977,8 @@ export default {
       leerSolas = !leerSolas;
       ev.currentTarget.setAttribute("aria-pressed", String(leerSolas));
       try { localStorage.setItem("simbia.asistente.voz", leerSolas ? "si" : "no"); } catch { /* sin almacenamiento */ }
-      if (!leerSolas) detenerAudio();
+      // En modo conversacion la respuesta se oye siempre: no se corta.
+      if (!leerSolas && !conv?.activa()) detenerAudio();
     });
     try {
       orbeGrande = crearOrbe($("asistente-orbe"), { radio: RADIO_GRANDE });
