@@ -94,6 +94,16 @@ sugieres, llama primero a sugerir_mezcla y despues a abrir_en_panel con destino 
 - No anuncies lo que vas a hacer con mas de una frase corta: hazlo y responde.
 """
 
+INSTRUCCIONES_VOZ = """
+POR VOZ
+- El ultimo mensaje llego dictado: lo transcribio el reconocedor del navegador, que no \
+conoce los nombres propios de esta aplicacion. "SIMBIA" puede llegar como Silvia, Cintia, \
+Simvia, sin via o sin ver; y los nombres de empresas, deformados por como suenan (Mexichem \
+como mexicana, Yara como jara, Abocol como a bocol, Cabot como cabo, Mamonal como mamonal). \
+Interpreta por el sonido y por el CONTEXTO, y responde a lo que quiso decir sin comentar la \
+confusion. Pide que lo repita solo si de verdad no se entiende.
+"""
+
 
 class ParametroAgua(BaseModel):
     """Un parametro del agua tal como lo cita el documento.
@@ -320,18 +330,20 @@ def responder_stream(mensaje: str, historial: list[dict[str, str]], contexto: Co
 
 def responder_con_herramientas(
     mensaje: str, historial: list[dict[str, str]], contexto: Contexto,
-    herramientas, ejecutar,
+    herramientas, ejecutar, por_voz: bool = False,
 ):
     """Como `responder_stream`, pero el modelo puede consultar y simular antes.
 
     Devuelve los eventos de `ia.conversar_con_herramientas`: trozos de texto,
-    llamadas a herramientas con su resultado y el fin de cada ronda.
+    llamadas a herramientas con su resultado y el fin de cada ronda. Con
+    `por_voz`, el modelo sabe que el mensaje es un dictado y puede traer los
+    nombres propios deformados.
     """
     mensaje = mensaje.strip()[:MAX_MENSAJE]
     if not mensaje:
         raise ValueError("Escribe una pregunta")
     instrucciones = (
-        INSTRUCCIONES + INSTRUCCIONES_HERRAMIENTAS
+        INSTRUCCIONES + INSTRUCCIONES_HERRAMIENTAS + (INSTRUCCIONES_VOZ if por_voz else "")
         + "\n\nCONTEXTO (datos actuales de la aplicacion, en JSON):\n" + contexto.texto()
     )
     mensajes = recortar_historial(historial) + [{"rol": "usuario", "contenido": mensaje}]

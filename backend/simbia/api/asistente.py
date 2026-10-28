@@ -62,6 +62,8 @@ class Pregunta(BaseModel):
     modulo: str = ""
     clave: str = ""
     radio_km: float = RADIO_BUSQUEDA_KM
+    #: La pregunta llego dictada: el reconocedor puede deformar los nombres propios.
+    por_voz: bool = False
 
 
 @router.post("/preguntar")
@@ -178,6 +180,7 @@ def preguntar_stream(q: Pregunta):
         try:
             for tipo, d in asistente.responder_con_herramientas(
                 q.mensaje, q.historial, contexto, herramientas.DEFINICIONES, mesa.ejecutar,
+                por_voz=q.por_voz,
             ):
                 if tipo == "texto" and d["delta"]:
                     yield evento({"delta": d["delta"]})

@@ -220,6 +220,19 @@ def test_la_respuesta_en_streaming_llega_como_eventos(cliente, con_openai, monke
     assert "HERRAMIENTAS" in capturado["instrucciones"] and "CONTEXTO" in capturado["instrucciones"]
 
 
+def test_una_pregunta_dictada_avisa_al_modelo_de_los_nombres_mal_oidos(cliente, con_openai, monkeypatch, tmp_path):
+    monkeypatch.setattr(base, "CACHE", tmp_path)
+    vistas = []
+    def falso(instrucciones, mensajes, herramientas, ejecutar, max_tokens=900, max_rondas=5):
+        vistas.append(instrucciones)
+        yield "texto", {"delta": "Hola."}
+    monkeypatch.setattr(ia, "conversar_con_herramientas", falso)
+    cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "¿que es sin via?", "por_voz": True})
+    cliente.post("/api/asistente/preguntar/stream", json={"mensaje": "¿que es SIMBIA?"})
+    assert "POR VOZ" in vistas[0] and "Silvia" in vistas[0]
+    assert "POR VOZ" not in vistas[1]
+
+
 def test_los_pasos_de_las_herramientas_llegan_al_chat(cliente, con_openai, monkeypatch, tmp_path):
     monkeypatch.setattr(base, "CACHE", tmp_path)
     def falso(instrucciones, mensajes, herramientas, ejecutar, max_tokens=900, max_rondas=5):
