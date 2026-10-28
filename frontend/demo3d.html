@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SIMBIA · Gemelo digital 3D/AR</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="Recorrido guiado en 3D por el modelo SIMBIA para Cabot: planta, clúster Mamonal, optimizador, monitoreo, falla crítica, finanzas y ESG.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="demo3d.css?v=5">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+
+<div class="escena" id="escena" role="img"
+  aria-label="Gemelo digital 3D de SIMBIA: cambia con cada módulo del recorrido."></div>
+<div class="vineta" id="alarma" aria-hidden="true"></div>
+
+<header class="barra">
+  <a class="marca" href="/app" title="Volver al panel de SIMBIA">
+    <span class="chevron" aria-hidden="true"></span>
+    <span><b>SIMBIA</b><small>Gemelo digital · Cabot Colombiana</small></span>
+  </a>
+  <nav class="pasos" id="pasos" aria-label="Módulos del recorrido"></nav>
+  <a class="volver-panel" href="/app#inicio">← Volver al panel</a>
+  <p class="avance" id="avance" aria-live="off">Módulo 1/7 · 0 %</p>
+</header>
+
+<!-- Un panel por modulo: las cifras que acompanan a la escena -->
+<aside class="panel" data-modulo="0" aria-label="Panel ejecutivo">
+  <p class="kicker">Panel ejecutivo</p>
+  <div class="kpis">
+    <div class="kpi"><small>Caudal base <span id="k1-origen"></span></small><b><span id="k1">0,0</span> <i>m³/h</i></b></div>
+    <div class="kpi"><small>Meta de ahorro (10 %)</small><b><span id="k2">0,0</span> <i>m³/día</i></b></div>
+  </div>
+  <div class="etapa"><small>Etapa del proceso</small><b id="etapa">—</b></div>
+  <p class="sub">Anillos</p>
+  <ul class="leyenda">
+    <li><i class="agua"></i>Calidad de data</li>
+    <li><i class="naranja"></i>Disponibilidad</li>
+    <li><i class="verde"></i>Viabilidad económica</li>
+  </ul>
+</aside>
+
+<aside class="panel" data-modulo="1" aria-label="Barrido del clúster Mamonal">
+  <p class="kicker">Barrido · Clúster Mamonal</p>
+  <div class="kpis dos">
+    <div class="kpi"><small>Empresas evaluadas</small><b id="b-total">—</b></div>
+    <div class="kpi"><small>Con potencial</small><b id="b-pot">—</b></div>
+  </div>
+  <div id="b-vista"></div>
+</aside>
+
+<aside class="panel" data-modulo="2" aria-label="Optimizador hídrico">
+  <p class="kicker">Optimizador hídrico</p>
+  <label class="deslizador"><span>Mexichem <output id="oA">45</output></span><input type="range" id="sA" min="0" max="100" value="45"></label>
+  <label class="deslizador"><span>Yara <output id="oB">35</output></span><input type="range" id="sB" min="0" max="100" value="35"></label>
+  <label class="deslizador"><span>Agua cruda <output id="oC">20</output></span><input type="range" id="sC" min="0" max="100" value="20"></label>
+  <div class="medida">
+    <div class="medida-cab"><small>Calidad de mezcla</small><b id="q">91</b></div>
+    <div class="medidor"><i id="qb"></i><span class="umbral" aria-hidden="true"></span></div>
+    <small class="nota">Objetivo: mantener por encima de 80</small>
+  </div>
+  <div class="kpi"><small>Ahorro estimado</small><b id="sv">10,0 %</b></div>
+</aside>
+
+<aside class="panel" data-modulo="3" aria-label="Monitoreo en tiempo real">
+  <p class="kicker">Monitoreo en tiempo real</p>
+  <div class="kpi"><small>Caudal</small><b><span id="m1">23,8</span> <i>m³/h</i></b></div>
+  <div class="kpi"><small>Temperatura</small><b><span id="m2">30,1</span> <i>°C</i></b></div>
+  <div class="kpi"><small>Índice de calidad (base 85)</small><b id="m3">85,0</b></div>
+  <p class="vivo"><i aria-hidden="true"></i>Sensores IoT en vivo</p>
+</aside>
+
+<aside class="panel" data-modulo="4" aria-label="Cuadro de mando">
+  <p class="kicker">Cuadro de mando</p>
+  <p class="estado" id="st">Operación normal</p>
+  <ol class="secuencia" id="pasos-falla"></ol>
+  <p class="nota-rec">Recuperación Intramuros: <b id="rp">10 %</b> del caudal</p>
+</aside>
+
+<aside class="panel ancho" data-modulo="5" aria-label="Dashboard CFO">
+  <p class="kicker">Dashboard CFO · LCOW 5 años</p>
+  <div class="pestanas" role="tablist">
+    <button type="button" id="tA" role="tab">Modo A (Simbiosis)</button>
+    <button type="button" id="tB" role="tab">Modo B (Recuperación)</button>
+  </div>
+  <div id="tb"></div>
+  <p class="nota">Toque un pedestal del 3D para abrir o cerrar sus barras.</p>
+</aside>
+
+<aside class="panel" data-modulo="6" aria-label="Reporte ESG">
+  <p class="kicker">Reporte ESG</p>
+  <div class="kpi grande"><small>Escenario optimista (15 %)</small><b>31.270 <i>m³/año</i></b></div>
+  <p class="nota">Meta base de sustitución: 20.850 m³/año</p>
+  <button type="button" class="boton boton-naranja" id="go">Iniciar piloto <span aria-hidden="true">→</span></button>
+</aside>
+
+<p class="subtitulo" id="subtitulo" aria-live="polite"></p>
+
+<nav class="mando" aria-label="Controles del recorrido">
+  <button type="button" id="ant" title="Módulo anterior (←)" aria-label="Módulo anterior">
+    <svg viewBox="0 0 24 24"><path d="M19 20 9 12l10-8v16Z"/><path d="M5 19V5"/></svg>
+  </button>
+  <button type="button" id="pp" class="principal">
+    <svg class="i-pausa" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+    <svg class="i-play" viewBox="0 0 24 24" hidden><path d="M7 4v16l13-8L7 4Z"/></svg>
+    <span>Reanudar</span>
+  </button>
+  <button type="button" id="sig" title="Módulo siguiente (→)" aria-label="Módulo siguiente">
+    <svg viewBox="0 0 24 24"><path d="m5 4 10 8-10 8V4Z"/><path d="M19 5v14"/></svg>
+  </button>
+  <span class="sep" aria-hidden="true"></span>
+  <button type="button" id="rs" title="Reiniciar el recorrido" aria-label="Reiniciar el recorrido">
+    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+  </button>
+  <button type="button" id="vb" aria-label="Narración" aria-pressed="true">
+    <svg class="i-voz" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+    <svg class="i-mudo" viewBox="0 0 24 24" hidden><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/></svg>
+  </button>
+  <button type="button" id="cc" title="Subtítulos" aria-label="Subtítulos" aria-pressed="true">
+    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6"/></svg>
+  </button>
+  <button type="button" id="fsb" title="Pantalla completa (F)" aria-label="Pantalla completa">
+    <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  </button>
+  <button type="button" id="ar" class="ar" title="Ver en realidad aumentada" hidden>
+    <svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
+    <span>AR</span>
+  </button>
+</nav>
+
+<p class="aviso" id="aviso" role="status">Siguiente paso: acordar el alcance del piloto con Cabot.</p>
+
+<section class="portada" id="portada" aria-labelledby="portada-titulo">
+  <div class="portada-tarjeta">
+    <p class="kicker">Reto Cabot · Clúster Mamonal</p>
+    <h1 id="portada-titulo">SIMBIA · <span class="resalte">Gemelo digital</span></h1>
+    <p class="portada-sub">Recorrido guiado por voz: cada módulo avanza cuando termina la narración.</p>
+    <ol class="portada-modulos" id="portada-modulos"></ol>
+    <button type="button" class="boton boton-tinta" id="sb" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8L7 4Z"/></svg> Iniciar experiencia
+    </button>
+    <p class="portada-estado" id="estado-datos" role="status">Cargando el barrido de Mamonal…</p>
+    <p class="portada-nota"><span id="vn">Comprobando la voz…</span> Activa el sonido de tu dispositivo.</p>
+    <p class="portada-atajos"><kbd>←</kbd> <kbd>→</kbd> cambian de módulo · <kbd>espacio</kbd> pausa</p>
+    <a class="volver-panel" href="/app#inicio">← Volver al panel</a>
+  </div>
+</section>
+
+<script type="module" src="demo3d.js?v=3"></script>
+</body>
+</html>
