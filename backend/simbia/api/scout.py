@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from ..config import Escenario
 from ..optim.blend import linea_base, optimizar
-from ..scout import almacen, analisis, ciiu, documentos, extraccion, lote, permisos, vigilancia, vital
+from ..scout import almacen, analisis, ciiu, documentos, evidencia, extraccion, lote, permisos, vigilancia, vital
 from ..scout.fuentes import Modo, catalogo as catalogo_fuentes, modo_actual
 from ..scout.fuentes.base import descargas_en_cache
 from ..scout.geo import PLANTA, RADIO_BUSQUEDA_KM, Sitio, proyectar
@@ -25,6 +25,27 @@ from ..scout.scoring import PESOS, puntuar_todos
 from . import serial
 
 router = APIRouter(prefix="/api/scout")
+
+
+@router.get("/evidencia")
+def evidencia_seleccionada() -> dict:
+    return evidencia.seleccion()
+
+
+@router.get("/evidencia/documentos/{identificador}")
+def evidencia_documento(identificador: str):
+    archivo = evidencia.documento(identificador)
+    if archivo is None or not archivo.is_file():
+        raise HTTPException(404, "Documento no encontrado")
+    return FileResponse(archivo, media_type="application/pdf")
+
+
+@router.get("/evidencia/evaluacion")
+def evaluar_evidencia(radio_km: float = Query(RADIO_BUSQUEDA_KM, ge=0.5, le=40)) -> dict:
+    try:
+        return evidencia.evaluar(_barrido(radio_km))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 
 # --------------------------------------------------------------------------
@@ -580,6 +601,7 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
     if not catalogo:
         return {
             "factible": False,
+            "validacion": evidencia.validacion_modelo(),
             "motivo": (
                 f"Ningun prospecto supera el umbral de confianza "
                 f"({ajustes.umbral_confianza:.2f}). Hace falta analitica real: "
@@ -596,6 +618,7 @@ def optimizar_con_prospectos(ajustes: AjustesPromocion | None = None) -> dict[st
     base = linea_base(esc)
     resultado = {
         "factible": sol.factible,
+        "validacion": evidencia.validacion_modelo(),
         "linea_base": serial.solucion_json(base),
         "optimo": serial.solucion_json(sol),
         "cumple_meta": sol.factible

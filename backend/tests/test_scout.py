@@ -1009,6 +1009,8 @@ def test_el_optimizador_corre_con_el_catalogo_prospectado(cliente):
     assert d["factible"] is True
     assert d["catalogo"]
     assert d["optimo"]["ahorro_pct_planta"] > 0
+    assert d["validacion"]["ahorro_validado"] is False
+    assert d["validacion"]["tipo"] == "escenario_exploratorio"
     # La portada lo vuelve a pedir al navegar: la respuesta memorizada debe
     # conservar exactamente la misma forma que la primera.
     assert cliente.post("/api/scout/optimizar", json={}).json() == d
@@ -1018,6 +1020,7 @@ def test_un_umbral_inalcanzable_no_revienta_sino_que_lo_explica(cliente):
     d = cliente.post("/api/scout/optimizar", json={"umbral_confianza": 1.0}).json()
     assert d["factible"] is False
     assert "confianza" in d["motivo"]
+    assert d["validacion"]["ahorro_validado"] is False
 
 
 def test_el_pipeline_separa_las_fichas_huerfanas(cliente, tmp_path, monkeypatch):

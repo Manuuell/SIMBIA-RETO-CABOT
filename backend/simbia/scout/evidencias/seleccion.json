@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "revisado": "2026-10-26",
+  "estado": "Preselección documental; simbiosis pendiente de validación",
+  "ahorro_validado": null,
+  "documentos": {
+    "mexichem-2026": {
+      "titulo": "Solicitud de renovación y caracterización OT 13996-1-2-A-9304-V03",
+      "url": "https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx?NumSilpa=1070086000727726002&Origen=VITAL&TarSolId=408910&Solicitante=23190&TipoConsulta=Todos",
+      "archivo": "mexichem-2026.pdf",
+      "sha256": "5cc9c52909d4911ced20b0b2728bd58192cfc8bfc7a971d003d2915f75c28156",
+      "consultado": "2026-10-26"
+    },
+    "yara-43028-2026": {
+      "titulo": "Informe LMB 43028",
+      "url": "https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx?NumSilpa=1070860006333526001&Origen=VITAL&TarSolId=420705&Solicitante=27579&TipoConsulta=Todos",
+      "archivo": "yara-43028-2026.pdf",
+      "sha256": "713715f0c7ec1e4411b9a2d5d9009c22c720b5c140e34ddf33804f307e9068ff",
+      "consultado": "2026-10-26"
+    },
+    "yara-446-2025": {
+      "titulo": "EPA-AUTO-000446-2025",
+      "url": "https://epacartagena.gov.co/web/wp-content/uploads/2025/06/EPA-AUTO-000446-2025.pdf",
+      "archivo": "yara-446-2025.pdf",
+      "sha256": "7a560e8ada54ea91c30b67fab23d6cf999b98703a0b9907e98875a7088b77738",
+      "consultado": "2026-10-26"
+    }
+  },
+  "candidatos": [
+    {
+      "id": "mexichem-efluente-3",
+      "empresa": "Mexichem Resinas Colombia",
+      "nit": "860007277-5",
+      "punto": "Planta PVC Emulsión · Efluente 3",
+      "muestreo": "15–19 de diciembre de 2025",
+      "fecha_desde": "2025-12-15",
+      "fecha_hasta": "2025-12-19",
+      "informe": "OT 13996-1-2-A-9304-V03",
+      "laboratorio": "SERAMBIENTE, LIMA y SGS Colombia (según ensayo)",
+      "radicado": "1070086000727726002",
+      "caudal": {
+        "valor": 6.73,
+        "unidad": "L/s",
+        "estadistico": "promedio publicado",
+        "documento": "mexichem-2026",
+        "pagina_pdf": 22,
+        "m3_h": 24.228,
+        "conversion": "L/s × 3,6 = m³/h; no equivale a oferta disponible"
+      },
+      "calidad": {
+        "ph": {
+          "valor": 7.58,
+          "unidad": "unidades de pH",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 22
+        },
+        "t_c": {
+          "valor": 32.8,
+          "unidad": "°C",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 22
+        },
+        "alcalinidad": {
+          "valor": 54.81,
+          "unidad": "mg CaCO₃/L",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 30
+        },
+        "dqo": {
+          "valor": 146.63,
+          "unidad": "mg O₂/L",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 30
+        },
+        "sst": {
+          "valor": 25.943,
+          "unidad": "mg/L",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 30
+        },
+        "hierro": {
+          "valor": 1.081,
+          "unidad": "mg Fe/L",
+          "estadistico": "promedio publicado",
+          "documento": "mexichem-2026",
+          "pagina_pdf": 30
+        }
+      },
+      "permiso": {
+        "estado": "Referenciado por la empresa; actos originales pendientes",
+        "detalle": "La solicitud de mayo de 2026 cita las resoluciones CARDIQUE 1635/2016, 0252/2022 y 1385/2022, y declara vencimiento el 17/03/2027. No se ha verificado el acto original ni su estado actual.",
+        "documento": "mexichem-2026",
+        "pagina_pdf": 1
+      },
+      "faltantes": [
+        "TDS/conductividad, cloruros, sílice, dureza cálcica, sulfatos y nitrógeno amoniacal del mismo punto.",
+        "Actos originales del permiso y condiciones aplicables al reúso.",
+        "Caudal disponible para terceros y continuidad de entrega."
+      ],
+      "observaciones": [
+        "Se conserva el promedio publicado de 6,73 L/s. El máximo de 7,5 L/s (27 m³/h) no es el promedio.",
+        "Efluente 1 y Torre EPVC son puntos distintos: no se suman ni se mezclan sus análisis.",
+        "Hierro: el promedio es 1,081 mg/L, pero el 19/12 se registraron 3,05 mg/L; revisar variabilidad."
+      ],
+      "simbiosis_validada": false
+    },
+    {
+      "id": "yara-norte-1",
+      "empresa": "Yara Colombia",
+      "nit": "860006333",
+      "punto": "Punto 1 · Planta Norte · ARnD",
+      "muestreo": "30 de junio–2 de julio de 2026",
+      "fecha_desde": "2026-06-30",
+      "fecha_hasta": "2026-07-02",
+      "informe": "LMB 43028 · emitido 17/07/2026",
+      "laboratorio": "Laboratorio Microbiológico Barranquilla SAS (LMB)",
+      "radicado": "1070860006333526001",
+      "caudal": {
+        "valor": 10.59,
+        "unidad": "L/s",
+        "estadistico": "promedio publicado",
+        "documento": "yara-43028-2026",
+        "pagina_pdf": 16,
+        "m3_h": 38.124,
+        "conversion": "L/s × 3,6 = m³/h; no equivale a oferta disponible"
+      },
+      "calidad": {
+        "ph": {
+          "valor": [
+            7.11,
+            7.7
+          ],
+          "unidad": "unidades de pH",
+          "estadistico": "rango observado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "t_c": {
+          "valor": 36.19,
+          "unidad": "°C",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "alcalinidad": {
+          "valor": 55.73,
+          "unidad": "mg CaCO₃/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "dureza_ca": {
+          "valor": 156,
+          "unidad": "mg CaCO₃/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "dqo": {
+          "valor": 43.73,
+          "unidad": "mg O₂/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "sst": {
+          "valor": 9.67,
+          "unidad": "mg/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 17
+        },
+        "n_amoniacal": {
+          "valor": 64.43,
+          "unidad": "mg NH₃-N/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16
+        },
+        "fosforo_reactivo": {
+          "valor": 0.15,
+          "unidad": "mg P-PO₄/L",
+          "estadistico": "límite de cuantificación; tres muestras",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 16,
+          "calificador": "<"
+        },
+        "sulfatos": {
+          "valor": 116.46,
+          "unidad": "mg SO₄/L",
+          "estadistico": "promedio publicado",
+          "documento": "yara-43028-2026",
+          "pagina_pdf": 17,
+          "calificador": "*",
+          "nota": "El informe presenta >40,0 y 116,46*; conservar la salvedad del laboratorio. No importar como valor exacto."
+        }
+      },
+      "permiso": {
+        "estado": "Antecedente confirmado por EPA; vigencia actual pendiente",
+        "detalle": "EPA-AUTO-000446-2025 cita el permiso 387/2016 y su renovación EPA-RES-00218-2022. El auto también registra desviaciones de nitrógeno total y sulfuros en la campaña de 2024; falta verificar su cierre y el acto íntegro.",
+        "documento": "yara-446-2025",
+        "pagina_pdf": 1
+      },
+      "faltantes": [
+        "TDS/conductividad, cloruros, sílice y hierro del mismo punto.",
+        "Acto íntegro, vigencia y cierre del seguimiento EPA de 2025; condiciones aplicables al reúso.",
+        "Caudal disponible para terceros y continuidad de entrega."
+      ],
+      "observaciones": [
+        "El pH es un rango; no hay promedio de 7,5 en la tabla.",
+        "Fósforo reactivo <0,15 mg P-PO₄/L no equivale a 0,15 mg PO₄/L medidos.",
+        "Nitrógeno amoniacal: 64,43 mg NH₃-N/L; requiere evaluación específica para la torre.",
+        "Los datos de Planta Sur y aguas domésticas quedan fuera de esta corriente."
+      ],
+      "simbiosis_validada": false,
+      "alias_catalogo": "Abocol S.A."
+    }
+  ],
+  "pendientes_cabot": [
+    "Consumo total medido y balance de la torre: reposición, purga, evaporación y ciclos.",
+    "Caracterización del agua de Cabot y límites de operación de su torre.",
+    "Ensayo de mezcla y tratamiento con muestras de las corrientes seleccionadas.",
+    "Disponibilidad acordada, trazado, costos cotizados y revisión de los requisitos aplicables al reúso."
+  ]
+}

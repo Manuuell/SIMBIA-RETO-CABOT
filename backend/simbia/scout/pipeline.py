@@ -235,7 +235,7 @@ def _caracterizar(
                     f"{lab.punto} - {lab.laboratorio}, "
                     f"{lab.muestras} muestras compuestas"
                 ),
-                url="https://vital-publico.minambiente.gov.co/buscador",
+                url=lab.url or "https://vital-publico.minambiente.gov.co/buscador",
                 consultado=lab.fecha,
             ),
         ) if lab is not None else ()
@@ -254,7 +254,7 @@ def _caracterizar(
         nombre=principal.nombre,
         sector=arquetipo.nombre,
         ciiu=codigo_ciiu or "/".join(arquetipo.ciiu[:2]),
-        corriente=arquetipo.corriente,
+        corriente=lab.punto if lab is not None else arquetipo.corriente,
         lat=principal.lat,
         lon=principal.lon,
         distancia_linea_km=recta,

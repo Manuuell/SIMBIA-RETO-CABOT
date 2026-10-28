@@ -44,6 +44,7 @@ class Analitica:
     expediente: str
     fuente: str                     # de donde salio el documento
     nota: str = ""
+    url: str = ""
 
     def aplicar(self, base: Calidad) -> tuple[Calidad, frozenset[str]]:
         validos = {k: v for k, v in self.medido.items() if hasattr(base, k)}
@@ -63,26 +64,29 @@ ANALITICAS: tuple[Analitica, ...] = (
         # Promedio de tres muestras compuestas (30/06, 01/07 y 02/07 de 2026).
         # Laboratorio acreditado por el IDEAM bajo NTC-ISO/IEC 17025:2017.
         medido={
-            "ph": 7.5,              # rangos 7,11-7,70 en las tres jornadas
+            # pH: rango 7,11–7,70, sin promedio publicado. No es un escalar medido.
             "t_c": 36.19,
             "alcalinidad": 55.73,   # mg CaCO3/L
             "dureza_ca": 156.0,     # mg CaCO3/L
             "dqo": 43.73,           # mg O2/L
             "sst": 9.67,
-            "sulfatos": 116.46,
+            # Sulfatos: >40,0 / 116,46* en p. 17. No eliminar la salvedad.
             "n_amoniacal": 64.43,   # mg NH3-N/L
-            "fosfatos": 0.15,       # fosforo total, por debajo del limite de cuantificacion
+            # Fósforo reactivo <0,15 mg P-PO4/L: ni valor exacto ni mg PO4/L.
         },
-        caudal_m3_h=38.1,           # 10,59 L/s de promedio
+        caudal_m3_h=38.124,         # 10,59 L/s publicados × 3,6; no oferta garantizada
         expediente="1070860006333526001",
         fuente=(
             "VITAL - EPA Cartagena, tramite 348_VITAL_VERTIMIENTO_CUERPO_A, "
             "radicado 28/07/2026"
         ),
+        url="/api/scout/evidencia/documentos/yara-43028-2026#page=16",
         nota=(
-            "El laboratorio no midio cloruros, silice, hierro ni conductividad: "
-            "la Resolucion 0631 no los exige para este sector. Esos cuatro "
-            "siguen viniendo del arquetipo y siguen marcados como inferidos."
+            "Informe original: /api/scout/evidencia/documentos/yara-43028-2026, "
+            "pp. 16–17. Cloruros, sílice, hierro y conductividad no constan en "
+            "esta tabla. pH es un rango; fósforo tiene límite de cuantificación "
+            "y sulfatos una salvedad. Esos campos no se importan como escalares "
+            "medidos; el escenario exploratorio conserva estimaciones para ellos."
         ),
     ),
 )
