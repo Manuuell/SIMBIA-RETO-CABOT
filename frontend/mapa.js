@@ -1,18 +1,18 @@
-/* Mapa relativo sin conexión. Las líneas indican proximidad, no rutas levantadas. */
-
+/* Esquema relativo: conserva coordenadas y escala; no representa un trazado. */
 const NS = "http://www.w3.org/2000/svg";
-
 function el(nombre, attrs = {}, texto = null) {
   const n = document.createElementNS(NS, nombre);
   for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
   if (texto !== null) n.textContent = texto;
   return n;
 }
-
-/* Escala de puntaje: gris (irrelevante) -> ambar -> naranja (prioritario).
- * Deliberadamente no es rojo-verde: rojo y verde ya significan alerta y
- * limite cumplido en el resto de la aplicacion, y ademas es la pareja que
- * mas gente confunde. */
+function html(nombre, clase, texto) {
+  const n = document.createElement(nombre);
+  n.className = clase;
+  if (texto != null) n.textContent = texto;
+  return n;
+}
+const num = (v, dec = 1) => Number.isFinite(v) ? v.toLocaleString("es-CO", { maximumFractionDigits: dec }) : "—";
 function colorPuntaje(p) {
   if (p == null || p <= 0) return "#b8c2c8";
   const t = Math.max(0, Math.min(1, p / 60));
@@ -21,157 +21,109 @@ function colorPuntaje(p) {
 }
 
 export function dibujarMapa(contenedor, { planta, prospectos, alSeleccionar }) {
-  contenedor.innerHTML = "";
+  contenedor.replaceChildren();
   if (!prospectos.length) {
-    contenedor.innerHTML = '<p class="cargando">Sin prospectos que dibujar.</p>';
+    contenedor.append(html("p", "cargando", "Ninguna empresa cumple los filtros actuales."));
     return;
   }
+  const ordenados = [...prospectos].sort((a, b) => (b.puntaje || 0) - (a.puntaje || 0));
+  const puestos = new Map(ordenados.map((p, i) => [p.clave, i + 1]));
+  const cartera = p => Boolean(p.ficha?.en_cartera);
+  const destacados = [...ordenados].sort((a, b) => Number(cartera(b)) - Number(cartera(a))).slice(0, 8);
+  const W = 560, H = 500, cx = W / 2, cy = H / 2;
+  const alcance = Math.max(...prospectos.map(p => Math.hypot(p.x_km, p.y_km)), 1) * 1.15;
+  const k = 208 / alcance;
+  const X = p => cx + p.x_km * k, Y = p => cy - p.y_km * k;
+  const maxQ = Math.max(...prospectos.map(p => p.caudal_m3_h || 0), 1);
 
-  const W = 640, H = 460, M = 26;
-  // Escala cuadrada: si x e y tuvieran escalas distintas, las distancias
-  // dejarian de ser comparables visualmente y el mapa mentiria.
-  //
-  // El alcance se toma de la distancia RADIAL maxima, no de la coordenada
-  // maxima. Con la coordenada, los anillos de distancia se quedaban cortos
-  // respecto a los prospectos mas lejanos (un punto a 45 grados y 4 km tiene
-  // coordenadas de solo 2,8) y la escala del mapa dejaba de coincidir con la
-  // que anunciaban las etiquetas.
-  const alcance = Math.max(
-    ...prospectos.map((p) => Math.hypot(p.x_km, p.y_km)), 1,
-  ) * 1.12;
-  const k = Math.min((W - 2 * M) / 2, (H - 2 * M) / 2) / alcance;
-  const cx = W / 2, cy = H / 2;
-  const X = (xkm) => cx + xkm * k;
-  const Y = (ykm) => cy - ykm * k;
-
-  const svg = el("svg", {
-    viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet",
-  });
-
-  // -- anillos de distancia ------------------------------------------------
+  const cabecera = html("div", "mapa-controles");
+  cabecera.innerHTML = '<div><p class="mapa-eyebrow">ENTORNO INDUSTRIAL · MAMONAL</p><h3>Empresas alrededor de Cabot</h3><p class="pie">Explora su ubicación y abre la ficha de cada empresa.</p></div><div class="mapa-zoom"><button type="button" class="secundario pequeno" data-zoom="1.5" aria-label="Acercar mapa">+</button><button type="button" class="secundario pequeno" data-zoom="0.6666667" aria-label="Alejar mapa">−</button><button type="button" class="secundario pequeno" data-zoom="0">Centrar</button></div>';
+  contenedor.append(cabecera);
+  const cuerpo = html("div", "mapa-cuerpo");
+  const lienzo = html("div", "mapa-lienzo");
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet", "aria-label": "Posiciones relativas a Cabot. Norte arriba. Las empresas se pueden abrir con Enter; use los botones para ampliar." });
+  const fondo = el("g", { class: "mapa-reticula" });
+  fondo.append(el("line", { x1: cx, y1: 20, x2: cx, y2: H - 20 }), el("line", { x1: 35, y1: cy, x2: W - 35, y2: cy }));
   const paso = alcance > 6 ? 2 : alcance > 3 ? 1 : 0.5;
   for (let r = paso; r <= alcance; r += paso) {
-    svg.appendChild(el("circle", { class: "anillo", cx, cy, r: r * k }));
-    svg.appendChild(el("text", {
-      class: "anillo-txt", x: cx + 3, y: Y(r) - 3,
-    }, `${r} km`));
+    fondo.append(el("circle", { class: "anillo", cx, cy, r: r * k }));
+    // Etiquetas al este: dejan libre el corredor industrial norte-sur.
+    fondo.append(el("text", { class: "anillo-txt", x: cx + r * k - 4, y: cy - 8, "text-anchor": "end" }, `${num(r)} km`));
   }
-
-  // -- conducciones --------------------------------------------------------
-  // Se dibujan primero para que queden por debajo de los nodos.
-  const gDuctos = el("g");
-  prospectos.forEach((p) => {
-    gDuctos.appendChild(el("line", {
-      class: "ducto" + ((p.puntaje || 0) >= 45 ? " destacado" : ""),
-      x1: cx, y1: cy, x2: X(p.x_km), y2: Y(p.y_km),
-    }));
+  svg.append(fondo);
+  const ductos = el("g"), nodos = new Map(), lineas = new Map(), botones = new Map();
+  svg.append(ductos);
+  const ficha = html("div", "mapa-lectura");
+  ficha.setAttribute("aria-live", "polite");
+  const enfocar = p => {
+    nodos.forEach((n, clave) => n.classList.toggle("mapa-activo", clave === p.clave));
+    lineas.forEach((n, clave) => n.classList.toggle("mapa-activo", clave === p.clave));
+    botones.forEach((n, clave) => n.classList.toggle("mapa-activo", clave === p.clave));
+    if (nodos.has(p.clave)) svg.append(nodos.get(p.clave));
+    ficha.replaceChildren(html("b", "", p.nombre), html("span", "", `${num(p.distancia_conduccion_km)} km de conducción estimada · ${num(p.caudal_m3_h)} m³/h de catálogo`));
+  };
+  [...ordenados].sort((a, b) => b.caudal_m3_h - a.caudal_m3_h).forEach(p => {
+    const linea = el("line", { class: "mapa-conexion", x1: cx, y1: cy, x2: X(p), y2: Y(p) });
+    ductos.append(linea); lineas.set(p.clave, linea);
+    const g = el("g", { class: "mapa-nodo", tabindex: "0", role: "button", "aria-label": `${p.nombre}. Puntaje ${num(p.puntaje)} de 100. Abrir ficha.` });
+    g.append(el("title", {}, `${p.nombre}\n${num(p.caudal_m3_h)} m³/h · calidad ${p.metodo_calidad}\n${num(p.distancia_conduccion_km)} km de conducción estimada`));
+    g.append(el("circle", { class: "mapa-halo", cx: X(p), cy: Y(p), r: 17 }));
+    g.append(el("circle", { class: "mapa-punto", cx: X(p), cy: Y(p), r: 6 + 7 * Math.sqrt(Math.max(0, p.caudal_m3_h || 0) / maxQ), fill: colorPuntaje(p.puntaje), "stroke-dasharray": p.metodo_calidad === "inferido" ? "3 2" : "" }));
+    if (destacados.includes(p)) g.append(el("text", { class: "mapa-numero", x: X(p), y: Y(p) + 3 }, String(puestos.get(p.clave))));
+    g.addEventListener("pointerenter", () => enfocar(p));
+    g.addEventListener("focus", () => enfocar(p));
+    g.addEventListener("click", () => alSeleccionar?.(p.clave));
+    g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alSeleccionar?.(p.clave); } });
+    nodos.set(p.clave, g); svg.append(g);
   });
-  svg.appendChild(gDuctos);
-
-  // -- prospectos ----------------------------------------------------------
-  const caudalMax = Math.max(...prospectos.map((p) => p.caudal_m3_h), 1);
-  // Radio proporcional a la RAIZ del caudal: es el area la que se percibe
-  // como cantidad, no el radio. Escalar el radio linealmente exagera las
-  // diferencias por un factor de dos.
-  const radio = (q) => 4 + 13 * Math.sqrt(q / caudalMax);
-
-  const ordenados = [...prospectos].sort((a, b) => b.caudal_m3_h - a.caudal_m3_h);
-  ordenados.forEach((p) => {
-    const g = el("g", { class: "nodo", tabindex: "0", role: "button",
-      "aria-label": `${p.nombre}. Puntaje ${p.puntaje ?? "sin evaluar"}. Ver detalle` });
-    g.appendChild(el("title", {}, [
-      p.nombre,
-      `${p.sector}`,
-      `${p.caudal_m3_h} m³/h · ${p.distancia_conduccion_km} km de conduccion`,
-      `Puntaje ${p.puntaje ?? "—"} · confianza ${p.confianza} (${p.confianza_etiqueta})`,
-      p.limitante,
-    ].join("\n")));
-    g.appendChild(el("circle", {
-      cx: X(p.x_km), cy: Y(p.y_km), r: radio(p.caudal_m3_h),
-      fill: colorPuntaje(p.puntaje),
-      "fill-opacity": 0.55,
-      stroke: colorPuntaje(p.puntaje),
-      "stroke-width": 1.4,
-      // Borde discontinuo = caracterizacion inferida, no declarada.
-      "stroke-dasharray": p.metodo_calidad === "inferido" ? "3 2.5" : "",
-    }));
-    if (alSeleccionar) {
-      g.addEventListener("click", () => alSeleccionar(p.clave));
-      g.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alSeleccionar(p.clave); }
-      });
-    }
-    svg.appendChild(g);
+  const cabot = el("g", { class: "mapa-cabot" });
+  cabot.append(el("title", {}, planta.nombre), el("circle", { cx, cy, r: 15 }));
+  cabot.append(el("path", { d: `M${cx-5},${cy+6} v-10 l5,3 v-5 l6,4 v8 Z` }));
+  cabot.append(el("rect", { x: cx - 79, y: cy - 10, width: 56, height: 21, rx: 10 }));
+  cabot.append(el("text", { x: cx - 51, y: cy + 4, "text-anchor": "middle" }, "CABOT"));
+  svg.append(cabot);
+  lienzo.append(html("span", "mapa-norte", "↑ N"), html("span", "mapa-conteo", `${prospectos.length} empresas visibles`), svg, ficha);
+  const lateral = html("div", "mapa-seleccion");
+  lateral.append(html("p", "mapa-eyebrow", "EMPRESAS DESTACADAS"), html("p", "mapa-explicacion", "Cartera primero; después, mayor puntaje. El número indica su puesto en el filtro actual."));
+  destacados.forEach(p => {
+    const b = html("button", "mapa-empresa"); b.type = "button";
+    b.append(html("span", "mapa-puesto", String(puestos.get(p.clave))));
+    const texto = html("span", "mapa-empresa-texto");
+    texto.append(html("b", "", p.nombre), html("small", "", `${num(p.distancia_conduccion_km)} km estimados${cartera(p) ? " · En cartera" : ""}`));
+    b.append(texto, html("span", "mapa-score", `${num(p.puntaje)} /100`));
+    b.addEventListener("pointerenter", () => enfocar(p));
+    b.addEventListener("focus", () => enfocar(p));
+    b.addEventListener("click", () => alSeleccionar?.(p.clave));
+    botones.set(p.clave, b); lateral.append(b);
   });
+  cuerpo.append(lienzo, lateral); contenedor.append(cuerpo);
+  enfocar(destacados[0]);
 
-  // Distribuir etiquetas en dos columnas evita colisiones en el corredor.
-  const mejores = [...prospectos].sort((a, b) => (b.puntaje || 0) - (a.puntaje || 0)).slice(0, 8);
-  [-1, 1].forEach((lado) => {
-    const grupo = mejores.filter((p) => (p.x_km < 0 ? -1 : 1) === lado).sort((a, b) => b.y_km - a.y_km);
-    let anterior = 20;
-    grupo.forEach((p, i) => {
-      const y = Math.max(anterior + 24, Math.min(H - 36 - (grupo.length - i - 1) * 24, Y(p.y_km)));
-      anterior = y;
-      const x = lado < 0 ? 150 : W - 150;
-      svg.appendChild(el("line", { x1: X(p.x_km), y1: Y(p.y_km), x2: x, y2: y - 4, stroke: "#9aa6ae", "stroke-width": 0.6 }));
-      svg.appendChild(el("text", { class: "nodo-txt", x, y: y - 7, "text-anchor": lado < 0 ? "end" : "start" },
-        p.nombre.length > 24 ? p.nombre.slice(0, 23) + "…" : p.nombre));
-    });
-  });
-
-  // -- planta --------------------------------------------------------------
-  const gp = el("g");
-  gp.appendChild(el("path", {
-    d: `M ${cx - 8} ${cy - 8} L ${cx + 8} ${cy} L ${cx - 8} ${cy + 8} Z`,
-    fill: "#0f1b24",
-  }));
-  gp.appendChild(el("circle", {
-    cx, cy, r: 13, fill: "none", stroke: "#0f1b24", "stroke-width": 1.2,
-  }));
-  gp.appendChild(el("text", {
-    class: "planta-txt", x: cx, y: cy + 28, "text-anchor": "middle",
-  }, planta.nombre));
-  svg.appendChild(gp);
-
-  const cabecera = document.createElement("div");
-  cabecera.className = "mapa-controles";
-  cabecera.innerHTML = '<div><h3>Mapa de proximidad</h3><span class="pie">Norte ↑ · posiciones relativas a Cabot</span></div><div class="acciones"><button type="button" class="secundario pequeno" data-zoom="2" aria-label="Acercar mapa">+</button><button type="button" class="secundario pequeno" data-zoom="0.5" aria-label="Alejar mapa">−</button><button type="button" class="secundario pequeno" data-zoom="0">Restablecer</button></div>';
-  contenedor.appendChild(cabecera);
-  contenedor.appendChild(svg);
-  svg.setAttribute("aria-label", "Mapa de proximidad de prospectos. Use los botones para ampliar y arrastre para explorar.");
   let vista = { x: 0, y: 0, w: W, h: H }, arrastre = null;
   const actualizar = () => svg.setAttribute("viewBox", `${vista.x} ${vista.y} ${vista.w} ${vista.h}`);
-  cabecera.querySelectorAll("button").forEach((boton) => boton.addEventListener("click", () => {
-    const factor = Number(boton.dataset.zoom);
+  cabecera.querySelectorAll("[data-zoom]").forEach(b => b.addEventListener("click", () => {
+    const factor = Number(b.dataset.zoom);
     if (!factor) vista = { x: 0, y: 0, w: W, h: H };
     else {
-      const ancho = Math.max(W / 8, Math.min(W, vista.w / factor));
-      const alto = ancho * H / W;
-      vista = { x: vista.x + (vista.w - ancho) / 2, y: vista.y + (vista.h - alto) / 2, w: ancho, h: alto };
+      const w = Math.max(W / 8, Math.min(W, vista.w / factor)), h = w * H / W;
+      vista = { x: vista.x + (vista.w - w) / 2, y: vista.y + (vista.h - h) / 2, w, h };
     }
     actualizar();
   }));
-  svg.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".nodo")) return;
-    arrastre = { x: e.clientX, y: e.clientY, vista: { ...vista } };
-    svg.setPointerCapture(e.pointerId);
+  svg.addEventListener("pointerdown", e => {
+    if (e.target.closest(".mapa-nodo")) return;
+    arrastre = { x: e.clientX, y: e.clientY, vista: { ...vista } }; svg.setPointerCapture(e.pointerId);
   });
-  svg.addEventListener("pointermove", (e) => {
+  svg.addEventListener("pointermove", e => {
     if (!arrastre) return;
     const escala = Math.min(svg.clientWidth / vista.w, svg.clientHeight / vista.h);
     vista.x = arrastre.vista.x - (e.clientX - arrastre.x) / escala;
     vista.y = arrastre.vista.y - (e.clientY - arrastre.y) / escala;
     actualizar();
   });
-  ["pointerup", "pointercancel", "lostpointercapture"].forEach((evento) => svg.addEventListener(evento, () => { arrastre = null; }));
-
-  const ley = document.createElement("div");
-  ley.className = "leyenda";
-  ley.innerHTML =
-    "<span><i style=\"width:10px;height:10px;border-radius:50%;background:#f2762e\"></i> tamaño = caudal · color = puntaje</span>" +
-    "<span><i style=\"width:10px;height:10px;border-radius:50%;border:1.5px dashed #67747e;background:none\"></i> borde discontinuo = calidad inferida</span>" +
-    "<span><i style=\"background:#f2762e\"></i> vínculo directo, no trazado real</span>";
-  contenedor.appendChild(ley);
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => svg.addEventListener(ev, () => { arrastre = null; }));
+  const ley = html("div", "mapa-claves");
+  ley.innerHTML = '<span><i class="mapa-clave-punto"></i>Tamaño: caudal de catálogo</span><span><i class="mapa-clave-score"></i>Color: puntaje bajo → alto</span><span><i class="mapa-clave-inferido"></i>Borde discontinuo: calidad inferida</span>';
+  contenedor.append(ley, html("p", "mapa-nota", "Esquema de proximidad · Norte arriba · Anillos: distancia en línea recta. La conexión resaltada no representa una tubería ni un trazado aprobado."));
 }
-
 export { colorPuntaje };
