@@ -14,7 +14,7 @@
 
 import { $, anotar, chip, escapar, estado, pedir } from "../comun.js";
 import { crearOrbe } from "../orbe.js";
-import { crearConversacion, hayConversacion } from "../voz.js";
+import { corregirDictado, crearConversacion, hayConversacion } from "../voz.js";
 
 const historial = [];       // [{rol, contenido, bloques?, meta?}]
 const vistas = {};          // nombre -> {historial, form, entrada, enviar, mic, inicio?}
@@ -572,7 +572,7 @@ async function preguntar(texto, vista, { desdeVoz = false } = {}) {
   try {
     const r = await fetch("/api/asistente/preguntar/stream", {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: controlador.signal,
-      body: JSON.stringify({ mensaje: texto, historial: previo, modulo: moduloActual(), clave: contextoClave, radio_km: estado.radio }),
+      body: JSON.stringify({ mensaje: texto, historial: previo, modulo: moduloActual(), clave: contextoClave, radio_km: estado.radio, por_voz: desdeVoz }),
     });
     if (r.status === 401) { location.replace("/acceso"); return; }
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `${r.status}`);
@@ -651,11 +651,11 @@ function montarDictado(v) {
     v.mic.classList.add("grabando");
     ponerEstado("escuchando");
     const terminar = () => { reconocimiento = null; v.mic.classList.remove("grabando"); };
-    reconocimiento.onresult = (ev) => { v.entrada.value = [...ev.results].map((r) => r[0].transcript).join(" "); ajustar(v.entrada); };
+    reconocimiento.onresult = (ev) => { v.entrada.value = corregirDictado([...ev.results].map((r) => r[0].transcript).join(" ")); ajustar(v.entrada); };
     reconocimiento.onend = () => {
       terminar();
       const t = v.entrada.value.trim();
-      if (t) preguntar(t, v); else ponerEstado("reposo");
+      if (t) preguntar(t, v, { desdeVoz: true }); else ponerEstado("reposo");
     };
     reconocimiento.onerror = () => { terminar(); ponerEstado("reposo", "No pude oírte."); };
     reconocimiento.start();

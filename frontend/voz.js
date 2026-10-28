@@ -32,6 +32,17 @@ const SILENCIO_CONFIRMAR_MS = 1200;  // silencio que la descarta antes
 const UMBRAL_MINIMO = 0.018;         // nivel (RMS) del microfono que ya es voz
 const MEDIR_MS = 50;
 
+// El reconocedor del navegador no conoce la marca y no deja ensenarsela:
+// "SIMBIA" llega como Silvia, Cintia, Simvia, sin via... Se cambia lo que en
+// esta aplicacion solo puede ser ella. Una Silvia de verdad tambien cambiaria;
+// "sin via de ..." y "sin ver", que si son frases, se dejan (y el modelo sabe
+// que lo dictado puede venir deformado).
+const MARCA_MAL_OIDA = /(?<!\p{L})(?:s[iy]lvia|c[iy]nth?ia|[sczx][iy][mn][bv][iyí]?a|s[iy][mn] [bv][iyí]a(?! de))(?!\p{L})/giu;
+
+export function corregirDictado(texto) {
+  return texto.replace(MARCA_MAL_OIDA, "SIMBIA");
+}
+
 export function hayConversacion() {
   return Boolean((window.SpeechRecognition || window.webkitSpeechRecognition) && navigator.mediaDevices?.getUserMedia);
 }
@@ -73,7 +84,7 @@ export function crearConversacion(o) {
     r.interimResults = true;
     r.onresult = (ev) => {
       const resultados = [...ev.results];
-      actual = resultados.map((x) => x[0].transcript).join(" ").replace(/\s+/g, " ").trim();
+      actual = corregirDictado(resultados.map((x) => x[0].transcript).join(" ").replace(/\s+/g, " ").trim());
       if (!actual) return;
       reinicios = [];
       if (estado === "confirmando") {
