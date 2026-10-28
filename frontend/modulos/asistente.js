@@ -22,14 +22,16 @@ let ia = null;
 let iaPendiente = null;
 let contextoClave = "";
 let leerSolas = leerPreferenciaVoz();
-let sonando = null;         // fragmento en curso: {buffer, fuente, inicio, posicion, terminar}
+let sonando = null;         // fragmento en curso: {url, niveles, posicion, activo, vigia, terminar}
 let cola = null;            // cola de fragmentos de voz de la respuesta actual
 let reconocimiento = null;
-let ctxAudio = null;        // el AudioContext que reproduce la voz (y mide el microfono)
-let ctxCaducado = false;    // el microfono se cerro despues de crearlo: Safari lo deja mudo
-let salidaVoz = null;       // analizador por el que pasa todo lo que dice el asistente
+let ctxAudio = null;        // el AudioContext que mide el microfono (la voz suena por <audio>)
+let elemento = null;        // el <audio> por el que habla el asistente, siempre el mismo
+let desbloqueado = false;   // ya sono una vez tras un gesto: Safari lo deja sonar solo
+let urlCargada = "";
+let decodificador = null;   // OfflineAudioContext para sacar la envolvente de cada trozo
+let faltaToque = false;     // el navegador no dejo sonar: el aviso manda en el orbe hasta que toquen
 let animacion = 0;
-let avisoSonido = false;
 let turno = 0;              // cada pregunta abre uno; lo que acaba de uno viejo no toca la conversacion
 let enCurso = null;         // la respuesta que se esta generando: {controlador, hecho}
 let orbeGrande = null;
@@ -148,11 +150,14 @@ const REPOSO_BANDAS = [0.15, 0.15, 0.15, 0.15, 0.15];
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function detenerAudio() {
+  faltaToque = false;
   if (cola) { cola.cancelada = true; cola = null; }
   if (sonando) {
     const s = sonando;
     sonando = null;
-    soltarFuente(s);
+    s.activo = false;
+    clearTimeout(s.vigia);
+    soltarElemento();
     s.terminar();
   }
   cancelAnimationFrame(animacion);
@@ -162,13 +167,18 @@ function detenerAudio() {
 }
 
 // ---------------------------------------------------------------------------
-// Voz: cada fragmento se sintetiza entero, se decodifica y suena por Web Audio
+// Voz: cada fragmento se sintetiza entero y suena en un elemento <audio>
 // ---------------------------------------------------------------------------
 //
-// Asi un fallo se ve (codigo HTTP, audio vacio) y se reintenta o se salta sin
-// dejar muda el resto de la respuesta; el fragmento se puede pausar y retomar
-// donde iba (cuando parece que le hablan encima), y nunca se piden mas de dos
+// Entero, para que un fallo se vea (codigo HTTP, audio vacio) y se reintente o
+// se salte sin dejar muda el resto de la respuesta; nunca se piden mas de dos
 // voces a la vez.
+//
+// Por un <audio> y no por Web Audio: en Safari un AudioContext creado antes de
+// abrir el microfono queda mudo, y uno creado despues no arranca sin un clic.
+// Un unico <audio>, desbloqueado con el primer gesto, suena luego sin clic y
+// con el microfono abierto, como el de una videollamada. El nivel de la voz
+// (el orbe, el umbral de las interrupciones) sale del audio decodificado aparte.
 
 /** Lo que se lee: sin marcas de Markdown y con cada linea terminada en pausa. */
 export function textoParaVoz(texto) {
@@ -192,65 +202,68 @@ export function fragmentarParaVoz(texto, maxCaracteres = 260) {
   return trozos.filter(Boolean);
 }
 
+/** El AudioContext con el que voz.js mide el microfono. Nada suena por el. */
 function contextoAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!ctxAudio) ctxAudio = new Ctx();
   return ctxAudio;
 }
 
-/**
- * Un AudioContext nuevo. Safari deja mudo uno que ya existia cuando el
- * microfono se abre o se cierra: sigue "running", el tiempo avanza y la voz
- * "suena", pero no sale nada por los altavoces. Por eso no se reaprovecha.
- */
-function contextoNuevo() {
-  const viejo = ctxAudio;
-  ctxAudio = null;
-  salidaVoz = null;
-  ctxCaducado = false;
-  try { viejo?.close?.().catch(() => {}); } catch { /* ya cerrado */ }
-  return contextoAudio();
-}
-
-/**
- * Despierta el audio dentro de un gesto del usuario (Safari solo lo deja ahi)
- * y, si el microfono se cerro desde que se creo el contexto, lo rehace.
- */
+/** Despierta el medidor del microfono dentro de un gesto: Safari solo lo deja ahi. */
 function despertarAudio() {
-  try {
-    // Lo que aun sonara en el contexto viejo se corta: se va a hablar de otra cosa.
-    if (ctxCaducado) { detenerAudio(); contextoNuevo(); }
-    contextoAudio().resume?.().catch(() => {});
-  } catch { /* sin Web Audio */ }
+  try { contextoAudio().resume?.().catch(() => {}); } catch { /* sin Web Audio */ }
 }
 
-/** Si el navegador tiene el audio en pausa, lo intenta despertar y, si no puede, lo dice. */
-async function asegurarSonido() {
-  const ctx = contextoAudio();
-  if (ctx.state === "running") return;
-  // Sin permiso, resume() puede quedarse pendiente para siempre: no se le espera.
-  await Promise.race([ctx.resume().catch(() => {}), esperar(300)]);
-  if (ctx.state === "running" || avisoSonido) return;
-  avisoSonido = true;
-  anotar("El navegador tiene el sonido en pausa: toca cualquier parte de la página para oír la respuesta", "aviso");
-  ponerEstado(estadoActual(), "Toca cualquier parte de la página para oírme");
-  const despertar = () => { avisoSonido = false; ctx.resume().catch(() => {}); };
-  document.addEventListener("pointerdown", despertar, { once: true });
-  document.addEventListener("keydown", despertar, { once: true });
-}
+// 50 ms de silencio en WAV: lo que suena para desbloquear el <audio>.
+const SILENCIO = `data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACA${"gICA".repeat(133)}`;
+const VENTANA_S = 0.02;     // la envolvente de la voz, en tramos de 20 ms
 
-function analizadorSalida() {
-  if (!salidaVoz) {
-    const ctx = contextoAudio();
-    salidaVoz = ctx.createAnalyser();
-    salidaVoz.fftSize = 256;
-    salidaVoz.smoothingTimeConstant = 0.7;
-    salidaVoz.connect(ctx.destination);
+function elementoVoz() {
+  if (!elemento) {
+    elemento = new Audio();
+    elemento.preload = "auto";
+    elemento.setAttribute("playsinline", "");
   }
-  return salidaVoz;
+  return elemento;
 }
 
-/** Un fragmento en audio, ya decodificado. Un fallo suelto se reintenta una vez. */
+/**
+ * Safari solo deja sonar un <audio> sin clic si ya sono con uno. En el primer
+ * gesto (y en los de conversar, preguntar y escuchar) suena un silencio, y
+ * desde ahi ese mismo elemento lee la voz cuando toque.
+ */
+function desbloquearVoz() {
+  if (desbloqueado || sonando) return;
+  const el = elementoVoz();
+  el.src = SILENCIO;
+  urlCargada = "";
+  el.play()?.then(() => { desbloqueado = true; if (!sonando) el.pause(); }).catch(() => { /* el siguiente gesto lo intenta */ });
+}
+document.addEventListener("pointerdown", desbloquearVoz, true);
+document.addEventListener("keydown", desbloquearVoz, true);
+
+/** Nivel (RMS) de la voz cada 20 ms: lo que dibuja el orbe y lo que vuelve por el microfono. */
+async function envolvente(datos) {
+  try {
+    const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    decodificador ??= new Ctx(1, 1, 22050);
+    const buffer = await decodificador.decodeAudioData(datos);
+    const muestras = buffer.getChannelData(0);
+    const paso = Math.max(1, Math.round(buffer.sampleRate * VENTANA_S));
+    const niveles = new Float32Array(Math.ceil(muestras.length / paso));
+    for (let i = 0; i < niveles.length; i++) {
+      const fin = Math.min(muestras.length, (i + 1) * paso);
+      let suma = 0;
+      for (let j = i * paso; j < fin; j++) suma += muestras[j] * muestras[j];
+      niveles[i] = Math.sqrt(suma / Math.max(1, fin - i * paso));
+    }
+    return niveles;
+  } catch {
+    return null;              // sin envolvente, el orbe late a ritmo fijo
+  }
+}
+
+/** Un fragmento listo para sonar: {url, niveles}. Un fallo suelto se reintenta una vez. */
 async function sintetizar(texto) {
   let ultimo = null;
   for (let intento = 0; intento < 2; intento++) {
@@ -262,7 +275,9 @@ async function sintetizar(texto) {
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
       const datos = await r.arrayBuffer();
       if (!datos.byteLength) throw new Error("el audio llegó vacío");
-      return await contextoAudio().decodeAudioData(datos);
+      // El Blob copia los bytes: decodificarlos despues (que los consume) no le afecta.
+      const url = URL.createObjectURL(new Blob([datos], { type: r.headers.get("Content-Type") || "audio/mpeg" }));
+      return { url, niveles: await envolvente(datos) };
     } catch (e) {
       ultimo = e;
     }
@@ -270,62 +285,98 @@ async function sintetizar(texto) {
   throw ultimo;
 }
 
-const frecuencias = new Uint8Array(128);
-const ondaSalida = new Float32Array(256);
+function nivelEn(s, desfase = 0) {
+  if (!s.niveles) return 0.12;
+  const i = Math.floor(elementoVoz().currentTime / VENTANA_S) - desfase;
+  return s.niveles[Math.max(0, i)] || 0;
+}
 
 function animar() {
-  if (!sonando?.fuente || !salidaVoz) {
+  const s = sonando;
+  if (!s?.activo) {
     animacion = 0;
     ponerAmplitud(0, REPOSO_BANDAS);
     return;
   }
-  salidaVoz.getByteFrequencyData(frecuencias);
-  // La voz humana vive en los bins bajos: se pondera esa banda.
-  const voz = frecuencias.subarray(2, 40);
-  let suma = 0; for (const v of voz) suma += v;
-  const tramo = Math.floor(voz.length / 5);
-  const bandas = [];
-  for (let i = 0; i < 5; i++) {
-    let pico = 0; for (let j = i * tramo; j < (i + 1) * tramo; j++) pico = Math.max(pico, voz[j]);
-    bandas.push(Math.max(0.15, Math.min(pico / 255 * 1.3, 1)));
-  }
-  ponerAmplitud(suma / voz.length / 255, bandas);
+  // Cinco barras con la voz de hace 0, 40, 80, 120 y 160 ms: se mueven como una onda.
+  const bandas = [0, 2, 4, 6, 8].map((d) => Math.max(0.15, Math.min(nivelEn(s, d) * 4, 1)));
+  ponerAmplitud(Math.min(nivelEn(s) * 2.2, 0.6), bandas);
   animacion = requestAnimationFrame(animar);
 }
 
-function soltarFuente(s) {
-  const f = s.fuente;
-  if (!f) return;
-  s.fuente = null;
-  f.onended = null;
-  try { f.stop(); } catch { /* ya parada */ }
-  f.disconnect();
+function soltarElemento() {
+  if (!elemento) return;
+  elemento.onended = elemento.onerror = null;
+  elemento.pause();
 }
 
-function arrancarFuente(s) {
-  const ctx = contextoAudio();
-  const fuente = ctx.createBufferSource();
-  fuente.buffer = s.buffer;
-  fuente.connect(analizadorSalida());
-  fuente.onended = () => {
-    if (sonando !== s || s.fuente !== fuente) return;
-    soltarFuente(s);
-    sonando = null;
-    s.terminar();
+function acabar(s) {
+  clearTimeout(s.vigia);
+  s.activo = false;
+  if (sonando === s) sonando = null;
+  s.terminar();
+}
+
+/** Si el tiempo del <audio> no avanza en 4 s, el trozo se da por perdido: nada se queda colgado. */
+function vigilar(s) {
+  clearTimeout(s.vigia);
+  let ultimo = -1, quieto = 0;
+  const mirar = () => {
+    if (sonando !== s || !s.activo) return;
+    const t = elementoVoz().currentTime;
+    quieto = t === ultimo ? quieto + 1 : 0;
+    ultimo = t;
+    if (quieto >= 4) { anotar("Voz: un trozo de la respuesta no avanzaba y se saltó", "aviso"); acabar(s); return; }
+    s.vigia = setTimeout(mirar, 1000);
   };
-  s.fuente = fuente;
-  s.inicio = ctx.currentTime - s.posicion;
-  fuente.start(0, s.posicion);
-  ponerEstado("hablando", conv?.activa() ? "Hablando · interrúmpeme cuando quieras" : undefined);
-  conv?.hablando();
-  if (!animacion) animar();
+  s.vigia = setTimeout(mirar, 1000);
 }
 
-/** Suena un fragmento; la promesa se cumple al acabar o al cortarlo. */
-function sonar(buffer) {
+/** El navegador no dejo sonar: se dice en pantalla y suena con el siguiente toque. */
+function pedirToque(s) {
+  faltaToque = true;
+  ponerEstado(estadoActual(), "Toca cualquier parte de la página para oírme");
+  anotar("El navegador no dejó sonar la respuesta: toca cualquier parte de la página para oírla", "aviso");
+  const seguir = () => {
+    document.removeEventListener("pointerdown", seguir, true);
+    document.removeEventListener("keydown", seguir, true);
+    faltaToque = false;
+    if (sonando === s && !s.activo) arrancar(s);
+  };
+  document.addEventListener("pointerdown", seguir, true);
+  document.addEventListener("keydown", seguir, true);
+}
+
+function arrancar(s) {
+  const el = elementoVoz();
+  if (urlCargada !== s.url) { el.src = s.url; urlCargada = s.url; }
+  try { el.currentTime = s.posicion; } catch { /* aun sin datos: empieza desde el principio */ }
+  el.onended = () => { if (sonando === s) acabar(s); };
+  el.onerror = () => {
+    if (sonando !== s) return;
+    anotar("Voz: el navegador no pudo reproducir un trozo de la respuesta", "aviso");
+    acabar(s);
+  };
+  s.activo = true;
+  el.play().then(() => {
+    if (sonando !== s || !s.activo) return;
+    desbloqueado = true;
+    ponerEstado("hablando", conv?.activa() ? "Hablando · interrúmpeme cuando quieras" : undefined);
+    conv?.hablando();
+    if (!animacion) animar();
+    vigilar(s);
+  }).catch((e) => {
+    if (sonando !== s || !s.activo) return;   // se pauso o se corto mientras arrancaba
+    s.activo = false;
+    if (e?.name === "NotAllowedError") pedirToque(s); else acabar(s);
+  });
+}
+
+/** Suena un fragmento; la promesa se cumple al acabar, al cortarlo o si no hay forma de oirlo. */
+function sonar(frag) {
   return new Promise((terminar) => {
-    sonando = { buffer, fuente: null, inicio: 0, posicion: 0, terminar };
-    arrancarFuente(sonando);
+    sonando = { ...frag, posicion: 0, activo: false, vigia: 0, terminar };
+    arrancar(sonando);
   });
 }
 
@@ -333,27 +384,26 @@ function sonar(buffer) {
 function pausarVoz() {
   if (cola) cola.pausada = true;
   const s = sonando;
-  if (!s?.fuente) return;
+  if (!s?.activo) return;
+  s.activo = false;
+  clearTimeout(s.vigia);
   // Al volver se repite un poco: lo que sono mientras le hablaban no se oyo bien.
-  s.posicion = Math.max(0, contextoAudio().currentTime - s.inicio - 0.3);
-  soltarFuente(s);
+  s.posicion = Math.max(0, elementoVoz().currentTime - 0.3);
+  elementoVoz().pause();
 }
 
 /** No era nadie: sigue donde iba. */
 function reanudarVoz() {
   if (cola) cola.pausada = false;
   const s = sonando;
-  if (!s || s.fuente) return;
-  if (s.posicion >= s.buffer.duration - 0.05) { sonando = null; s.terminar(); return; }
-  arrancarFuente(s);
+  if (!s || s.activo) return;
+  const duracion = elementoVoz().duration;
+  if (Number.isFinite(duracion) && s.posicion >= duracion - 0.05) { acabar(s); return; }
+  arrancar(s);
 }
 
 function nivelVozAsistente() {
-  if (!salidaVoz || !sonando?.fuente) return 0;
-  salidaVoz.getFloatTimeDomainData(ondaSalida);
-  let suma = 0;
-  for (const v of ondaSalida) suma += v * v;
-  return Math.sqrt(suma / ondaSalida.length);
+  return sonando?.activo ? nivelEn(sonando) : 0;
 }
 
 /** Al acabar de leer la respuesta de `deTurno`, la conversacion vuelve a escuchar. */
@@ -387,21 +437,22 @@ function nuevaCola(alTerminar) {
         if (c.actual >= c.textos.length) { await esperar(100); continue; }
         const i = c.actual;
         if (i + 1 < c.textos.length) pedirVoz(i + 1);
-        const buffer = await pedirVoz(i);
+        const frag = await pedirVoz(i);
         if (c.cancelada) break;
-        if (buffer instanceof Error) {
+        if (frag instanceof Error) {
           // Un trozo que no llega se salta: el resto de la respuesta se sigue oyendo.
-          if (fallos++ === 0) anotar(`Voz: no pude leer parte de la respuesta (${escapar(buffer.message)})`, "aviso");
+          if (fallos++ === 0) anotar(`Voz: no pude leer parte de la respuesta (${escapar(frag.message)})`, "aviso");
         } else {
-          await asegurarSonido();
           while (c.pausada && !c.cancelada) await esperar(100);
           if (c.cancelada) break;
-          await sonar(buffer);
+          await sonar(frag);
         }
         c.actual = i + 1;
       }
     } finally {
       c.corriendo = false;
+      // Los audios ya no se van a oir (o ya se oyeron): se liberan.
+      for (const p of c.pedidos) p?.then((f) => { if (f?.url) URL.revokeObjectURL(f.url); });
       if (cola === c) { cola = null; detenerAudio(); }
       if (!c.cancelada) alTerminar?.();
     }
@@ -411,7 +462,7 @@ function nuevaCola(alTerminar) {
 
 function hablar(texto) {
   detenerAudio();
-  despertarAudio();
+  desbloquearVoz();
   if (!ia?.voz) return;
   const deTurno = turno;
   cola = nuevaCola(() => volverAEscuchar(deTurno));
@@ -539,7 +590,7 @@ function bloquear(si) {
 }
 
 /** El orbe ya dice algo mas importante que el progreso de la respuesta. */
-const orbeOcupado = () => ["hablando", "escuchando"].includes(estadoActual());
+const orbeOcupado = () => faltaToque || ["hablando", "escuchando"].includes(estadoActual());
 
 async function preguntar(texto, vista, { desdeVoz = false } = {}) {
   texto = (texto || "").trim();
@@ -702,20 +753,21 @@ function marcarConversacion(activa) {
 
 async function alternarConversacion(v) {
   if (conv?.activa()) { conv.terminar(); return; }
+  // Dentro del clic, antes de esperar nada: es cuando Safari deja arrancar el
+  // medidor del microfono y desbloquear el <audio> de la voz.
+  despertarAudio();
+  desbloquearVoz();
   await cargarIA();
   if (!ia?.disponible) return;
   for (const x of Object.values(vistas)) x.entrada.dataset.placeholder ??= x.entrada.placeholder;
   vistaConv = v;
   detenerAudio();
   conv ??= crearConversacion({
-    // voz.js lo pide con el microfono ya abierto: un contexto creado antes
-    // queda mudo en Safari. Mientras se captura, Safari deja sonar sin gesto.
-    contextoAudio: contextoNuevo,
+    contextoAudio,
     alTexto: (texto) => { if (vistaConv) { vistaConv.entrada.value = texto; ajustar(vistaConv.entrada); } },
     alTurno: (texto) => preguntar(texto, vistaConv, { desdeVoz: true }),
     alEstado: (e) => {
       marcarConversacion(e !== "inactiva");
-      if (e === "inactiva") ctxCaducado = true;
       if (e === "escuchando") ponerEstado("escuchando", "Te escucho… habla cuando quieras");
       else if (e === "confirmando") ponerEstado("escuchando", "¿Me dices algo? Te escucho…");
       else if (e === "inactiva" && estadoActual() === "escuchando") ponerEstado("reposo");
