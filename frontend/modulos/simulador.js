@@ -38,6 +38,8 @@ let T3 = null;           // modulo torre3d.js, se carga al entrar
 let torre = null;
 const op = cargar() || nuevo();
 const sim = { estado: null, info: null, historia: [], ultima: null, jugando: true, pidiendo: false, temporizador: null, geoClave: "" };
+let revision = 0;
+let casoEvidenciaCargado = false;
 
 // ---------------------------------------------------------------------------
 // Estado del operador
@@ -88,9 +90,11 @@ function cuerpo(horas) {
 // ---------------------------------------------------------------------------
 
 async function tramo(horas) {
+  const version = revision;
   sim.pidiendo = true;
   try {
     const r = await pedir("/api/simulador/dinamica", cuerpo(horas));
+    if (version !== revision) return;
     sim.info = r;
     sim.estado = r.estado;
     if (op.cond.sp == null) op.cond.sp = r.base.conductividad_consigna;
@@ -101,6 +105,7 @@ async function tramo(horas) {
     await asegurarTorre(r.geometria);
     pintar();
   } catch (e) {
+    if (version !== revision) return;
     sim.jugando = false;
     pintarTransporte();
     $("gem-alarmas").innerHTML = `<div class="gem-alarma alta"><b>SIM</b> ${escapar(e.message)}</div>`;
@@ -375,8 +380,10 @@ function pintarVecinos() {
     caja.innerHTML = op.fuentes.map((f, i) => {
       const t = op.tomas[f.id] || { caudal: 0, tren: f.tren_sugerido || "T1" };
       return `<div class="fp-vecino" data-id="${escapar(f.id)}">
-        <div class="fp-vecino-cab"><b title="${escapar(f.nombre)}">FIC-${201 + i} · ${escapar(f.nombre)}</b> ${sello(f.procedencia || "supuesto")}
+        <div class="fp-vecino-cab"><b title="${escapar(f.nombre)}">FIC-${201 + i} · ${escapar(f.nombre)}</b> ${f.evidencia_id ? chip("medido + estimado", "neutra") : sello(f.procedencia || "supuesto")}
           <button class="fp-quitar" aria-label="Quitar ${escapar(f.nombre)}">✕</button></div>
+        ${f.evidencia_id ? `<p class="fp-nota">${escapar(f.corriente)} · techo de campaña ${num(f.caudal_disponible_m3_h,2)} m³/h antes del tratamiento.</p>
+          <details><summary>Procedencia de la química</summary><p class="fp-nota">Medido: ${escapar(f.campos_medidos.join(", "))}. Complementado para simular: ${escapar(f.campos_complementados.join(", "))}. <a href="#inicio">Consultar documentos</a>.</p></details>` : ""}
         <select class="fp-tren">${(ref?.trenes || []).map((x) => `<option value="${x.codigo}"${x.codigo === t.tren ? " selected" : ""}>${x.codigo} · ${escapar(x.nombre)}</option>`).join("")}</select>
         ${fila("Caudal", `fp-v-${f.id}`, "m³/h", 0.5)}
         <p class="fp-aviso" id="fp-av-${escapar(f.id)}" role="status" hidden></p>
@@ -574,6 +581,36 @@ function pintarTendencias(r) {
 // ---------------------------------------------------------------------------
 
 async function atenderPendientes() {
+  let caso = global.escenarioEvidenciaPendiente;
+  if (!caso && !casoEvidenciaCargado && location.hash.includes("caso=evidencia")) {
+    caso = (await pedir(`/api/scout/evidencia/evaluacion?radio_km=${global.radio || 8}`)).cruce;
+  }
+  if (caso) {
+    if (!caso.resultado?.factible) throw new Error("La selección no tiene una combinación factible para cargar.");
+    global.escenarioEvidenciaPendiente = null;
+    global.simuladorPendientes = [];
+    casoEvidenciaCargado = true;
+    revision++;
+    sim.jugando = false;
+    // El botón inicia un escenario nuevo; conservar la configuración anterior.
+    try { localStorage.setItem(`${CLAVE}.anterior`, JSON.stringify(op)); } catch { /* sin almacenamiento */ }
+    Object.assign(op, nuevo());
+    const entrada = caso.escenario;
+    op.fuentes = structuredClone(entrada.fuentes);
+    op.tomas = Object.fromEntries(op.fuentes.map(f => [f.id, {caudal:0, tren:f.tren_sugerido || "T1"}]));
+    for (const t of entrada.tomas) op.tomas[t.fuente_id] = {caudal:t.caudal_m3_h, tren:t.tren};
+    op.acido = entrada.acido_mg_l;
+    const res = caso.resultado;
+    op.cond = {...op.cond, modo:"auto", sp:Math.round(res.ciclos * res.aporte.conductividad * 0.97 / 25) * 25, rampa:2};
+    sim.estado = null; sim.historia = []; sim.ultima = null; sim.info = null;
+    guardar(); pintarPlanta(); pintarVecinos(); torre?.vecinos(vecinosVisibles());
+    $("fp-sug-msg").textContent = `Escenario documental: Mexichem + Yara. Referencia en régimen: ${num(res.ahorro_pct*100)} % a ${num(res.ciclos,1)} ciclos. La simulación dinámica parte de la línea base y sube la consigna en rampa; observa cómo evoluciona.`;
+    await tramo(1 / 12);
+    // Una falla del motor o de la vista debe conservar el estado de pausa.
+    sim.jugando = Boolean(sim.ultima);
+    pintarTransporte();
+    return;
+  }
   const pendientes = global.simuladorPendientes || [];
   if (!pendientes.length) return;
   global.simuladorPendientes = [];
@@ -614,7 +651,7 @@ export default {
       $("gem-vistas").querySelectorAll("button").forEach((x) => x.classList.toggle("activa", x === b));
     });
     window.addEventListener("resize", () => sim.info && pintarTendencias(sim.info));
-    await tramo(1 / 12);
+    if (!global.escenarioEvidenciaPendiente && !location.hash.includes("caso=evidencia")) await tramo(1 / 12);
     programar();
   },
   async mostrar() {
