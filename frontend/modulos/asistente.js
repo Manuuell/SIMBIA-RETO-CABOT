@@ -25,7 +25,8 @@ let leerSolas = leerPreferenciaVoz();
 let sonando = null;         // fragmento en curso: {buffer, fuente, inicio, posicion, terminar}
 let cola = null;            // cola de fragmentos de voz de la respuesta actual
 let reconocimiento = null;
-let ctxAudio = null;        // un solo AudioContext para toda la sesion
+let ctxAudio = null;        // el AudioContext que reproduce la voz (y mide el microfono)
+let ctxCaducado = false;    // el microfono se cerro despues de crearlo: Safari lo deja mudo
 let salidaVoz = null;       // analizador por el que pasa todo lo que dice el asistente
 let animacion = 0;
 let avisoSonido = false;
@@ -197,9 +198,30 @@ function contextoAudio() {
   return ctxAudio;
 }
 
-/** Despierta el audio dentro de un gesto del usuario: Safari solo lo deja ahi. */
+/**
+ * Un AudioContext nuevo. Safari deja mudo uno que ya existia cuando el
+ * microfono se abre o se cierra: sigue "running", el tiempo avanza y la voz
+ * "suena", pero no sale nada por los altavoces. Por eso no se reaprovecha.
+ */
+function contextoNuevo() {
+  const viejo = ctxAudio;
+  ctxAudio = null;
+  salidaVoz = null;
+  ctxCaducado = false;
+  try { viejo?.close?.().catch(() => {}); } catch { /* ya cerrado */ }
+  return contextoAudio();
+}
+
+/**
+ * Despierta el audio dentro de un gesto del usuario (Safari solo lo deja ahi)
+ * y, si el microfono se cerro desde que se creo el contexto, lo rehace.
+ */
 function despertarAudio() {
-  try { contextoAudio().resume?.().catch(() => {}); } catch { /* sin Web Audio */ }
+  try {
+    // Lo que aun sonara en el contexto viejo se corta: se va a hablar de otra cosa.
+    if (ctxCaducado) { detenerAudio(); contextoNuevo(); }
+    contextoAudio().resume?.().catch(() => {});
+  } catch { /* sin Web Audio */ }
 }
 
 /** Si el navegador tiene el audio en pausa, lo intenta despertar y, si no puede, lo dice. */
@@ -211,6 +233,7 @@ async function asegurarSonido() {
   if (ctx.state === "running" || avisoSonido) return;
   avisoSonido = true;
   anotar("El navegador tiene el sonido en pausa: toca cualquier parte de la página para oír la respuesta", "aviso");
+  ponerEstado(estadoActual(), "Toca cualquier parte de la página para oírme");
   const despertar = () => { avisoSonido = false; ctx.resume().catch(() => {}); };
   document.addEventListener("pointerdown", despertar, { once: true });
   document.addEventListener("keydown", despertar, { once: true });
@@ -679,19 +702,20 @@ function marcarConversacion(activa) {
 
 async function alternarConversacion(v) {
   if (conv?.activa()) { conv.terminar(); return; }
-  // Dentro del clic, antes de esperar nada: es cuando el navegador deja sonar.
-  despertarAudio();
   await cargarIA();
   if (!ia?.disponible) return;
   for (const x of Object.values(vistas)) x.entrada.dataset.placeholder ??= x.entrada.placeholder;
   vistaConv = v;
   detenerAudio();
   conv ??= crearConversacion({
-    contextoAudio,
+    // voz.js lo pide con el microfono ya abierto: un contexto creado antes
+    // queda mudo en Safari. Mientras se captura, Safari deja sonar sin gesto.
+    contextoAudio: contextoNuevo,
     alTexto: (texto) => { if (vistaConv) { vistaConv.entrada.value = texto; ajustar(vistaConv.entrada); } },
     alTurno: (texto) => preguntar(texto, vistaConv, { desdeVoz: true }),
     alEstado: (e) => {
       marcarConversacion(e !== "inactiva");
+      if (e === "inactiva") ctxCaducado = true;
       if (e === "escuchando") ponerEstado("escuchando", "Te escucho… habla cuando quieras");
       else if (e === "confirmando") ponerEstado("escuchando", "¿Me dices algo? Te escucho…");
       else if (e === "inactiva" && estadoActual() === "escuchando") ponerEstado("reposo");

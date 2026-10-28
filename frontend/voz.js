@@ -161,7 +161,8 @@ export function crearConversacion(o) {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     const ctx = o.contextoAudio();
-    await ctx.resume?.();
+    // Sin permiso, resume() puede quedarse pendiente para siempre: no se le espera.
+    await Promise.race([Promise.resolve(ctx.resume?.()).catch(() => {}), new Promise((r) => setTimeout(r, 300))]);
     fuente = ctx.createMediaStreamSource(flujo);
     analizador = ctx.createAnalyser();
     analizador.fftSize = 1024;
