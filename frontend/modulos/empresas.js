@@ -67,10 +67,8 @@ async function seguir(clave, nombre) {
 // Dossier
 // ---------------------------------------------------------------------------
 
-/* Permisos de vertimiento: lo que prueba que la corriente existe y el numero
- * con el que se pide su caracterizacion. Van arriba del dossier, cada uno
- * con su autoridad, expediente, fecha y el titular tal como consta en VITAL
- * (que es lo que deja ver si el cruce por razon social es el bueno). */
+/* Expedientes vinculados: un trámite no acredita que un permiso esté otorgado.
+ * La lista también puede contener trámites ambientales de otro tipo. */
 function bloquePermisos(e, permisos) {
   const hay = permisos.length > 0;
   const visibles = verTodosPermisos ? permisos : permisos.slice(0, MAX_PERMISOS);
@@ -78,11 +76,11 @@ function bloquePermisos(e, permisos) {
     <div class="vec-permisos-cab">
       <span class="vec-permisos-icono" aria-hidden="true"></span>
       <div>
-        <h3>${hay ? `Permiso de vertimiento ${chip(permisos.length === 1 ? "consta en VITAL" : `${permisos.length} trámites en VITAL`, "ok")}`
-                  : "Sin permiso de vertimiento localizado"}</h3>
+        <h3>${hay ? `Expedientes ambientales asociados ${chip(`${permisos.length} trámite(s)`, "neutra")}`
+                  : "Sin expediente ambiental asociado"}</h3>
         <p class="pie">${hay
-          ? "Prueba que la corriente existe y está regulada. Con el número de expediente se pide su caracterización por derecho de petición."
-          : "Sin permiso no hay prueba de que la corriente exista ni número con el que pedir su caracterización. Búscalo a su nombre aquí abajo o en el buscador de VITAL."}</p>
+          ? "Revisa el tipo de trámite, la resolución, su vigencia y el punto de descarga. La asociación en VITAL no confirma un permiso otorgado ni la aptitud del agua para reúso."
+          : "Busca por razón social o NIT en VITAL y revisa sus documentos. La ausencia de un expediente asociado no demuestra ausencia de permiso."}</p>
       </div>
       ${hay ? `<button class="secundario pequeno btn-solicitud">Redactar solicitud</button>` : ""}
     </div>
@@ -152,17 +150,18 @@ function documentosPermiso(t) {
   } else if (d.cargando) {
     docs = `<p class="cargando">Abriendo el expediente en el portal de VITAL…</p>`;
   } else if (d.origen_dato === "sin dato") {
-    docs = `<div class="aviso-caja">${escapar(d.incidencia)}</div>`;
+    docs = `<div class="aviso-caja">${escapar(d.incidencia)}</div>
+      <div class="vec-permiso-acciones"><button class="secundario pequeno btn-docs" data-radicado="${escapar(t.radicado)}" data-modo="vivo">Reintentar consulta en VITAL</button>${portal}</div>`;
   } else {
     const q = new URLSearchParams({ radicado: t.radicado, origen: t.sistema || "VITAL", sol_id: t.sol_id, solicitante_id: t.solicitante_id });
-    docs = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">${(d.estado || []).map((s) => chip(s.paso, s.hecho ? "ok" : "neutra")).join(" ")}</div>
+    docs = `<div class="exp-estados">${(d.estado || []).map((s) => chip(s.paso, s.hecho ? "ok" : "neutra")).join(" ")}</div>
       ${d.carpetas.map((c) => `<div class="sub" style="margin-top:4px"><b>${escapar(c.titulo)}</b>${c.fecha ? " · " + escapar(c.fecha) : ""}</div>
-        ${c.archivos.length ? `<table><tbody>${c.archivos.map((a) => `<tr>
-          <td>📄 ${escapar(a.nombre)}</td>
-          <td class="num" style="white-space:nowrap">
+        ${c.archivos.length ? `<ul class="exp-archivos">${c.archivos.map((a) => `<li class="exp-archivo">
+          <div class="exp-archivo-nombre">📄 ${escapar(a.nombre)}</div>
+          <div class="exp-archivo-acciones">
             <a class="chip azul sin-punto" target="_blank" rel="noopener" href="/api/scout/vital/documento?${q}&grupo=${c.grupo}&entrada=${c.entrada}&indice=${a.indice}">Ver</a>
             <button class="secundario pequeno btn-guardar-doc" data-q="${escapar(q.toString())}" data-grupo="${c.grupo}" data-entrada="${c.entrada}" data-indice="${a.indice}">Guardar</button>
-          </td></tr>`).join("")}</tbody></table>` : `<p class="pie">${escapar(c.incidencia || "Carpeta vacia.")}</p>`}`).join("")}
+          </div></li>`).join("")}</ul>` : `<p class="pie">${escapar(c.incidencia || "Carpeta vacia.")}</p>`}`).join("")}
       <p class="pie"><a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></p>`;
   }
   return `<div class="vec-permiso-docs">${copia}${docs}</div>`;
@@ -192,6 +191,13 @@ function bloqueDocumentos(e) {
   }).join("");
 }
 
+function documentosDelGrupo(g) {
+  const r = g.representativo;
+  if (!r) return null;
+  const t = { ...r, identificador: r.radicado, sistema: r.origen || "VITAL" };
+  return { ...t, url: urlTramite(t) };
+}
+
 function bloqueEnVital(e, vinculados) {
   const v = enVital[e.clave];
   if (!v) return `<p class="cargando">Buscando "${escapar(e.nombre)}" en VITAL…</p>`;
@@ -207,8 +213,10 @@ function bloqueEnVital(e, vinculados) {
       <td>${g.es_vertimiento ? chip("vertimiento", "azul") : g.es_licencia ? chip("licencia ambiental", "ok") : chip("otros tramites", "neutra")}
         <span class="sub">${g.tramites.slice(0, 3).map((t) => `${escapar(t.tramite)} ×${t.n}`).join(" · ")}${g.tramites.length > 3 ? " · …" : ""}</span></td>
       <td class="sub" style="white-space:nowrap">${escapar(g.autoridad)}<br>${escapar(g.desde)}${g.hasta !== g.desde ? " → " + escapar(g.hasta) : ""} · ${g.n}</td>
-      <td class="num"><button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="este tramite no enlaza con el portal de expedientes"`}>Vincular</button></td>
-    </tr>`).join("")}</tbody></table>
+      <td class="num"><div class="exp-archivo-acciones">
+        ${g.representativo?.radicado && g.representativo?.sol_id && g.representativo?.solicitante_id ? `<button class="secundario pequeno btn-docs-grupo" data-i="${i}">Ver documentos</button>` : ""}
+        <button class="pequeno btn-vincular-grupo" data-i="${i}" ${g.representativo?.sol_id ? "" : `disabled title="este tramite no enlaza con el portal de expedientes"`}>Vincular</button></div></td>
+    </tr>${g.representativo?.radicado && detallesTramite[g.representativo.radicado] ? `<tr><td colspan="4">${documentosPermiso(documentosDelGrupo(g))}</td></tr>` : ""}`).join("")}</tbody></table>
     ${grupos.length > 10 ? `<div class="acciones"><button class="secundario pequeno btn-vital-todos">${verTodoVital ? "Mostrar menos" : `Mostrar los ${grupos.length}`}</button></div>` : ""}`;
 }
 
@@ -314,7 +322,10 @@ function pintarRevision(e, doc, a) {
   const conDatos = puntos.filter((p) => Object.keys(a.puntos[p].calidad).length);
   const puntoInicial = conDatos[0] ?? puntos[0] ?? "";
   const esLab = Boolean(a.laboratorio);
-  const caudal = a.caudal_autorizado_m3_h ?? a.caudal_medido_m3_h;
+  // La extracción antigua guarda un máximo global, sin asociarlo a un punto.
+  // No combinarlo con la química de una corriente elegida en otro selector.
+  const caudalAmbiguo = puntos.length !== 1;
+  const caudal = caudalAmbiguo ? null : (a.caudal_autorizado_m3_h ?? a.caudal_medido_m3_h);
 
   panel.innerHTML = `
     <button class="secundario pequeno cerrar" id="btn-cerrar-revision">Cerrar</button>
@@ -340,6 +351,7 @@ function pintarRevision(e, doc, a) {
         <p class="pie">Elige el efluente que se reutilizaria. Los demas puntos no se aplican.</p></div>` : ""}
       <div id="rev-tabla"></div>
       <div style="margin-top:8px;font-size:12.5px">
+        ${caudalAmbiguo ? '<p class="pie">Caudal sin aplicar: el documento no identifica un único punto. Verifica en el PDF el caudal de la corriente seleccionada; el máximo global puede pertenecer a otra.</p>' : ""}
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="rev-caudal" ${caudal ? "checked" : "disabled"}>
           Caudal: <b>${caudal ?? "—"} m³/h</b> ${a.caudal_autorizado_m3_h ? "(autorizado)" : a.caudal_medido_m3_h ? "(medido)" : ""} <span class="sub" style="display:inline">· hoy ${fmt.num(e.caudal_m3_h, 1)} m³/h ${sello(e.metodo_caudal)}</span></label>
       </div>
@@ -520,6 +532,11 @@ function pintarDossier() {
   caja.querySelector(".btn-vital-todos")?.addEventListener("click", () => { verTodoVital = !verTodoVital; pintarDossier(); });
   caja.querySelectorAll(".btn-vincular-grupo").forEach((b) => b.addEventListener("click", () =>
     vincularGrupo(e, otrosTramites(e, tramites)[Number(b.dataset.i)], b)));
+  caja.querySelectorAll(".btn-docs-grupo").forEach((b) => b.addEventListener("click", () => {
+    otrosTramitesAbierto = true;
+    const t = documentosDelGrupo(otrosTramites(e, tramites)[Number(b.dataset.i)]);
+    if (t) cargarDetalleTramite(t);
+  }));
   if (!enVital[e.clave]) cargarEnVital(e);
   caja.querySelectorAll(".btn-revisar").forEach((b) => b.addEventListener("click", () => abrirRevision(e, b.dataset.ruta)));
   caja.querySelector(".btn-quitar")?.addEventListener("click", async () => {
@@ -544,8 +561,11 @@ function pintarDossier() {
     try { await navigator.clipboard.writeText(caja.querySelector(".txt-solicitud").value); ev.target.textContent = "Copiada"; }
     catch { ev.target.textContent = "No se pudo copiar"; }
   });
-  caja.querySelectorAll(".btn-docs").forEach((b) => b.addEventListener("click", () =>
-    cargarDetalleTramite(tramites.map((t) => t.docs).find((x) => x.radicado === b.dataset.radicado))));
+  caja.querySelectorAll(".btn-docs").forEach((b) => b.addEventListener("click", () => {
+    const fuentes = [...tramites.map(t => t.docs), ...otrosTramites(e, tramites).map(documentosDelGrupo).filter(Boolean)];
+    const t = fuentes.find(x => String(x.radicado) === b.dataset.radicado);
+    if (t) cargarDetalleTramite(t, b.dataset.modo);
+  }));
   caja.querySelectorAll(".btn-guardar-doc").forEach((b) => b.addEventListener("click", () => guardarDocumento(e, b)));
   caja.querySelectorAll(".btn-leer").forEach((b) => b.addEventListener("click", () => leerDocumento(e, b.dataset.ruta)));
   caja.querySelectorAll(".btn-resumir").forEach((b) => b.addEventListener("click", () => resumirDocumento(b.dataset.ruta)));
@@ -559,10 +579,11 @@ function pintarDossier() {
   caja.querySelectorAll(".btn-aplicar").forEach((b) => b.addEventListener("click", () => aplicarLectura(e, b.dataset.ruta, b)));
 }
 
-async function cargarDetalleTramite(t) {
+async function cargarDetalleTramite(t, modo = "cache") {
+  if (detallesTramite[t.radicado]?.cargando) return;
   detallesTramite[t.radicado] = { cargando: true }; pintarDossier();
   try {
-    const q = new URLSearchParams({ radicado: t.radicado, origen: t.sistema || "VITAL", sol_id: t.sol_id, solicitante_id: t.solicitante_id });
+    const q = new URLSearchParams({ radicado: t.radicado, origen: t.sistema || "VITAL", sol_id: t.sol_id, solicitante_id: t.solicitante_id, modo });
     const d = await pedir(`/api/scout/vital/detalle?${q}`);
     detallesTramite[t.radicado] = d;
     anotar(`Expediente ${escapar(t.identificador)}: ${d.total_archivos} documento(s)`, d.origen_dato === "red" ? "ok" : "azul");

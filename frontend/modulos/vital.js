@@ -231,17 +231,17 @@ function bloqueDocumentos(x) {
     <div style="margin-top:8px">
       <div style="font-size:12px;color:var(--texto-2)"><b>${escapar(c.titulo)}</b>${c.etiqueta ? ` · <span class="sub" style="display:inline">${escapar(c.etiqueta)}</span>` : ""}${c.fecha ? ` · ${escapar(c.fecha)}` : ""}</div>
       ${c.incidencia ? `<p class="pie" style="color:var(--aviso)">${escapar(c.incidencia)}</p>` : ""}
-      ${c.archivos.length ? `<table><tbody>${c.archivos.map((a) => `<tr>
-        <td>${iconoArchivo(a.extension)} ${escapar(nombreLegible(a.nombre))}<span class="sub">${escapar(a.nombre)}</span></td>
-        <td class="num" style="white-space:nowrap">
+      ${c.archivos.length ? `<ul class="exp-archivos">${c.archivos.map((a) => `<li class="exp-archivo">
+        <div class="exp-archivo-nombre">${iconoArchivo(a.extension)} ${escapar(nombreLegible(a.nombre))}<span class="sub">${escapar(a.nombre)}</span></div>
+        <div class="exp-archivo-acciones">
           <a class="chip azul sin-punto" target="_blank" rel="noopener" href="/api/scout/vital/documento?${paramsTramite(x)}&grupo=${c.grupo}&entrada=${c.entrada}&indice=${a.indice}">Ver</a>
           <a class="chip neutra sin-punto" href="/api/scout/vital/documento?${paramsTramite(x)}&grupo=${c.grupo}&entrada=${c.entrada}&indice=${a.indice}&descargar=true">Descargar</a>
           <button class="secundario pequeno btn-archivar-doc" data-grupo="${c.grupo}" data-entrada="${c.entrada}" data-indice="${a.indice}">Guardar en expediente</button>
-        </td></tr>`).join("")}</tbody></table>` : (c.incidencia ? "" : `<p class="pie">Carpeta vacia.</p>`)}
+        </div></li>`).join("")}</ul>` : (c.incidencia ? "" : `<p class="pie">Carpeta vacia.</p>`)}
     </div>`).join("") : `<p class="pie">El tramite no tiene documentos publicados.</p>`;
 
   return `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">${estado}
+    <div class="exp-estados">${estado}
       <span class="pie" style="margin:0 0 0 auto">${d.origen_dato === "cache" ? `consulta disponible${d.fecha_dato ? " · " + fechaCorta(d.fecha_dato) : ""}` : "consultado ahora"} ·
         <a href="${escapar(d.url_portal)}" target="_blank" rel="noopener">abrir en el portal ↗</a></span></div>
     ${d.proyecto || d.ubicacion ? `<p class="pie" style="margin:0 0 6px">${escapar([d.proyecto, d.ubicacion].filter(Boolean).join(" · "))}</p>` : ""}
