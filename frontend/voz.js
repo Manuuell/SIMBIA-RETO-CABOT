@@ -13,15 +13,23 @@
  *     suena la respuesta (el reconocimiento esta apagado entonces, para no
  *     transcribir la voz del propio asistente) y el orbe late con quien habla.
  *
+ * Una subida del microfono mientras suena la respuesta no basta para cortarla:
+ * puede ser el eco de su propia voz o un ruido. Se pausa la respuesta y se
+ * escucha (confirmando); si llegan palabras es una interrupcion y la respuesta
+ * se descarta, y si no, sigue donde iba.
+ *
  * Estados: inactiva -> escuchando -> esperando (la respuesta se esta
- * generando) -> hablando -> escuchando ... Quien lo usa avisa de los cambios
- * que solo el conoce: cuando empieza a sonar la respuesta (hablando) y cuando
- * termina (escuchar).
+ * generando) -> hablando [-> confirmando -> hablando | escuchando] ->
+ * escuchando ... Quien lo usa avisa de los cambios que solo el conoce: cuando
+ * empieza a sonar la respuesta (hablando) y cuando termina (escuchar).
  */
 
-const PAUSA_MS = 1300;           // silencio que da el turno por terminado
-const INTERRUPCION_MS = 300;     // voz sostenida que cuenta como interrupcion
-const UMBRAL_MINIMO = 0.018;     // nivel (RMS) del microfono que ya es voz
+const PAUSA_FINAL_MS = 900;          // silencio tras una frase que el reconocedor ya dio por cerrada
+const PAUSA_PARCIAL_MS = 1700;       // silencio tras una frase a medias: quiza solo esta pensando
+const INTERRUPCION_MS = 300;         // voz sostenida que hace sospechar una interrupcion
+const CONFIRMAR_MS = 3000;           // lo que se espera, como mucho, a que la sospecha traiga palabras
+const SILENCIO_CONFIRMAR_MS = 1200;  // silencio que la descarta antes
+const UMBRAL_MINIMO = 0.018;         // nivel (RMS) del microfono que ya es voz
 const MEDIR_MS = 50;
 
 export function hayConversacion() {
@@ -34,6 +42,8 @@ export function hayConversacion() {
  * @param {(texto: string) => void} o.alTexto   lo reconocido hasta ahora, para mostrarlo
  * @param {(texto: string) => void} o.alTurno   la pregunta, cuando el usuario se calla
  * @param {(estado: string) => void} o.alEstado
+ * @param {() => void} o.alPausar               parece que hablan encima: pausar la respuesta
+ * @param {() => void} o.alReanudar             no era nadie: seguir donde iba
  * @param {() => void} o.alInterrumpir          el usuario hablo encima: hay que callar
  * @param {(nivel: number) => void} [o.alNivel] nivel del microfono mientras escucha
  * @param {() => number} [o.nivelSalida]        nivel de la voz del asistente (eco esperable)
@@ -42,10 +52,11 @@ export function hayConversacion() {
 export function crearConversacion(o) {
   let activa = false;
   let estado = "inactiva";
-  let rec = null, reconociendo = false, actual = "", pausa = 0;
+  let rec = null, reconociendo = false, actual = "", pausa = 0, reintento = 0;
   let reinicios = [];
   let flujo = null, fuente = null, analizador = null, muestras = null, medidor = 0;
-  let piso = 0.01, voz = 0;
+  let piso = 0.01, voz = 0, salida = 0;
+  let sospechaDesde = 0, silencio = 0;
 
   function cambiar(nuevo) {
     estado = nuevo;
@@ -61,12 +72,21 @@ export function crearConversacion(o) {
     r.continuous = true;
     r.interimResults = true;
     r.onresult = (ev) => {
-      let texto = "";
-      for (let i = 0; i < ev.results.length; i++) texto += ev.results[i][0].transcript;
-      actual = texto.replace(/\s+/g, " ").trim();
+      const resultados = [...ev.results];
+      actual = resultados.map((x) => x[0].transcript).join(" ").replace(/\s+/g, " ").trim();
+      if (!actual) return;
+      reinicios = [];
+      if (estado === "confirmando") {
+        // Llegaron palabras: era alguien hablando, no el eco de la respuesta.
+        if (actual.length < 2) return;
+        o.alInterrumpir();
+        cambiar("escuchando");
+      }
+      if (estado !== "escuchando") return;
       o.alTexto(actual);
       clearTimeout(pausa);
-      pausa = setTimeout(cerrarTurno, PAUSA_MS);
+      const cerrada = resultados[resultados.length - 1].isFinal;
+      pausa = setTimeout(cerrarTurno, cerrada ? PAUSA_FINAL_MS : PAUSA_PARCIAL_MS);
     };
     r.onerror = (ev) => {
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") fallar("El navegador no deja usar el micrófono para dictar.");
@@ -75,9 +95,10 @@ export function crearConversacion(o) {
     };
     r.onend = () => {
       reconociendo = false;
-      if (!activa || estado !== "escuchando") return;
+      if (!activa) return;
       // Safari corta la sesion al callarse: si ya habia algo, es el turno.
-      if (actual.trim()) cerrarTurno(); else reintentar();
+      if (estado === "escuchando" && actual.trim()) cerrarTurno();
+      else if (estado === "escuchando" || estado === "confirmando") reintentar();
     };
     return r;
   }
@@ -85,11 +106,14 @@ export function crearConversacion(o) {
   function arrancarReconocimiento() {
     if (reconociendo) return;
     rec = nuevoReconocimiento();
+    // Si no arranca (el anterior aun se esta cerrando), lo reintenta el medidor.
     try { rec.start(); reconociendo = true; } catch { reconociendo = false; }
   }
 
   function pararReconocimiento() {
     clearTimeout(pausa);
+    clearTimeout(reintento);
+    reintento = 0;
     if (rec) {
       rec.onresult = rec.onerror = rec.onend = null;
       try { rec.abort(); } catch { /* ya parado */ }
@@ -99,11 +123,15 @@ export function crearConversacion(o) {
   }
 
   function reintentar() {
+    if (reintento) return;
     const ahora = Date.now();
     reinicios = reinicios.filter((t) => ahora - t < 10_000);
     reinicios.push(ahora);
     if (reinicios.length > 6) { fallar("El reconocimiento de voz se detiene una y otra vez."); return; }
-    setTimeout(() => { if (activa && estado === "escuchando") arrancarReconocimiento(); }, 250);
+    reintento = setTimeout(() => {
+      reintento = 0;
+      if (activa && (estado === "escuchando" || estado === "confirmando")) arrancarReconocimiento();
+    }, 250);
   }
 
   function cerrarTurno() {
@@ -143,17 +171,43 @@ export function crearConversacion(o) {
     const n = nivel();
     // Ruido de fondo: baja de golpe, sube muy despacio.
     piso = n < piso ? n : piso + (n - piso) * 0.003;
-    if (estado === "escuchando") { o.alNivel?.(n); return; }
+    // La voz del asistente vuelve al microfono con retraso (y mas aun con
+    // altavoces bluetooth): se compara contra su pico reciente, no contra el
+    // instante, para que el eco de una palabra no cuente en el hueco siguiente.
+    salida = Math.max(o.nivelSalida?.() || 0, salida * 0.85);
+    if (estado === "escuchando") {
+      o.alNivel?.(n);
+      // El reconocedor se cayo sin avisar o no llego a arrancar: se levanta.
+      if (!reconociendo && !reintento) reintentar();
+      return;
+    }
+    if (estado === "confirmando") { o.alNivel?.(n); vigilarSospecha(n); return; }
     if (estado !== "hablando") { voz = 0; return; }
     // Mientras suena la respuesta, algo de ella se cuela por el microfono aunque
     // haya cancelacion de eco: el umbral sube con lo fuerte que suena.
-    const umbral = Math.max(UMBRAL_MINIMO * 1.5, piso * 3, (o.nivelSalida?.() || 0) * 0.6);
+    const umbral = Math.max(UMBRAL_MINIMO * 1.5, piso * 3, salida * 0.6);
     voz = n > umbral ? voz + MEDIR_MS : Math.max(0, voz - MEDIR_MS / 2);
-    if (voz >= INTERRUPCION_MS) {
-      voz = 0;
-      o.alInterrumpir();
-      escuchar();
-    }
+    if (voz >= INTERRUPCION_MS) sospechar();
+  }
+
+  function sospechar() {
+    voz = 0;
+    silencio = 0;
+    sospechaDesde = Date.now();
+    actual = "";
+    cambiar("confirmando");
+    o.alPausar();
+    arrancarReconocimiento();
+  }
+
+  function vigilarSospecha(n) {
+    silencio = n > Math.max(UMBRAL_MINIMO, piso * 3) ? 0 : silencio + MEDIR_MS;
+    if (silencio < SILENCIO_CONFIRMAR_MS && Date.now() - sospechaDesde < CONFIRMAR_MS) return;
+    // Ni una palabra: era su propio eco o un ruido. La respuesta sigue.
+    pararReconocimiento();
+    actual = "";
+    cambiar("hablando");
+    o.alReanudar();
   }
 
   function cerrarMicrofono() {
@@ -172,7 +226,7 @@ export function crearConversacion(o) {
   // -- control ---------------------------------------------------------------
 
   function escuchar() {
-    if (!activa) return;
+    if (!activa || estado === "escuchando") return;
     actual = "";
     cambiar("escuchando");
     arrancarReconocimiento();
@@ -183,6 +237,7 @@ export function crearConversacion(o) {
     activa = false;
     pararReconocimiento();
     cerrarMicrofono();
+    salida = 0;
     cambiar("inactiva");
   }
 
@@ -206,7 +261,7 @@ export function crearConversacion(o) {
     escuchar,
     /** La respuesta empezo a sonar: se apaga el dictado y se vigilan interrupciones. */
     hablando() {
-      if (!activa) return;
+      if (!activa || estado === "confirmando") return;
       pararReconocimiento();
       voz = 0;
       cambiar("hablando");
