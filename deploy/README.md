@@ -35,14 +35,11 @@ sudo sentradns add simbia --tipo proxy --puerto 8123 --proyecto SIMBIA --max-bod
 sentradns check simbia
 ```
 
-La caché de fuentes (`backend/simbia/scout/archivo/cache/`) no está en git.
-Sin ella, la prospección arranca vacía hasta que alguien lance un barrido
-**En vivo** desde el módulo *Datos externos*; para arrancar con datos, copiarla
-desde una máquina que ya la tenga:
-
-```bash
-rsync -az backend/simbia/scout/archivo/cache ubuntu@VPS:/var/www/simbia/backend/simbia/scout/archivo/
-```
+La caché de fuentes (`backend/simbia/scout/archivo/cache/`) viene en el
+repositorio: son datos públicos de OpenStreetMap y VITAL, con los titulares que
+son personas naturales anonimizados, y la prospección arranca con ellos sin
+salir a la red. Para refrescarlos, usar **Actualizar datos** en el módulo
+*Vecinos*.
 
 ## Acceso con usuario y contraseña
 

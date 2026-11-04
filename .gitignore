@@ -9,8 +9,8 @@ data/generado/
 backend/simbia/ml/artefactos/
 
 # Estado de ejecucion del modulo de prospeccion. La configuracion de fuentes
-# (archivo/fuentes.json) SI se versiona: es configuracion, no estado.
-backend/simbia/scout/archivo/cache/
+# (archivo/fuentes.json) y la cache de datos publicos (archivo/cache/) SI se
+# versionan: sin esa cache el proyecto arranca sin empresas.
 backend/simbia/scout/archivo/instantaneas/
 backend/simbia/scout/archivo/estado.json
 backend/simbia/scout/archivo/expedientes/
