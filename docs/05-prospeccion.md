@@ -267,7 +267,7 @@ salinidad baja; una desmineralizadora produce rechazo con salinidad alta y DQO
 despreciable. El código CIIU identifica la actividad y el arquetipo la traduce
 a una caracterización típica.
 
-13 arquetipos cubren el corredor: refinería, química básica, termoeléctrica,
+15 arquetipos cubren el corredor: refinería, química básica, termoeléctrica,
 plásticos, cemento, PTAR, bebidas, alimentos, siderurgia, papel, textil,
 farmacéutica y portuario. Cada uno declara su corriente, su caudal de
 referencia, su caracterización, su coeficiente de variación, su parámetro
@@ -444,7 +444,7 @@ los parámetros en castellano administrativo y las unidades mezcladas. Ninguna
 expresión regular sobrevive a la variedad de formatos de una decena de
 autoridades ambientales.
 
-Se resuelve con **salida estructurada** (`claude-opus-5`): la respuesta valida
+Se resuelve con **salida estructurada**: la respuesta valida
 contra un esquema tipado o falla, así que no hay que interpretar prosa. Después
 se traducen los nombres administrativos al vocabulario de SIMBIA —con sinónimos
 y conversión de unidades— y se reparten en modelables, informativos (DBO₅,
@@ -460,8 +460,8 @@ fijo —lo peor que puede pasar es un número equivocado, no una acción— y el
 prompt declara explícitamente que el documento es dato y no instrucción. La
 cifra extraída se muestra para confirmación antes de tocar nada.
 
-Es una función **opcional**: sin el paquete `anthropic` o sin credenciales, se
-declara no disponible y el resto de la prospección funciona igual.
+Es una función **opcional**: sin un proveedor de IA configurado, se declara no
+disponible y el resto de la prospección funciona igual.
 
 ---
 

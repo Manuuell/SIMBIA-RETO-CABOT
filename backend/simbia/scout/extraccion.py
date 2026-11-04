@@ -1,4 +1,4 @@
-"""Extraccion de permisos de vertimiento en PDF con Claude.
+"""Extraccion de permisos de vertimiento en PDF con un modelo de lenguaje.
 
 EL PROBLEMA QUE RESUELVE
 ------------------------
