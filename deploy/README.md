@@ -1,7 +1,6 @@
 # Despliegue
 
-SIMBIA corre en el VPS de SentraLabs (`193.122.159.98`, Ubuntu 22.04 arm64) y
-se publica como **https://simbia.sentralabs.co** con
+SIMBIA corre en un VPS de SentraLabs (Ubuntu 22.04 arm64) y se publica como **https://simbia.sentralabs.co** con
 [SentraDNS](https://github.com/Manuuell/SentraDNS): el wildcard
 `*.sentralabs.co` ya apunta al VPS, así que publicar un subdominio nuevo no
 toca el DNS.
@@ -25,7 +24,7 @@ toca el DNS.
 ```bash
 sudo install -d -o ubuntu -g ubuntu /var/www/simbia
 git clone https://github.com/Manuuell/SIMBIA-RETO-CABOT.git /var/www/simbia
-cd /var/www/simbia/backend
+cd /var/www/simbia
 python3.12 -m venv .venv
 .venv/bin/pip install --no-cache-dir -r backend/requirements.txt
 (cd backend && ../.venv/bin/python -m simbia.ml.train)     # ~6 s
