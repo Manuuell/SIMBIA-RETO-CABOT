@@ -1,21 +1,59 @@
-# SIMBIA — Plataforma de simbiosis hídrica industrial asistida por IA
+# SIMBIA
 
-> **Reto Cabot.** Reducir al menos un 10 % el consumo de agua en la planta,
-> reutilizando las aguas de rechazo de empresas vecinas para los sistemas de
-> enfriamiento.
+**Simbiosis hídrica industrial para el Reto Cabot.** SIMBIA encuentra a las empresas
+vecinas de la planta de Cabot en Mamonal (Cartagena), lee sus permisos de vertimiento
+y simula en un gemelo digital de la torre de enfriamiento cuánta agua cruda se deja
+de captar al reutilizar las aguas de rechazo de esas empresas.
 
-SIMBIA decide **de qué vecino tomar agua, con qué tratamiento, en qué proporción,
-con cuánto ácido y a qué ciclos de concentración operar la torre** — todo a la vez,
-porque son decisiones acopladas. Sobre esa base añade tres modelos de IA que
-anticipan la demanda, detectan fugas y avisan del ensuciamiento antes de que ocurra.
+<p align="center">
+  <a href="https://simbia.sentralabs.co"><strong>▶ Ver SIMBIA en vivo</strong></a>
+</p>
 
-**Resultado del caso base: 38,8 % de reducción del consumo de planta**
-(meta: 10 %), 464 k USD/año de ahorro, payback de 1,15 años.
-Alcanzar exactamente el 10 % del reto cuesta **73 k USD con payback de 5 meses**.
+<p align="center">
+  <a href="https://simbia.sentralabs.co"><img src="docs/media/simbia.webp" alt="Recorrido por SIMBIA: la portada, el análisis de las empresas de Mamonal en el radar, el gemelo de la torre con Mexichem y Yara, y el recorrido 3D con la falla crítica" width="100%"></a>
+</p>
 
----
+## El reto
 
-## La idea que hace falta entender antes de mirar el código
+> «Reducir al menos un 10 % el consumo de agua en la planta, reutilizando las aguas
+> de rechazo de empresas vecinas para los sistemas de enfriamiento.»
+>
+> — Enunciado del Reto Cabot
+
+SIMBIA decide **de qué vecino tomar agua, con qué tratamiento, en qué proporción, con
+cuánto ácido y a qué ciclos de concentración operar la torre**, todo a la vez, porque
+son decisiones acopladas. Sobre esa base añade tres modelos de IA que anticipan la
+demanda, detectan fugas y avisan del ensuciamiento antes de que ocurra.
+
+| Escenario | Reducción del consumo | Inversión | Retorno |
+|---|---|---|---|
+| **Meta del reto**, al menor costo | 10 % | 73 k USD | 5 meses |
+| **Caso base**, con vecinos tipo | 38,8 % | 532 k USD | 1,15 años |
+| **Catálogo real** de Mamonal | 38 % | 476 k USD | — |
+| **Mexichem + Yara**, con sus documentos | 33 % | 605 k USD | 1,87 años |
+
+La línea base de la planta parte de supuestos, así que estas cifras orientan la
+decisión pero **ninguna es un ahorro validado**. En
+[Honestidad sobre los datos](#honestidad-sobre-los-datos) está qué falta para validarlas.
+
+## Capturas
+
+| | |
+|---|---|
+| ![Portada de SIMBIA con la torre 3D](docs/media/portada.jpg) | ![Inicio con la evaluación de las 27 empresas](docs/media/inicio.jpg) |
+| **Portada:** el proyecto, con la torre 3D en vivo | **Inicio:** de 27 empresas evaluadas a dos candidatas con evidencia |
+| ![Radar del análisis de empresas](docs/media/analisis.jpg) | ![Mapa de proximidad alrededor de Cabot](docs/media/mapa.jpg) |
+| **Analizar empresas:** el catálogo se arma a la vista en cuatro etapas | **Mapa de proximidad:** quién está cerca, con la distancia de conducción |
+| ![Dossier de Mexichem con su expediente ambiental](docs/media/dossier.jpg) | ![Gemelo de la torre con Mexichem y Yara](docs/media/gemelo.jpg) |
+| **Dossier:** expediente ambiental, ficha y caracterización de cada empresa | **Gemelo de la torre:** Mexichem y Yara entrando al circuito, con sus lazos de control |
+| ![Clúster de Mamonal en el recorrido 3D](docs/media/recorrido-cluster.jpg) | ![Optimizador en el recorrido 3D](docs/media/recorrido-optimizador.jpg) |
+| **Recorrido 3D:** las empresas del clúster de Mamonal, a escala | **Recorrido 3D:** la mezcla de vecinos y su calidad |
+| ![Falla crítica en el recorrido 3D](docs/media/recorrido-falla.jpg) | ![Asistente de SIMBIA con su orbe](docs/media/asistente.jpg) |
+| **Falla crítica:** qué hace la planta si una fuente se sale de rango | **Asistente:** se le escribe o se le habla, y actúa sobre la plataforma |
+| ![Optimizador con el resultado del caso base](docs/media/optimizador.jpg) | ![Operación e inteligencia predictiva](docs/media/operacion.jpg) |
+| **Optimizador:** mezcla, tratamiento y ciclos a la vez | **Operación e IA:** demanda, fugas y ensuciamiento |
+
+## La idea que hace falta entender
 
 En una torre de enfriamiento abierta:
 
@@ -33,115 +71,58 @@ alcanzables y puede aumentar la captación total de agua cruda.** Reutilizar no 
 gratis; hay que resolver mezcla, tratamiento, acidificación y ciclos simultáneamente.
 Eso es exactamente lo que hace el optimizador.
 
----
+## La plataforma: un módulo por pregunta
 
-## Arquitectura
+| Módulo | Pregunta que responde |
+|---|---|
+| **Inicio** (`#inicio`) | ¿Llegamos a la meta? Resume el barrido (27 empresas evaluadas, 20 con potencial, 2 priorizadas), compara la química documentada de Mexichem y Yara, sitúa las dos corrientes a escala y carga su combinación en el gemelo. |
+| **Vecinos** (`#prospeccion`) | ¿Quiénes son los vecinos, qué agua producen y qué se sabe de cada uno? Empieza con **Analizar empresas**: el catálogo se arma a la vista en cuatro etapas (OpenStreetMap, actividad económica, VITAL y simbiosis) sobre un radar alrededor de la planta. Después, lista y mapa con buscador y filtros, y el dossier de cada empresa: sus expedientes, caracterización, documentos, lectura con IA y ficha comercial. Desde la cabecera se abren el **Buscador VITAL** y **Fuentes y documentos**. |
+| **Gemelo de la torre** (`#simulador`) | ¿Qué le pasa a mi torre, hora a hora, si acepto el agua de estos vecinos? Torre 3D a escala, simulación dinámica con los lazos de una planta real (nivel, conductividad, caudal de cada vecino, ácido, ventiladores), alarmas y tendencias. La mezcla de partida la propone el optimizador. |
+| **Asistente** (`#asistente`) | Se le escribe o se le dicta, y además actúa: busca vecinos, lee fichas, simula la torre, pide la mezcla al optimizador y abre el gemelo o una ficha. Cada herramienta que usa se ve en el chat como un paso. Con el modo conversación responde en voz alta, vuelve a escuchar y se le puede interrumpir. |
+| **Criterios técnicos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
+| **Recorrido 3D** (`/demo3d.html`) | La presentación guiada por voz en siete módulos: panel ejecutivo, clúster de Mamonal, optimizador, monitoreo, falla crítica, CFO y reporte ESG. |
+| **Video SIMBIA** (`/video.html`) | La presentación en bucle, para pantallas y ferias. |
 
-```
-backend/simbia/
-├── config.py              Parámetros y supuestos del caso base (todo editable)
-├── domain/
-│   ├── water_chem.py      Sistema carbonatado, LSI/RSI/PSI/Larson-Skold, mezcla, ácido
-│   ├── cooling.py         Balance de la torre, ciclos máximos admisibles
-│   └── streams.py         Catálogo de vecinos, unidades y trenes de tratamiento
-├── optim/
-│   ├── blend.py           Optimizador: barrido en N + LP con linealización sucesiva
-│   └── analysis.py        Frontera coste-ahorro, contingencias, sensibilidad
-├── simulador/             Gemelo de la torre que usa la planta: sus datos, sus vecinos, en vivo
-│   ├── planta.py          Lo que la planta indica de sí misma y la calibración con la reposición medida
-│   ├── fuentes.py         Vecinos como fuentes de agua, salgan del barrido o se escriban a mano
-│   ├── motor.py           Qué le pasa a la torre con unos caudales dados, y la mezcla que sugiere el optimizador
-│   └── dinamica.py        La torre en el tiempo: balances de agua y sales, lazos LIC/AIC/FIC, rampa de consigna
-├── data/synth.py          Generador de histórico sintético (gemelo digital)
-├── ml/                    Demanda +24 h · detección de fugas · riesgo de ensuciamiento
-├── scout/                 PROSPECCIÓN: de dónde sale el catálogo de vecinos
-│   ├── fuentes/           Conectores (OpenStreetMap, datos.gov.co) + caché + robots.txt
-│   ├── ciiu.py            Actividad económica → corriente de rechazo estimada
-│   ├── geo.py             Distancia de conducción real, no línea recta
-│   ├── pipeline.py        Recolectar → fusionar → caracterizar → situar
-│   ├── scoring.py         Puntaje de simbiosis con la física del optimizador
-│   ├── promocion.py       Puerta de confianza hacia el optimizador
-│   ├── almacen.py         Embudo de contratación e instantáneas
-│   ├── vigilancia.py      Qué cambió desde la última revisión
-│   ├── vital.py           Buscador libre de trámites en VITAL (facetas, páginas, caché)
-│   ├── documentos.py      Documentos de un trámite desde el VITAL antiguo: ver, descargar, guardar
-│   └── extraccion.py      Permisos de vertimiento en PDF → datos, con Claude
-├── ia.py                  Proveedor de IA por API (OpenAI o Anthropic), en un solo sitio
-├── asistente.py           Asistente: contexto de la aplicación + conversación + resúmenes de documentos
-├── api/                   API REST (FastAPI); herramientas.py: lo que el asistente puede consultar, simular y abrir
-└── main.py                Aplicación
+Fuera del menú, pero accesibles por su enlace: **Embudo comercial** (`#embudo`),
+**Optimizador** (`#optimizador`) y **Operación e IA** (`#operacion`).
 
-frontend/                  Portada y dashboard por módulos, sin dependencias npm (ES modules + SVG)
-│   ├── index.html         Portada pública (landing.css, landing.js): el proyecto y la torre 3D en vivo
-│   ├── app.html           El panel, en /app: barra lateral y un contenedor por módulo
-│   ├── app.js             Enrutado por #hash; cada módulo se monta al visitarlo
-│   ├── comun.js           Peticiones, almacén compartido y bitácora
-│   ├── torre3d.js         Torre 3D paramétrica (three.js): celdas, ventiladores, tuberías e instrumentos ISA
-│   ├── orbe.js            Orbe de partículas del asistente (canvas 2D), que cambia con su estado y late con la voz
-│   ├── voz.js             Modo conversación: dictado continuo, turno al callarse e interrupción
-│   ├── vendor/three/      three.js r169 (MIT), copia local para funcionar sin conexión
-│   └── modulos/           inicio · prospeccion (Vecinos) · simulador (gemelo) · asistente · modelo · …
-docs/                      Modelo técnico, supuestos, decisiones y prospección
-```
-
-## El dashboard: un módulo por pregunta
-
-| # | Módulo | Pregunta que responde |
-|---|---|---|
-| 1 | **Vecinos** (`#prospeccion`) | ¿Quiénes son los vecinos, qué agua producen y qué se sabe de cada uno? Empieza con **Analizar empresas**: el catálogo se arma a la vista en cuatro etapas (OpenStreetMap, actividad económica, permisos de VITAL y simbiosis) sobre un radar alrededor de la planta, con las cifras reales de cada una. Después, lista y mapa con buscador y filtros, y el dossier de la empresa elegida: su permiso de vertimiento arriba (autoridad, expediente, fecha y titular en VITAL), caracterización, documentos de cada trámite, lectura con IA y ficha comercial. Desde la cabecera se abren el **Buscador VITAL** y **Fuentes y documentos** (actualizar datos, cruzar permisos, subir un PDF). |
-| 2 | **Gemelo de la torre** (`#simulador`) | ¿Qué le pasa a mi torre, hora a hora, si acepto el agua de estos vecinos? Torre 3D a escala dimensionada con el caudal de recirculación, simulación dinámica con los lazos de una planta real (nivel → reposición, conductividad → purga, caudal de cada vecino, ácido, ventiladores), alarmas y tendencias. La mezcla de partida la propone el optimizador. |
-| 3 | **Criterios técnicos** (`#modelo`) | ¿Qué da por supuesto la aplicación y cómo calcula cada cosa? |
-| — | **Asistente** (`#asistente`) | Se le escribe o se le dicta, y además actúa: busca vecinos, lee fichas, simula la torre, pide la mezcla al optimizador y abre el gemelo o una ficha. Cada herramienta que usa se ve en el chat como un paso, con lo que hizo y lo que salió. Tiene su pantalla y, como ventana flotante, está en todo el panel. Con el modo conversación se le habla sin tocar el teclado: responde en voz alta, vuelve a escuchar y se le puede interrumpir. La memoria entre sesiones está pendiente: ver [`docs/handoff-asistente-fase-4.md`](docs/handoff-asistente-fase-4.md). |
-
-Ocultos del menú por ahora, pero accesibles por su enlace: **Embudo comercial**
-(`#embudo`), **Optimizador** (`#optimizador`) y **Operación e IA** (`#operacion`).
-Los enlaces antiguos `#datos`, `#vital?q=…`, `#prospectos` y `#empresas` llevan a
-Vecinos y abren lo que cada uno pedía.
-
-La prospección alimenta al optimizador: las empresas que encuentra el barrido
-entran al mismo optimizador, con la misma química y las mismas restricciones. Lo
-único que cambia es de dónde salió el catálogo — y la confianza de cada dato
-viaja con él, traducida a factor de disponibilidad anual.
-
-Las pantallas de trabajo muestran datos y acciones; la explicación larga vive en
-desplegables «¿Cómo se lee?» y en el módulo de referencia.
+La prospección alimenta al optimizador: las empresas que encuentra el barrido entran
+al mismo optimizador, con la misma química y las mismas restricciones. Lo único que
+cambia es de dónde salió el catálogo, y la confianza de cada dato viaja con él,
+traducida a factor de disponibilidad anual.
 
 ## Puesta en marcha
 
-```bash
-python3 -m venv .venv && ./.venv/bin/pip install -r backend/requirements.txt
-```
-
-Entrenar los modelos (opcional: la API los entrena sola la primera vez):
+Requiere **Python 3.12 o superior**. Las versiones anteriores no instalan las
+dependencias fijadas; compruébalo con `python3 --version`.
 
 ```bash
-cd backend && ../.venv/bin/python -m simbia.ml.train
-```
-
-Levantar la aplicación:
-
-```bash
+python3 -m venv .venv
+./.venv/bin/pip install -r backend/requirements.txt
 ./.venv/bin/python -m uvicorn simbia.main:app --app-dir backend --port 8123
 ```
 
-Portada pública en `http://localhost:8123` · panel en `http://localhost:8123/app` (detrás de «Iniciar sesión» cuando el acceso está activo) · API documentada en `http://localhost:8123/docs`
+Portada en `http://localhost:8123`, panel en `http://localhost:8123/app` y API
+documentada en `http://localhost:8123/docs`. Los modelos de IA predictiva se entrenan
+solos la primera vez.
 
-La prospección arranca **sin salir a la red** (caché local), para que nada
-dependa de que haya conexión o de que una API de terceros esté en pie. Desde el
-módulo *Datos externos* se puede lanzar un barrido en modo `cache` o `vivo` sin
-reiniciar nada; para cambiar el modo por defecto del servidor:
+**Funciona sin configurar nada.** El repositorio trae la caché de datos públicos, así
+que la prospección arranca con las 27 empresas y sin salir a la red. Sin usuarios
+definidos el panel queda abierto, como corresponde a una instalación local.
 
-```bash
-SIMBIA_SCOUT_MODO=vivo ./.venv/bin/python -m uvicorn simbia.main:app --app-dir backend --port 8123
-```
+| Variable | Para qué sirve |
+|---|---|
+| `OPENAI_API_KEY` | Activa el asistente, la voz y la lectura de PDF. `ANTHROPIC_API_KEY` es la alternativa para texto y PDF; la voz solo funciona con OpenAI. Sin clave, lo demás sigue funcionando |
+| `SIMBIA_SCOUT_MODO` | `offline` (por defecto), `cache` o `vivo`. El Buscador VITAL y **Actualizar datos** necesitan conexión para las consultas nuevas |
+| `SIMBIA_AUTH_USUARIO`, `SIMBIA_AUTH_HASH`, `SIMBIA_AUTH_SECRETO` | Activan el acceso con usuario y contraseña |
 
-Pruebas:
+Pruebas (305, sin red):
 
 ```bash
 cd backend && ../.venv/bin/python -m pytest
 ```
 
----
+El despliegue en servidor está en [`deploy/README.md`](deploy/README.md).
 
 ## Qué hace cada pieza
 
@@ -151,7 +132,7 @@ No es una hoja de cálculo con reglas de tres. Resuelve el **equilibrio carbonat
 real: al mezclar dos aguas no se promedia el pH, se mezclan alcalinidad y carbono
 inorgánico total y se resuelve el equilibrio. Y el agua circulante se evalúa **en
 equilibrio con el CO₂ atmosférico**, porque una torre airea intensamente y eso sube
-el pH varias décimas — ignorarlo es el error más común al estimar la incrustación.
+el pH varias décimas; ignorarlo es el error más común al estimar la incrustación.
 
 ### 2. Optimizador (`optim/blend.py`)
 
@@ -189,12 +170,10 @@ Tres decisiones de método que sostienen esas cifras:
   el que *exige* el balance de masa. El ML solo separa fuga de ruido; la física hace el
   trabajo pesado.
 
----
-
 ### 4. Prospección de socios (`scout/`)
 
-El optimizador necesita un catálogo de oferentes. Este módulo lo construye a
-partir del mundo real, en el corredor industrial de Mamonal (Cartagena):
+El optimizador necesita un catálogo de oferentes. Este módulo lo construye a partir
+del mundo real, en el corredor industrial de Mamonal:
 
 ```
 fuentes externas → registros crudos → fusión → arquetipo sectorial
@@ -207,79 +186,147 @@ Cuatro decisiones que lo sostienen:
   `declarado`, `inferido` o `supuesto`, y una confianza agregada que pondera la
   calidad por encima del caudal. Un caudal equivocado se renegocia; una calidad
   equivocada hunde los ciclos y se descubre con la tubería ya enterrada.
-- **La actividad económica determina el efluente.** 13 arquetipos sectoriales
-  traducen el código CIIU a una caracterización típica. Aciertan el orden de
-  magnitud y el parámetro limitante — que es lo que hace falta para decidir a
-  quién visitar primero. Priorizan el muestreo, no lo sustituyen.
+- **La actividad económica determina el efluente.** 15 arquetipos sectoriales
+  traducen el código CIIU a una caracterización típica. Aciertan el orden de magnitud
+  y el parámetro limitante, que es lo que hace falta para decidir a quién visitar
+  primero. Priorizan el muestreo, no lo sustituyen.
 - **El puntaje usa la física del optimizador, no reglas de pulgar.** Para cada
-  prospecto se barre la fracción de mezcla con agua cruda y se calcula, con el
-  modelo químico completo, cuánta agua cruda desplaza sin bajar de los ciclos
-  base. La primera versión evaluaba cada corriente al 100 % de aporte y
-  declaraba no viables diez de dieciocho: el indicador estaba saturado y no
-  discriminaba nada.
-- **La confianza es una puerta, no un adorno.** Por debajo del umbral un
-  prospecto no entra al optimizador aunque químicamente sea magnífico, y el que
-  entra lo hace con su confianza traducida a factor de disponibilidad anual.
+  prospecto se barre la fracción de mezcla con agua cruda y se calcula, con el modelo
+  químico completo, cuánta agua cruda desplaza sin bajar de los ciclos base.
+- **La confianza es una puerta, no un adorno.** Por debajo del umbral un prospecto no
+  entra al optimizador aunque químicamente sea magnífico, y el que entra lo hace con
+  su confianza traducida a factor de disponibilidad anual.
 
-Encima de eso: mapa del parque con distancia de conducción real (no geodésica),
-embudo de contratación medido en caudal y no en número de empresas, vigilancia
-de cambios entre barridos, y extracción de permisos de vertimiento en PDF con
-salida estructurada — que es lo que convierte un prospecto inferido en uno
-declarado.
+Encima de eso: mapa del parque con distancia de conducción real (no geodésica), embudo
+de contratación medido en caudal y no en número de empresas, vigilancia de cambios
+entre barridos, y extracción de permisos de vertimiento en PDF con salida estructurada.
 
-**Conectado a datos reales.** Consulta a OpenStreetMap sobre 8 km alrededor de
-Mamonal: 54 establecimientos con polígono y etiquetas, 27 prospectos
-caracterizados. Cuatro de ellos con expediente documental y fuentes citadas
-—Abocol/Yara, Mexichem, Seatech, Cotecmar—, que es lo que permite saber que
-Abocol produce amonio y no rechazo de desmineralizadora. Con ese catálogo real
-el optimizador alcanza **37,8 % de reducción** y cumple la meta.
+**Conectado a datos reales.** La consulta a OpenStreetMap sobre 8 km alrededor de
+Mamonal da 54 establecimientos con polígono y etiquetas, y de ahí 27 prospectos
+caracterizados. Cuatro tienen expediente documental y fuentes citadas (Abocol/Yara,
+Mexichem, Seatech y Cotecmar), que es lo que permite saber que Abocol produce amonio y
+no rechazo de desmineralizadora. Con ese catálogo el optimizador alcanza **un 38 % de
+reducción** y cumple la meta.
 
-**Permisos de vertimiento reales.** Buscando la fuente aparecieron 132 registros
-de vertimiento de Cartagena en VITAL —119 de EPA Cartagena, 13 de CARDIQUE—, con
-API JSON abierta. No estaban en datos.gov.co, que es donde todo el mundo mira
-primero. Cinco de nuestras empresas tienen permiso confirmado con su número de
-expediente, que es justo lo que hace accionable un derecho de petición para pedir
-la caracterización.
+**Expedientes de vertimiento reales.** Buscando la fuente aparecieron 133 registros
+de vertimiento de Cartagena en VITAL (120 de EPA Cartagena y 13 de CARDIQUE), con API
+JSON abierta. No estaban en datos.gov.co, que es donde todo el mundo mira primero.
+Cinco empresas del catálogo cruzan con un expediente, y ese número es justo lo que hace
+accionable un derecho de petición para pedir la caracterización. Un trámite encontrado
+no se presenta como autorización otorgada.
 
-**Y una caracterización de laboratorio real.** Del expediente de Yara Colombia
-(Abocol) se recuperó el Informe 43028: tres muestras compuestas analizadas por
-un laboratorio acreditado por el IDEAM. Sirvió para auditar el modelo sectorial
-— acertó la forma de la corriente y el parámetro limitante (amonio, −30 %), y
-falló en alcalinidad (+420 %) y caudal (+137 %). Ese prospecto pasa a
-`medido`, con confianza 0,98.
+**Caracterizaciones de laboratorio reales.** Del expediente de Yara Colombia (Abocol) se
+recuperó el Informe 43028: tres muestras compuestas analizadas por un laboratorio
+acreditado por el IDEAM. Sirvió para auditar el modelo sectorial: acertó la forma de la
+corriente y el parámetro limitante (amonio, −30 %), y falló en alcalinidad (+420 %) y
+caudal (+137 %). De Mexichem se recuperó la caracterización del Efluente 3 de PVC
+Emulsión. Con esas dos corrientes se arma la preselección documental del
+[Inicio](docs/06-evidencia-simbiosis.md).
 
 Los registros de demostración están **apagados** salvo que se pidan con
 `SIMBIA_SCOUT_EJEMPLOS=1`: mezclados con los reales dejan de distinguirse.
 
-Detalle completo en [`docs/05-prospeccion.md`](docs/05-prospeccion.md).
+## Arquitectura
 
----
+```
+backend/simbia/
+├── config.py              Parámetros y supuestos del caso base (todo editable)
+├── domain/
+│   ├── water_chem.py      Sistema carbonatado, LSI/RSI/PSI/Larson-Skold, mezcla, ácido
+│   ├── cooling.py         Balance de la torre, ciclos máximos admisibles
+│   └── streams.py         Catálogo de vecinos, unidades y trenes de tratamiento
+├── optim/
+│   ├── blend.py           Optimizador: barrido en N + LP con linealización sucesiva
+│   └── analysis.py        Frontera coste-ahorro, contingencias, sensibilidad
+├── simulador/             Gemelo de la torre que usa la planta: sus datos, sus vecinos, en vivo
+│   ├── planta.py          Lo que la planta indica de sí misma y la calibración con la reposición medida
+│   ├── fuentes.py         Vecinos como fuentes de agua, salgan del barrido o se escriban a mano
+│   ├── motor.py           Qué le pasa a la torre con unos caudales dados, y la mezcla que sugiere el optimizador
+│   └── dinamica.py        La torre en el tiempo: balances de agua y sales, lazos LIC/AIC/FIC, rampa de consigna
+├── data/synth.py          Generador de histórico sintético (gemelo digital)
+├── ml/                    Demanda +24 h · detección de fugas · riesgo de ensuciamiento
+├── scout/                 PROSPECCIÓN: de dónde sale el catálogo de vecinos
+│   ├── fuentes/           Conectores (OpenStreetMap, datos.gov.co) + caché + robots.txt
+│   ├── archivo/cache/     Datos públicos descargados, para arrancar sin red
+│   ├── evidencias/        Informes citados y la selección de Mexichem y Yara
+│   ├── evidencia.py       Preselección documental por corriente, con página y documento
+│   ├── analitica.py       Caracterizaciones de laboratorio de corrientes concretas
+│   ├── ciiu.py            Actividad económica → corriente de rechazo estimada
+│   ├── geo.py             Distancia de conducción real, no línea recta
+│   ├── pipeline.py        Recolectar → fusionar → caracterizar → situar
+│   ├── scoring.py         Puntaje de simbiosis con la física del optimizador
+│   ├── promocion.py       Puerta de confianza hacia el optimizador
+│   ├── almacen.py         Embudo de contratación e instantáneas
+│   ├── vigilancia.py      Qué cambió desde la última revisión
+│   ├── vital.py           Buscador libre de trámites en VITAL (facetas, páginas, caché)
+│   ├── documentos.py      Documentos de un trámite desde el VITAL antiguo: ver, descargar, guardar
+│   └── extraccion.py      Permisos de vertimiento en PDF → datos, con IA por API
+├── ia.py                  Proveedor de IA por API (OpenAI o Anthropic), en un solo sitio
+├── asistente.py           Asistente: contexto de la aplicación + conversación + resúmenes de documentos
+├── auth.py                Usuarios con contraseña scrypt y sesión en cookie firmada
+├── api/                   API REST (FastAPI); herramientas.py: lo que el asistente puede consultar, simular y abrir
+└── main.py                Aplicación
+
+frontend/                  Portada y panel por módulos, sin dependencias npm (ES modules + SVG)
+├── index.html             Portada pública (landing.css, landing.js): el proyecto y la torre 3D en vivo
+├── app.html               El panel, en /app: barra lateral y un contenedor por módulo
+├── app.js                 Enrutado por #hash; cada módulo se monta al visitarlo
+├── comun.js               Peticiones, almacén compartido y bitácora
+├── torre3d.js             Torre 3D paramétrica (three.js): celdas, ventiladores, tuberías e instrumentos ISA
+├── orbe.js                Orbe de partículas del asistente (canvas 2D), que cambia con su estado y late con la voz
+├── voz.js                 Modo conversación: dictado continuo, turno al callarse e interrupción
+├── demo3d.html            Recorrido 3D guiado por voz
+├── video.html             Video de presentación en bucle
+├── vendor/three/          three.js r169 (MIT), copia local para funcionar sin conexión
+└── modulos/               inicio · prospeccion (Vecinos) · simulador (gemelo) · asistente · modelo · …
+
+deploy/                    Servicio systemd y guía de despliegue
+docs/                      Modelo técnico, resultados, supuestos, decisiones, prospección y evidencia
+```
 
 ## Honestidad sobre los datos
 
-**No hay datos reales de la planta ni de las empresas vecinas.** Todo parte de rangos
-típicos de industria, declarados y anotados uno a uno en `backend/simbia/config.py` y
-`backend/simbia/domain/streams.py`.
+**La planta de Cabot es un caso de referencia.** Todavía no hay datos medidos de la
+planta: consumo, balance y calidad del agua parten de rangos típicos de industria,
+declarados y anotados uno a uno en `backend/simbia/config.py` y
+`backend/simbia/domain/streams.py`. Por eso ninguna cifra de este documento es un
+ahorro validado.
 
-El histórico para la IA es **sintético, generado por el propio gemelo digital**: no
+**Cada dato de los vecinos lleva su nivel de evidencia.** Nombres y ubicaciones son
+hechos públicos de mapa, verificables en OpenStreetMap, y los expedientes salen de
+VITAL. De las 27 empresas, una tiene calidad `medida` (Abocol/Yara, con el Informe
+43028), tres `declarada` en documentos y 23 `inferida` del modelo sectorial. Las
+inferidas priorizan a quién visitar primero: no son una medición de esa empresa.
+
+**El histórico para la IA es sintético**, generado por el propio gemelo digital: no
 inventa correlaciones, usa la misma física del optimizador más la variabilidad que
 sufre una planta real (clima, carga, ruido de instrumentación, fugas, derivas de los
 vecinos). Al conectar el SCADA se sustituye `data/synth.py` por el cargador real y los
 modelos se reentrenan sin tocar nada más.
 
+**Lo que falta para validar** son datos de Cabot y pruebas de campo:
+
+- Consumo total medido y balance de la torre: reposición, purga, evaporación y ciclos.
+- Caracterización del agua de Cabot y límites de operación de su torre.
+- Ensayo de mezcla y tratamiento con muestras de las corrientes seleccionadas.
+- Disponibilidad acordada, trazado, costos cotizados y revisión de los requisitos
+  aplicables al reúso.
+
 **Lo que no cambia al llegar los datos reales es la estructura**: la química, el
 balance, las restricciones y la economía. Cambian los números, no las conclusiones
 metodológicas.
 
-**En la prospección, dos niveles de veracidad deliberadamente distintos.** La capa
-cartográfica usa nombres y ubicaciones aproximadas de establecimientos del corredor
-de Mamonal: son hechos públicos de mapa, verificables en OpenStreetMap. La capa de
-vertimientos son registros de **demostración** con identificadores `EJEMPLO-nn`: no
-se ha consultado ningún permiso real y ninguna cifra está atribuida a ninguna empresa
-concreta. La regla que no se rompe: **ninguna caracterización de agua de una empresa
-nombrada es una medida** — todo lo que el sistema sabe de su efluente sale del modelo
-sectorial y viaja marcado como inferido.
+**Datos personales.** La caché anonimiza a los titulares que son personas naturales,
+y las copias de los documentos ocultan cédulas, firmas, teléfonos y correos
+individuales. Los originales siguen en las fuentes públicas citadas.
 
-Ver [`docs/03-supuestos.md`](docs/03-supuestos.md) para la lista completa de supuestos
-y qué dato real reemplaza a cada uno, y
-[`docs/05-prospeccion.md`](docs/05-prospeccion.md) para el módulo de prospección.
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Modelo técnico](docs/01-modelo-tecnico.md) | Química, balance y formulación del optimizador |
+| [Resultados](docs/02-resultados.md) | Caso base, frontera de costo y sensibilidades |
+| [Supuestos](docs/03-supuestos.md) | Cada supuesto y el dato real que lo reemplaza |
+| [Decisiones](docs/04-decisiones.md) | Por qué se construyó así |
+| [Prospección](docs/05-prospeccion.md) | Fuentes, arquetipos, puntaje y confianza |
+| [Evidencia](docs/06-evidencia-simbiosis.md) | Preselección documental de Mexichem y Yara |
