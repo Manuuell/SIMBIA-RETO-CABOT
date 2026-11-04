@@ -618,13 +618,13 @@ def test_una_ficha_con_nombre_antiguo_se_reenlaza_por_parecido(tmp_path, monkeyp
     Argos' (instantanea de trabajo) y OpenStreetMap la llama 'Argos S.A.'."""
     _almacen_temporal(tmp_path, monkeypatch)
     almacen.actualizar_ficha("clave-vieja", estado=Estado.CONTACTADO,
-                             responsable="M. Esteban", nombre="Cementos Argos")
+                             responsable="Responsable de prueba", nombre="Cementos Argos")
     argos = _prospecto(nombre="Argos S.A.", lat=10.3081, lon=-75.4952)
     otra = _prospecto(nombre="Aguas de Cartagena", lat=10.35, lon=-75.52)
     enlazadas, huerfanas = almacen.vincular_fichas([argos, otra])
     clave_nueva = almacen.clave_estable(argos.nombre, argos.lat, argos.lon)
     assert not huerfanas
-    assert enlazadas[clave_nueva].responsable == "M. Esteban"
+    assert enlazadas[clave_nueva].responsable == "Responsable de prueba"
     # Migrada y guardada: la siguiente vez coincide por clave y con rastro.
     guardadas = almacen.cargar_fichas()
     assert clave_nueva in guardadas and "clave-vieja" not in guardadas
