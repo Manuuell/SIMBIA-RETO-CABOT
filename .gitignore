@@ -14,3 +14,16 @@ backend/simbia/scout/archivo/cache/
 backend/simbia/scout/archivo/instantaneas/
 backend/simbia/scout/archivo/estado.json
 backend/simbia/scout/archivo/expedientes/
+
+# Credenciales: nunca en el repositorio.
+.env
+.env.*
+*.key
+*.pem
+
+# Entorno local y material de trabajo que no forma parte del producto.
+.claude/
+.pytest_cache/
+output/
+tmp/
+frontend/propuestas/
