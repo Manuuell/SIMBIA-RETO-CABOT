@@ -9,6 +9,11 @@ validada ni un ahorro demostrado.
 | Mexichem, PVC Emulsión, Efluente 3 | 15–19/12/2025 | 6,73 L/s = 24,228 m³/h | [Solicitud y caracterización, PDF p. 22](../backend/simbia/scout/evidencias/mexichem-2026.pdf) |
 | Yara, Punto 1, Planta Norte | 30/06–02/07/2026 | 10,59 L/s = 38,124 m³/h | [Informe LMB 43028, PDF p. 16](../backend/simbia/scout/evidencias/yara-43028-2026.pdf) |
 
+Las copias de `mexichem-2026.pdf` y `yara-446-2025.pdf` en este repositorio llevan
+ocultos los datos personales (cédula, firma, teléfono y correos individuales). Las
+cifras técnicas y la numeración de páginas no cambian; el documento original está
+en VITAL y en EPA Cartagena.
+
 Se convierten los promedios publicados multiplicando por 3,6. No se extrapolan
 a volúmenes diarios disponibles ni se suman campañas diferentes. Mexichem
 registra hasta 7,5 L/s: los 27 m³/h que devolvía la extracción global son un

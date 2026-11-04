@@ -8,7 +8,8 @@
       "titulo": "Solicitud de renovación y caracterización OT 13996-1-2-A-9304-V03",
       "url": "https://vital.minambiente.gov.co/SILPA_UT_PRE/ReporteTramite/ReportetramiteCPDetalle.aspx?NumSilpa=1070086000727726002&Origen=VITAL&TarSolId=408910&Solicitante=23190&TipoConsulta=Todos",
       "archivo": "mexichem-2026.pdf",
-      "sha256": "5cc9c52909d4911ced20b0b2728bd58192cfc8bfc7a971d003d2915f75c28156",
+      "sha256": "90f9760fe80475a43422744aaa85e8bf97dcff07584b90f0600c77814049bd25",
+      "nota": "Copia con datos personales ocultos: las cifras técnicas y las páginas no cambian. El original está en la url.",
       "consultado": "2026-10-26"
     },
     "yara-43028-2026": {
@@ -22,7 +23,8 @@
       "titulo": "EPA-AUTO-000446-2025",
       "url": "https://epacartagena.gov.co/web/wp-content/uploads/2025/06/EPA-AUTO-000446-2025.pdf",
       "archivo": "yara-446-2025.pdf",
-      "sha256": "7a560e8ada54ea91c30b67fab23d6cf999b98703a0b9907e98875a7088b77738",
+      "sha256": "690df53c91ea967b235e276fd092e945c7b60f24ba2f0e8695145cbc6bb57167",
+      "nota": "Copia con datos personales ocultos: las cifras técnicas y las páginas no cambian. El original está en la url.",
       "consultado": "2026-10-26"
     }
   },
