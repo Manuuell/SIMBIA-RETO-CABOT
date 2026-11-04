@@ -267,9 +267,9 @@ salinidad baja; una desmineralizadora produce rechazo con salinidad alta y DQO
 despreciable. El código CIIU identifica la actividad y el arquetipo la traduce
 a una caracterización típica.
 
-15 arquetipos cubren el corredor: refinería, química básica, termoeléctrica,
-plásticos, cemento, PTAR, bebidas, alimentos, siderurgia, papel, textil,
-farmacéutica y portuario. Cada uno declara su corriente, su caudal de
+15 arquetipos cubren el corredor: refinería, química básica, fertilizantes
+nitrogenados, termoeléctrica, plásticos, cemento, PTAR, bebidas, alimentos,
+siderurgia, papel, textil, farmacéutica, astillero y portuario. Cada uno declara su corriente, su caudal de
 referencia, su caracterización, su coeficiente de variación, su parámetro
 limitante y su incentivo económico.
 
